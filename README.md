@@ -7,7 +7,9 @@ I write modplayers.
 
 ### Features
 
-* Supports 4-channel Amiga Protracker and 2-32 channel FastTracker II MOD
-  files (and whatever else it can load)
-* Kickass console UI
+* Plays 4-channel **Amiga Protracker** and 2-32 channel **FastTracker II**
+  MOD files (and whatever else it can load)
+* Cross-platform (Windows, Linux & OS X)
+* Kickass console UI with fullscreen, theme & Unicode support
+* A myriad of little features that are not so useful but were fun to code
 
