@@ -1,0 +1,180 @@
+Shortcut            Windows         Linux           Comments
+--------            -------         -----           --------
+
+Enter               13              10
+Escape              27              27              delays 1s on Linux
+Backspace           8               127
+Tab                 9               9
+
+LeftArrow           224 75          27 79 68
+RightArrow          224 77          27 79 67
+UpArrow             224 72          27 79 65
+DownArrow           224 80          27 79 66
+
+Insert              224 82          27 91 50 126
+Home                224 71          27 91 55 126
+PageUp              224 73          27 91 53 126
+Delete              224 83          27 91 51 126
+End                 224 79          27 91 56 126
+PageDown            224 81          27 91 54 126
+
+Numpad LeftArrow    0 75            27 79 116
+Numpad RightArrow   0 77            27 79 118
+Numpad UpArrow      0 72            27 79 120
+Numpad DownArrow    0 80            27 79 114
+
+Numpad Insert       0 82            27 79 112
+Numpad Home         0 71            27 79 119
+Numpad PageUp       0 73            27 79 121
+Numpad Delete       0 83            27 79 110
+Numpad End          0 79            27 79 113
+Numpad PageDown     0 81            27 79 115
+
+F1                  0 59            27 91 49 49 126
+F2                  0 60            27 91 49 50 126
+F3                  0 61            27 91 49 51 126
+F4                  0 62            27 91 49 52 126
+F5                  0 63            27 91 49 53 126
+F6                  0 64            27 91 49 55 126
+F7                  0 65            27 91 49 56 126
+F8                  0 66            27 91 49 57 126
+F9                  0 67            27 91 50 48 126
+F10                 0 68            27 91 50 49 126
+F11                 244 133         27 91 50 51 126
+F12                 244 134         27 91 50 52 126
+
+Shift F1            0 84            27 91 50 51 126
+Shift F2            0 85            27 91 50 52 126
+Shift F3            0 86            27 91 50 53 126
+Shift F4            0 87            27 91 50 54 126
+Shift F5            0 88            27 91 50 56 126
+Shift F6            0 89            27 91 50 57 126
+Shift F7            0 90            27 91 51 49 126
+Shift F8            0 91            27 91 51 50 126
+Shift F9            0 92            27 91 51 51 126
+Shift F10           0 93            27 91 51 52 126 
+Shift F11           244 135         -
+Shift F12           244 136         -
+
+Ctrl A              1               1
+Ctrl B              2               2
+Ctrl C              3               3               SIGINT (Win & Linux)
+Ctrl D              4               4
+Ctrl E              5               5
+Ctrl F              6               6
+Ctrl G              7               7
+Ctrl H              8               8
+Ctrl I              9               9
+Ctrl J              10              10
+Ctrl K              11              11
+Ctrl L              12              12
+Ctrl M              13              10              maps to Enter on Linux
+Ctrl N              14              14
+Ctrl O              15              15
+Ctrl P              16              16
+Ctrl Q              17              17              flow control on Linux
+Ctrl R              18              18
+Ctrl S              19              19              flow control on Linux
+Ctrl T              20              20
+Ctrl U              21              21
+Ctrl V              22              22
+Ctrl W              23              23
+Ctrl X              24              24
+Ctrl Y              25              25
+Ctrl Z              26              26              suspend on Linux
+Ctrl [              27              27
+Ctrl \              28              28
+Ctrl ]              29              29
+
+
+Linux only
+----------
+
+On Linux the Alt modifier can be added to pretty much any shortcut to prefix
+the resulting keycode sequence with an additional 27 (e.g. Alt Shift F3 will
+become 27 27 91 50 53 126).
+
+Ctrl ~          0
+Ctrl 2          0
+Ctrl 3          27
+Ctrl 5          29
+Ctrl 6          30
+Ctrl 7          31
+Ctrl -          31
+Ctrl /          31
+
+
+Windows only
+------------
+
+Ctrl Enter              10
+Ctrl Alt Enter          0 28
+
+[same with adding Shift]
+Ctrl Numpad LeftArrow   0 115
+Ctrl Numpad RightArrow  0 116
+Ctrl Numpad UpArrow     0 141
+Ctrl Numpad DownArrow   0 145
+
+Ctrl Numpad Insert      0 146
+Ctrl Numpad Home        0 119
+Ctrl Numpad PageUp      0 132
+Ctrl Numpad Delete      0 147
+Ctrl Numpad End         0 117
+Ctrl Numpad PageDown    0 118
+
+[same with adding Shift]
+Ctrl Insert             224 146
+Ctrl Home               224 119
+Ctrl PageUp             224 134
+Ctrl Delete             224 147
+Ctrl End                224 117
+Ctrl PageDown           224 118
+
+[same with adding Shift]
+Ctrl LeftArrow          224 115
+Ctrl RightArrow         224 116
+Ctrl UpArrow            224 141
+Ctrl DownArrow          224 145
+
+Ctrl F1                 0 94
+Ctrl F2                 0 95
+Ctrl F3                 0 96
+Ctrl F4                 0 97
+Ctrl F5                 0 98
+Ctrl F6                 0 99
+Ctrl F7                 0 100
+Ctrl F8                 0 101
+Ctrl F9                 0 102
+Ctrl F10                0 103
+Ctrl F11                224 137
+Ctrl F12                224 138
+
+[same with adding Ctrl and/or Shift]
+Alt Insert              0 162
+Alt Home                0 151
+Alt PageUp              0 153
+Alt Delete              0 163
+Alt End                 0 159
+Alt PageDown            0 161
+
+[same with adding Ctrl and/or Shift]
+Alt LeftArrow           224 155
+Alt RightArrow          224 157
+Alt UpArrow             224 152
+Alt DownArrow           224 160
+
+[same with adding Ctrl and/or Shift]
+Alt F1                  0 104
+Alt F2                  0 105
+Alt F3                  0 106
+Alt F4                  0 107
+Alt F5                  0 108
+Alt F6                  0 109
+Alt F7                  0 110
+Alt F8                  0 111
+Alt F9                  0 112
+Alt F10                 0 113
+Alt F11                 224 139
+Alt F12                 224 140
+
