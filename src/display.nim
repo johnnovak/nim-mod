@@ -107,6 +107,20 @@ let gfxCharsUnicode = GraphicsChars(
   boxUpLeft:    "┘"
 )
 
+let gfxCharsCP850 = GraphicsChars(
+  boxHoriz:     "\196",
+  boxHorizUp:   "\193",
+  boxHorizDown: "\194",
+  boxVert:      "\179",
+  boxVertLeft:  "\180",
+  boxVertRight: "\195",
+  boxVertHoriz: "\197",
+  boxDownLeft:  "\191",
+  boxDownRight: "\218",
+  boxUpRight:   "\192",
+  boxUpLeft:    "\217"
+)
+
 let gfxCharsAscii = GraphicsChars(
   boxHoriz:     "-",
   boxHorizUp:   "+",
@@ -153,8 +167,6 @@ template setColor(t: TextColor) =
     setStyle(stdout, {styleBright})
   else:
     setStyle(stdout, {styleDim})
-
-template put(s: string) = stdout.write s
 
 
 proc drawPatternViewBorder(numTracks: int, mid, sep, last: string) =

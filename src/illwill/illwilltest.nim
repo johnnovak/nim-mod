@@ -1,5 +1,5 @@
 import os
-import getkey
+import illwill
 
 proc keyName(key: int): string =
   case key:
@@ -40,11 +40,31 @@ proc keyName(key: int): string =
   of keyDownArrow:  result = "DownArrow"
   of keyRightArrow: result = "RightArrow"
   of keyLeftArrow:  result = "LeftArrow"
+
+  of keyHome:       result = "Home"
+  of keyInsert:     result = "Insert"
+  of keyDelete:     result = "Delete"
+  of keyEnd:        result = "End"
+  of keyPageUp:     result = "PageUp"
+  of keyPageDown:   result = "PageDown"
+
+  of keyF1:  result = "F1"
+  of keyF2:  result = "F2"
+  of keyF3:  result = "F3"
+  of keyF4:  result = "F4"
+  of keyF5:  result = "F5"
+  of keyF6:  result = "F6"
+  of keyF7:  result = "F7"
+  of keyF8:  result = "F8"
+  of keyF9:  result = "F9"
+  of keyF10: result = "F10"
+  of keyF11: result = "F11"
+  of keyF12: result = "F12"
   else:
     result = $cast[char](key)
 
 
-getKeyInit()
+consoleInit()
 
 while true:
   var key = getKey()
@@ -53,5 +73,5 @@ while true:
   else:
     sleep(1)
 
-getKeyDeinit()
+consoleDeinit()
 

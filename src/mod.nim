@@ -1,5 +1,5 @@
 import os, terminal
-import getkey/getkey
+import illwill/illwill
 
 include common
 include loader
@@ -7,49 +7,29 @@ include display
 include themes
 
 
-gGfx = gfxCharsAscii
+when defined(windows):
+  gGfx = gfxCharsCP850
+else:
+  when defined(posix):
+    if "utf" in getEnv("LANG").toLowerAscii:
+      gGfx = gfxCharsUnicode
+  else:
+    gGfx = gfxCharsAscii
 
-when defined(posix):
-  if "utf" in getEnv("LANG").toLowerAscii:
-    gGfx = gfxCharsUnicode
 
 gTheme = themes[0]
 
 
-proc enterFullscreen() =
-  when defined(posix):
-    case getEnv("TERM"):
-    of "xterm-color":
-      stdout.write "\e7\e[?47h"
-    of "xterm-256color":
-      stdout.write "\e[?1049h"
-    else:
-      eraseScreen()
-  else:
-    eraseScreen()
-
-proc exitFullscreen() =
-  when defined(posix):
-    case getEnv("TERM"):
-    of "xterm-color":
-      stdout.write "\e[2J\e[?47l\e8"
-    of "xterm-256color":
-      stdout.write "\e[?1049l"
-    else:
-      eraseScreen()
-  else:
-    eraseScreen()
-
 proc quitProc() {.noconv.} =
   resetAttributes()
-  getKeyDeinit()
+  consoleDeinit()
   exitFullscreen()
   showCursor()
 
 
 proc main() =
   system.addQuitProc(quitProc)
-  getKeyInit()
+  consoleInit()
   enterFullscreen()
   hideCursor()
 
