@@ -8,7 +8,7 @@ let themes = @[
     sampleNone: TextColor(fg: fgWhite,   hi: false),
     effect:     TextColor(fg: fgMagenta, hi: true),
     effectNone: TextColor(fg: fgMagenta, hi: false),
-    border:     TextColor(fg: fgBlack,   hi: true),
+    border:     TextColor(fg: fgWhite,   hi: false),
     cursor:     TextColor(fg: fgBlack,   hi: false),
     cursorBg:   bgMagenta
   ),
@@ -21,7 +21,7 @@ let themes = @[
     sampleNone: TextColor(fg: fgCyan,    hi: false),
     effect:     TextColor(fg: fgBlue,    hi: true),
     effectNone: TextColor(fg: fgBlue,    hi: false),
-    border:     TextColor(fg: fgBlack,   hi: true),
+    border:     TextColor(fg: fgWhite,   hi: false),
     cursor:     TextColor(fg: fgBlack,   hi: false),
     cursorBg:   bgCyan
   ),
@@ -34,7 +34,7 @@ let themes = @[
     sampleNone: TextColor(fg: fgYellow,  hi: false),
     effect:     TextColor(fg: fgGreen,   hi: true),
     effectNone: TextColor(fg: fgGreen,   hi: false),
-    border:     TextColor(fg: fgBlack,   hi: true),
+    border:     TextColor(fg: fgWhite,   hi: false),
     cursor:     TextColor(fg: fgBlack,   hi: false),
     cursorBg:   bgYellow
   ),
@@ -47,7 +47,7 @@ let themes = @[
     sampleNone: TextColor(fg: fgBlue,    hi: false),
     effect:     TextColor(fg: fgMagenta, hi: true),
     effectNone: TextColor(fg: fgMagenta, hi: false),
-    border:     TextColor(fg: fgBlack,   hi: true),
+    border:     TextColor(fg: fgWhite,   hi: false),
     cursor:     TextColor(fg: fgBlack,   hi: false),
     cursorBg:   bgBlue
   ),
@@ -60,7 +60,7 @@ let themes = @[
     sampleNone: TextColor(fg: fgWhite,   hi: false),
     effect:     TextColor(fg: fgWhite,   hi: true),
     effectNone: TextColor(fg: fgWhite,   hi: false),
-    border:     TextColor(fg: fgBlack,   hi: true),
+    border:     TextColor(fg: fgWhite,   hi: false),
     cursor:     TextColor(fg: fgBlack,   hi: false),
     cursorBg:   bgYellow
   )

@@ -16,8 +16,12 @@ else:
   else:
     gGfx = gfxCharsAscii
 
-
 gTheme = themes[0]
+
+var gRedraw = true
+var gMaxRows = 32
+
+const ROW_JUMP = 8
 
 
 proc quitProc() {.noconv.} =
@@ -27,11 +31,20 @@ proc quitProc() {.noconv.} =
   showCursor()
 
 
+proc setTheme(n: Natural) =
+  if n <= themes.high:
+    gTheme = themes[n]
+    gRedraw = true
+
+
 proc main() =
   system.addQuitProc(quitProc)
+
   consoleInit()
   enterFullscreen()
   hideCursor()
+
+  let (w, h) = terminalSize()
 
   var buf = readFile("../data/canalgreen.mod")
   let module = loadModule(buf)
@@ -42,30 +55,55 @@ proc main() =
     lastPattern = -1
     lastRow = -1
 
+  proc setRow(row: Natural) =
+    lastRow = currRow
+    currRow = row
+    if currRow != lastRow:
+      gRedraw = true
+
+  proc setPattern(patt: Natural) =
+    lastPattern = currPattern
+    currPattern = patt
+    if currPattern != lastPattern:
+      gRedraw = true
+
+
   while true:
     let key = getKey()
 
     case key:
-    of keyUpArrow, ord('k'):
-      currRow = max(currRow - 1, 0)
-    of keyDownArrow, ord('j'):
-      currRow = min(currRow + 1, ROWS_PER_PATTERN-1)
-    of keyLeftArrow, ord('h'):
-      currPattern = max(currPattern - 1, 0)
-    of keyRightArrow, ord('l'):
-      currPattern = min(currPattern + 1, module.patterns.high)
+    of keyHome, ord('g'):  setRow(0)
+    of keyEnd,  ord('G'):  setRow(ROWS_PER_PATTERN-1)
+    of keyUp,   ord('k'):  setRow(max(currRow - 1, 0))
+    of keyDown, ord('j'):  setRow(min(currRow + 1, ROWS_PER_PATTERN-1))
+
+    of keyPageUp,   keyCtrlU: setRow(max(currRow - ROW_JUMP, 0))
+    of keyPageDown, keyCtrlD: setRow(min(currRow + ROW_JUMP,
+                                         ROWS_PER_PATTERN-1))
+
+    of keyLeft,  ord('H'): setPattern(max(currPattern - 1, 0))
+    of keyRight, ord('L'): setPattern(min(currPattern + 1,
+                                          module.patterns.high))
+
+    of keyF1: setTheme(0)
+    of keyF2: setTheme(1)
+    of keyF3: setTheme(2)
+    of keyF4: setTheme(3)
+    of keyF5: setTheme(4)
+
     of ord('q'):
       quit(0)
+
     else: discard
 
-    setCursorPos(0, 0)
-    if currPattern != lastPattern or currRow != lastRow:
+    if gRedraw:
+      setCursorPos(0, 0)
       drawPatternView(module.patterns[currPattern],
-                      currRow = currRow, maxRows = 32,
+                      currRow = currRow, maxRows = gMaxRows,
                       startTrack = 0, maxTracks = 4)
-      lastPattern = currPattern
-      lastRow = currRow
+      gRedraw = false
 
     sleep(1)
 
 main()
+

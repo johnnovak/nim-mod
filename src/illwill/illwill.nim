@@ -36,10 +36,10 @@ const keyEscape*     = 27
 const keySpace*      = 32
 const keyBackspace*  = 127
 
-const keyUpArrow*    = 1001
-const keyDownArrow*  = 1002
-const keyRightArrow* = 1003
-const keyLeftArrow*  = 1004
+const keyUp*    = 1001
+const keyDown*  = 1002
+const keyRight* = 1003
+const keyLeft*  = 1004
 
 const keyHome*       = 1005
 const keyInsert*     = 1006
@@ -60,6 +60,9 @@ const keyF9*         = 1019
 const keyF10*        = 1020
 const keyF11*        = 1021
 const keyF12*        = 1022
+
+const XTERM_COLOR    = "xterm-color"
+const XTERM_256COLOR = "xterm-256color"
 
 
 when defined(windows):
@@ -98,10 +101,10 @@ when defined(windows):
 
       of 224:
         case getch():
-        of  72: key = keyUpArrow
-        of  75: key = keyLeftArrow
-        of  77: key = keyRightArrow
-        of  80: key = keyDownArrow
+        of  72: key = keyUp
+        of  75: key = keyLeft
+        of  77: key = keyRight
+        of  80: key = keyDown
 
         of  71: key = keyHome
         of  82: key = keyInsert
@@ -142,9 +145,9 @@ else:  # OSX & Linux
   import posix, tables, termios
 
   proc nonblock(enabled: bool) =
-    when defined(macosx):   # until the termios lib is fixed
-      let ECHO   = Cflag(0x00000008)
-      let ICANON = Cflag(0x00000100)
+#    when defined(macosx):   # until the termios lib is fixed
+#      let ECHO   = Cflag(0x00000008)
+#      let ICANON = Cflag(0x00000100)
 
     var ttyState: Termios
 
@@ -193,30 +196,30 @@ else:  # OSX & Linux
 
   let
     keySequences = {
-      keyUpArrow:    @["\27OA", "\27[A"],
-      keyDownArrow:  @["\27OB", "\27[B"],
-      keyRightArrow: @["\27OC", "\27[C"],
-      keyLeftArrow:  @["\27OD", "\27[D"],
+      keyUp:        @["\eOA", "\e[A"],
+      keyDown:      @["\eOB", "\e[B"],
+      keyRight:     @["\eOC", "\e[C"],
+      keyLeft:      @["\eOD", "\e[D"],
 
-      keyHome:       @["\27[1~", "\27[7~", "\27OH", "\27[H"],
-      keyInsert:     @["\27[2~"],
-      keyDelete:     @["\27[3~"],
-      keyEnd:        @["\27[4~", "\27[8~", "\27OF", "\27[F"],
-      keyPageUp:     @["\27[5~"],
-      keyPageDown:   @["\27[6~"],
+      keyHome:      @["\e[1~", "\e[7~", "\eOH", "\e[H"],
+      keyInsert:    @["\e[2~"],
+      keyDelete:    @["\e[3~"],
+      keyEnd:       @["\e[4~", "\e[8~", "\eOF", "\e[F"],
+      keyPageUp:    @["\e[5~"],
+      keyPageDown:  @["\e[6~"],
 
-      keyF1:         @["\27[11~", "\27OP"],
-      keyF2:         @["\27[12~", "\27OQ"],
-      keyF3:         @["\27[13~", "\27OR"],
-      keyF4:         @["\27[14~", "\27OS"],
-      keyF5:         @["\27[15~"],
-      keyF6:         @["\27[17~"],
-      keyF7:         @["\27[18~"],
-      keyF8:         @["\27[19~"],
-      keyF9:         @["\27[20~"],
-      keyF10:        @["\27[21~"],
-      keyF11:        @["\27[23~"],
-      keyF12:        @["\27[24~"]
+      keyF1:        @["\e[11~", "\eOP"],
+      keyF2:        @["\e[12~", "\eOQ"],
+      keyF3:        @["\e[13~", "\eOR"],
+      keyF4:        @["\e[14~", "\eOS"],
+      keyF5:        @["\e[15~"],
+      keyF6:        @["\e[17~"],
+      keyF7:        @["\e[18~"],
+      keyF8:        @["\e[19~"],
+      keyF9:        @["\e[20~"],
+      keyF10:       @["\e[21~"],
+      keyF11:       @["\e[23~"],
+      keyF12:       @["\e[24~"]
     }.toTable
 
   proc parseKey(charsRead: int): int =
@@ -270,9 +273,9 @@ else:  # OSX & Linux
 proc enterFullscreen*() =
   when defined(posix):
     case getEnv("TERM"):
-    of "xterm-color":
+    of XTERM_COLOR:
       stdout.write "\e7\e[?47h"
-    of "xterm-256color":
+    of XTERM_256COLOR:
       stdout.write "\e[?1049h"
     else:
       eraseScreen()
@@ -282,14 +285,15 @@ proc enterFullscreen*() =
 proc exitFullscreen*() =
   when defined(posix):
     case getEnv("TERM"):
-    of "xterm-color":
+    of XTERM_COLOR:
       stdout.write "\e[2J\e[?47l\e8"
-    of "xterm-256color":
+    of XTERM_256COLOR:
       stdout.write "\e[?1049l"
     else:
       eraseScreen()
   else:
     eraseScreen()
+
 
 when defined(posix):
   # TODO doesn't work... why?
@@ -305,4 +309,81 @@ when defined(posix):
     enterFullscreen()
     consoleInit()
     hideCursor()
+
+  var SIGWINCH* {.importc, header: "<signal.h>".}: cint
+
+  onSignal(SIGWINCH):
+    quit(1)
+
+
+type GraphicsChars = object
+  boxHoriz:     string
+  boxHorizUp:   string
+  boxHorizDown: string
+  boxVert:      string
+  boxVertLeft:  string
+  boxVertRight: string
+  boxVertHoriz: string
+  boxDownLeft:  string
+  boxDownRight: string
+  boxUpRight:   string
+  boxUpLeft:    string
+  fullBlock:    string
+  darkShade:    string
+  mediumShade:  string
+  lightShade:   string
+
+let gfxCharsUnicode = GraphicsChars(
+  boxHoriz:     "─",
+  boxHorizUp:   "┴",
+  boxHorizDown: "┬",
+  boxVert:      "│",
+  boxVertLeft:  "┤",
+  boxVertRight: "├",
+  boxVertHoriz: "┼",
+  boxDownLeft:  "┐",
+  boxDownRight: "┌",
+  boxUpRight:   "└",
+  boxUpLeft:    "┘",
+  fullBlock:    "█",
+  darkShade:    "▓",
+  mediumShade:  "▒",
+  lightShade:   "░"
+)
+
+let gfxCharsCP850 = GraphicsChars(
+  boxHoriz:     "\196",
+  boxHorizUp:   "\193",
+  boxHorizDown: "\194",
+  boxVert:      "\179",
+  boxVertLeft:  "\180",
+  boxVertRight: "\195",
+  boxVertHoriz: "\197",
+  boxDownLeft:  "\191",
+  boxDownRight: "\218",
+  boxUpRight:   "\192",
+  boxUpLeft:    "\217",
+  fullBlock:    " ",
+  darkShade:    " ",
+  mediumShade:  " ",
+  lightShade:   " "
+)
+
+let gfxCharsAscii = GraphicsChars(
+  boxHoriz:     "-",
+  boxHorizUp:   "+",
+  boxHorizDown: "+",
+  boxVert:      "|",
+  boxVertLeft:  "+",
+  boxVertRight: "+",
+  boxVertHoriz: "+",
+  boxDownLeft:  "+",
+  boxDownRight: "+",
+  boxUpRight:   "+",
+  boxUpLeft:    "+",
+  fullBlock:    " ",
+  darkShade:    " ",
+  mediumShade:  " ",
+  lightShade:   " "
+)
 

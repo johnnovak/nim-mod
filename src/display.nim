@@ -165,8 +165,6 @@ template setColor(t: TextColor) =
   setForegroundColor(stdout, t.fg)
   if t.hi:
     setStyle(stdout, {styleBright})
-  else:
-    setStyle(stdout, {styleDim})
 
 
 proc drawPatternViewBorder(numTracks: int, mid, sep, last: string) =
