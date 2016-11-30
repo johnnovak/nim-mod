@@ -145,10 +145,6 @@ else:  # OSX & Linux
   import posix, tables, termios
 
   proc nonblock(enabled: bool) =
-#    when defined(macosx):   # until the termios lib is fixed
-#      let ECHO   = Cflag(0x00000008)
-#      let ICANON = Cflag(0x00000100)
-
     var ttyState: Termios
 
     # get the terminal state
