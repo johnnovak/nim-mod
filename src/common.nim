@@ -30,7 +30,7 @@ type Track* = ref object
 type Pattern* = ref object
   tracks*: seq[Track]
 
-type SampleDataPtr* = ptr array[MAX_SAMPLE_SIZE, uint8]
+type SampleDataPtr* = ptr array[MAX_SAMPLE_SIZE, int8]
 
 type Sample* = ref object
   name*:         string
@@ -46,8 +46,8 @@ type Module* = ref object
   numChannels*:   int
   songTitle*:     string
   songLength*:    int
-  songPositions*: array[MAX_PATTERNS, uint8]
-  samples*:       array[MAX_SAMPLES, Sample]
+  songPositions*: array[MAX_PATTERNS, int]
+  samples*:       array[1..MAX_SAMPLES, Sample]
   patterns*:      seq[Pattern]
 
 
@@ -79,4 +79,9 @@ const periodTable = [
   428, 404, 381, 360, 339, 320, 302, 285, 269, 254, 240, 226,  # C-2 to B-2
   214, 202, 190, 180, 170, 160, 151, 143, 135, 127, 120, 113   # C-3 to B-3
 ]
+
+
+#type
+#  AudioBuffer* {.unchecked.} = array[1, int16]
+#  AudioBufferPtr* = ptr AudioBuffer
 

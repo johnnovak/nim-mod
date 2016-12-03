@@ -1,10 +1,13 @@
 import os, terminal
+
 import illwill/illwill
+import audio/linux/alsa/alsadriver
 
 include common
 include loader
 include display
 include themes
+include player
 
 
 when defined(windows):
@@ -23,6 +26,8 @@ var gMaxRows = 32
 
 const ROW_JUMP = 8
 
+var gPlaybackState: PlaybackState
+
 
 proc quitProc() {.noconv.} =
   resetAttributes()
@@ -36,6 +41,11 @@ proc setTheme(n: Natural) =
     gTheme = themes[n]
     gRedraw = true
 
+const SAMPLE_RATE = 44100
+
+proc playerCallback(samples: AudioBufferPtr, numFrames: int) {.cdecl, gcsafe.} =
+  render(gPlaybackState, samples, numFrames, SAMPLE_RATE)
+
 
 proc main() =
   system.addQuitProc(quitProc)
@@ -46,8 +56,11 @@ proc main() =
 
   let (w, h) = terminalSize()
 
-  var buf = readFile("../data/canalgreen.mod")
+  var buf = readFile("../data/STRWORLD.MOD")
   let module = loadModule(buf)
+
+  initPlaybackState(gPlaybackState, module)
+  initAudio(playerCallback)
 
   var
     currPattern = 0
@@ -92,9 +105,21 @@ proc main() =
     of keyF5: setTheme(4)
 
     of ord('q'):
+      closeAudio()
       quit(0)
 
     else: discard
+
+    let patt = module.songPositions[gPlaybackState.songPos]
+    if patt != lastPattern:
+      currPattern = patt
+      lastPattern = currPattern
+      gRedraw = true
+
+    if lastRow != gPlaybackState.currRow:
+      currRow = gPlaybackState.currRow
+      lastRow = currRow
+      gRedraw = true
 
     if gRedraw:
       setCursorPos(0, 0)

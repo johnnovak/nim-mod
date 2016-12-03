@@ -75,7 +75,7 @@ proc determineModuleType(tag: int): (ModuleType, int) =
     result = (mtStarTrekker, lastDigitToInt(tag))
 
 
-proc loadSample(buf: var seq[uint8], pos: var int): Sample =
+proc loadSampleInfo(buf: var seq[uint8], pos: var int): Sample =
   var samp = newSample()
 
   var name = cast[cstring](alloc0(MAX_SAMPLE_NAME_LEN + 1))
@@ -84,7 +84,7 @@ proc loadSample(buf: var seq[uint8], pos: var int): Sample =
   pos += MAX_SAMPLE_NAME_LEN
 
   bigEndian16(samp.length.addr, buf[pos].addr)
-  samp.length *= 2
+  samp.length *= 2    # convert length in words to length in bytes
   pos += 2
 
   let finetune: uint8 = buf[pos] and 0xf
@@ -160,8 +160,8 @@ proc loadModule*(buf: var seq[uint8]): Module =
   pos += MAX_SONG_TITLE_LEN
 
   # load samples
-  for i in 0..<MAX_SAMPLES:
-    module.samples[i] = loadSample(buf, pos)
+  for i in 1..MAX_SAMPLES:
+    module.samples[i] = loadSampleInfo(buf, pos)
 
   # read song length
   module.songLength = int(buf[pos])
@@ -171,8 +171,11 @@ proc loadModule*(buf: var seq[uint8]): Module =
   pos += 1
 
   # read song positions
-  copyMem(module.songPositions.addr, buf[pos].addr, MAX_PATTERNS)
-  pos += MAX_PATTERNS + TAG_LEN
+  for i in 0..<MAX_PATTERNS:
+    module.songPositions[i] = buf[pos].int
+    pos += 1
+
+  pos += TAG_LEN
 
   # song length = the pattern with the highest number in the songpos table + 1
   var numPatterns = 0
@@ -186,13 +189,25 @@ proc loadModule*(buf: var seq[uint8]): Module =
       loadPattern(buf, pos, module.numChannels))
 
   # load samples
-  for sampNum in 0..<MAX_SAMPLES:
+  for sampNum in 1..MAX_SAMPLES:
     let length = module.samples[sampNum].length
     if length > 0:
       var data = cast[SampleDataPtr](alloc(length))
       copyMem(data, buf[pos].addr, length)
       module.samples[sampNum].data = data
       pos += length
+      #[
+      var
+        data = cast[SampleDataPtr](alloc(length))
+        dataPos = 0
+
+      module.samples[sampNum].data = data
+
+      for i in 0..<(length div 2):
+        bigEndian16(data[dataPos].addr, buf[pos].addr)
+        pos += 2
+        dataPos += 2
+      ]#
 
   result = module
 
