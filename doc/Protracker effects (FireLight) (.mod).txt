@@ -1,0 +1,827 @@
+Name:		Module effects description
+Tracker:	Protracker & Compatible
+Players:	all? :)
+Description by: Firelight
+Taken from:	FireModDoc 1.0
+
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³                           °±²  : SECTION 5 :  ²±°                          ³
+³                           °±²     Effects     ²±°                          ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+This part of the document is one of the most sorely needed, it actually tells
+you HOW to code the effect, not just some vague reference on it and a basic
+explanation like I have seen in so many other docs.
+
+TERMINOLOGY:
+============
+Beside each effect, there are the 2 Y/N boxes.. these are;
+
+       T0 : (TICK 0) This means the effect is updated or taken care of at the
+	    start of the row, or when the row is first encountered.
+INBETWEEN : This means the effect is updated on the other (speed-1) ticks
+	    that lie inbetween rows.
+
+When coding your player, go for effect Cxy first.  It is the easiest and most
+substantial effect to enable.  It will even make your tune resemble its
+normal self :).  Then go for effect Fxy (set speed).
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.1 Effect 0xy (Arpeggio) ²±° ³ UPDATED: T0 [N] : INBETWEEN [Y]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect alternates the pitch rapidly to simulate a chord.  It usually
+sounds very grating or harsh so it isnt used much except for chip tunes.
+
+EG:
+C-2 01 047 (I want to add to the pitch by 4 half notes then 7)
+
+Range: x = 1st semitone to add to note (0h-Fh)
+       y = 2nd semitone to add to note (0h-Fh)
+
+so the effect 047 would generate a major, while effect 037 causes a minor.
+
+This is a tick based effect:
+Tick 0 Do nothing,
+Tick 1 you add the x arg,
+Tick 2 you add the y arg,
+Tick 3 you reset the frequency
+.... go back and do from tick 1 until we reach the next row
+
+You notice if SPEED is 1, then there will be no arpeggiation because there
+are no ticks inbetween.  If SPEED is 2, then only the x arg is taken into
+account.
+Each note is 8 fine tunes apart, so use your finetune table to calculate the
+next row down if you like, or use a special arpeggio table to find the values
+to add.
+
+It is done something like this:
+- increment arpcounter by 1
+- if arpcounter > 2 arpcounter = 0
+- if arpcounter = 0 set the frequency to the normal value
+- if arpcounter = 1 set the frequency to the normal value + x # of finetunes
+- if arpcounter = 2 set the frequency to the normal value + y # of finetunes
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.2 Effect 1xy (Porta Up) ²±° ³ UPDATED: T0 [N] : INBETWEEN [Y]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect causes a pitch slide that goes up.
+
+EG:
+C-2 01 104 (I want to slide the frequency up 4 amiga values every tick)
+--- 00 104 (slide againt 4 values every tick)
+
+Range: xy = 00h-FFh
+
+You do this by resetting the frequency every tick, EXCEPT for the first one.
+The amount to slide by is the value given in EFFECT_PARAMETER
+You add the value to the AMIGA value of the frequency.
+
+Tick 0 Do nothing.
+Tick 1 add EFFECT_PARAMETER to the amiga frequency, and set it.
+Tick 2 add EFFECT_PARAMETER to the amiga frequency, and set it.
+Tick 3 add EFFECT_PARAMETER to the amiga frequency, and set it.
+.... keep going until end of note
+
+Remember B-3 is the highest note you can use, there is no law against sliding
+above it but it is not standard (some mods might be written thinking that
+the porta WILL stop at B-3, so be carefull).  Personally I stop at 54, or
+approximately B-5.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.3 Effect 2xy (Porta Down) ²±° ³ UPDATED: T0 [N] : INBETWEEN [Y]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect causes a pitch slide that goes down.
+
+EG:
+C-2 01 204 (I want to slide the frequency down 4 amiga values every tick)
+--- 00 204 (slide again 4 amiga values every tick)
+
+Range: xy = 00h-FFh
+
+You do this by resetting the frequency every tick, EXCEPT for the first one.
+The amount to slide by is the amound given in EFFECT_PARAMETER.
+You subtract the value from the AMIGA value of the frequency.
+
+Tick 0 Do nothing.
+Tick 1 subtract EFFECT_PARAMETER from the frequency, and set it.
+Tick 2 subtract EFFECT_PARAMETER from the frequency, and set it.
+Tick 3 subtract EFFECT_PARAMETER from the frequency, and set it.
+.... keep going until end of note
+
+Be careful you don't slide too low.  Going below C-1 is non standard, and
+going below a frequency of 1 could cause horrible side effects :)
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.4 Effect 3xy (Porta To Note) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [Y]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect causes the pitch to slide towards the note specified.
+If there is no note specified it slides towards the last note specified in
+the Porta to Note effect.
+If no parameter use the last porta speed used for that channel.
+
+EG:
+C-2 01 000
+D-2 01 301 (I want to set D-2 as the note to slide towards, and with a speed
+--- 00 300  of 1, then I just want to keep it sliding to D-2, and you already
+--- 00 300  know the speed so I wont bother telling you again)
+--- 00 300
+
+Range: xy = 00h-FFh
+
+This effect can be buggy at first, but not too hard.
+on TICK 0:
+- If there is an argument given to the effect, then you must record that as
+  PORTA_SPEED[channel]. (You need to remember all 4-8 channels worth of porta
+  information - I have them as a global array)
+- If there is a note given, then you must store that as
+  NOTE_TO_PORTA_TO[channel].
+- But don't slide here, just like the other porta effects.
+- also, don't reset the note like you would normally if there was a frequency
+  given (i.e. the D-2 in our example)
+
+On OTHER ticks:
+- Subtract or add PORTA_SPEED to the frequency (in AMIGA units), and set it.
+  Subtract or add depending on if the current frequency is smaller or larger
+  than NOTE_TO_PORTA_TO.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.5 Effect 4xy (Vibrato) ²±° ³ UPDATED: T0 [N] : INBETWEEN [Y]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect causes the pitch to waver up and down around the base note.
+If no parameter use the last vibrato parameters used for that channel.
+
+EG:
+D-2 01 4A2 <- I want to vibrato the note D-2 with speed of A, and depth of 2
+--- 00 400 <- Keep vibrating at A2
+--- 00 4B3 <- now change to B3
+--- 00 400 <- Continue vibrating at B3
+
+Range: x = speed to vibrate at (0h-Fh)
+       y = depth of vibrato (0h-Fh)
+
+This is simply a case of getting a sine table (the default wavecontrol - see
+section 5.20 for other vibrato wavecontrols), and following along it
+adjusting the frequency by adding or subtracting the value found according to
+the the position of the table, which is incremented by VIBRATO_SPEED.
+(ie you skip through the sine table VIBRATO_SPEED positions every tick)
+
+On TICK 0 the 2 vibrato values (position and neg flag) should be cleared to 0
+if a new note is played, so we restart the waveform at the start again.
+
+Positioning vibrato pointer
+----------------------------
+There are 32 positions in the sine table.  You want to ADD the values in
+the sinetable to the frequency, then once it gets to the end, you want to
+go back and SUBTRACT the same values from the frequency.  This gives a nice
+wave.   The reason we do this is because the sine table only contains half
+a wave (ie. a bump - see diagram).  Running through it once then turning it
+upside down by negating it would produce a smooth running wave which
+oscillates up and down..
+
+	+1|       ****        /At this point we subtract from frequency
+	  |    ***    ***    /
+Current 0 |****          ***|****          ****   -> time
+	  |                 |    ***    ***
+	-1|                 |       ****
+			    32
+
+So once your VIBRATO_POS has gone past 32, then subtract 32 from it so it
+starts at a respectable place at the beginning again. THEN change the
+negation flag (ie flag: 0 for add values, 1 for subtract values).
+
+Sine Table
+----------
+This is the sine table used by Protracker.  If a player calls itself
+fully protracker compatible, it really should be using this table.  GUSPlay
+by Cascada uses a table that is slightly different, but I cant hear the
+difference :)
+
+	   0, 24, 49, 74, 97,120,141,161,
+	 180,197,212,224,235,244,250,253,
+	 255,253,250,244,235,224,212,197,
+	 180,161,141,120, 97, 74, 49, 24
+
+Calculating depth
+-----------------
+To calculate the amount or depth of the vibrato, you multiply the siner value
+by the effect parameter y, THEN you divide it by 128.  Remember the divide
+by 128 (or shift right 7bits) must be implemented or you'll have some HUGE
+vibrato :)
+
+Setting the frequency.
+----------------------
+- Work out the size of the delta (delta means how much to add or subtract)
+- ie. delta = vibrato_depth[CHANNEL] * sine_table[vibrato_pos[CHANNEL] / 128
+-     if vibrato_negflag[CHANNEL] = 0, then SetFrequency(freq[CHANNEL]+delta)
+-   else SetFrequency(freq[CHANNEL] - delta)
+
+Example code.
+-------------
+For those interested this is how mine works, but I don't think it is 100%
+
+if (effect == 0x4 || effect == 0x6) {
+	// work out the delta
+	vib = vibdep[track]*sintab[vibpos[track]] >> 7;     // >> 7 = div 128
+
+	// add the delta to the track's frequency if neg flag = 0
+	// subtract the delta to the track's frequency if neg flag = 1
+	if (vibneg[track] == 0) GUSSetFreq(track, GUSfreq(freq[track]+vib));
+	else                    GUSSetFreq(track, GUSfreq(freq[track]-vib));
+
+	vibpos[track]+=vibspe[track];           // increment vib position
+
+	if (vibpos[track] > 31) {
+		vibpos[track] -=32;                      // jump back to start
+		if (vibneg[track]==0) vibneg[track] = 1; // change neg flag
+		else vibneg[track]=0;
+	}
+}
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.6 Effect 5xy (Porta + Vol Slide) ²±° ³ UPDATED: T0 [N] : INBETWEEN [Y]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This is a combination of Porta to Note (3xy), and volume slide (Axy).
+The parameter does not affect the porta, only the volume.
+If no parameter use the last porta to note parameter used for that channel.
+
+EG:
+C-1 01 000
+D-1 01 301  <- start porta to note using speed of 3.
+--- 00 501  <- from here on keep doing porta, but slide volume down 1 as well.
+--- 00 501
+--- 00 501
+
+Range: x = amount to slide volume up by or (0h-Fh)
+       y = amount to slide volume down by. (0h-Fh)
+
+This is exactly what it means, just do a 3xy first, then do a volume slide.
+The arguments only refer to the volume slide though and do not affect the
+porta.  The porta is carried on from the last porta to note.
+So when you code your effect routine, it's like
+
+if (effect = 03h OR effect = 05h) DO_PORTA_TO_NOTE
+if (effect = 0Ah OR effect = 05h) DO_VOLUME_SLIDE
+
+kill 2 birds with 1 stone!
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.7 Effect 6xy (Vibrato+Vol Slide) ²±° ³ UPDATED: T0 [N] : INBETWEEN [Y]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This is a combination of Vibrato (4xy), and volume slide (Axy).
+The parameter does not affect the vibrato, only the volume.
+If no parameter use the vibrato parameters used for that channel.
+
+EG:
+C-1 01 4A2  <- start Vibrato with speed 0Ah, and depth 2.
+--- 00 601  <- from here on keep doing vibrato, but slide volume down 1 as
+--- 00 601     well.
+--- 00 601
+
+Range: x = amount to slide volume up by or, (0h-Fh)
+       y = amount to slide volume down by. (0h-Fh)
+
+This is exactly like effect 5xy, but just do a 4xy first, then do a volume
+slide.
+The arguments only refer to the volume slide though and do not affect the
+vibrato.  The Vibrato is carried on from the Vibrato.
+So when you code your effect routine, it's like
+
+if (effect = 04h OR effect = 06h) DO_PORTA_TO_NOTE
+if (effect = 0Ah OR effect = 06h) DO_VOLUME_SLIDE
+
+kill 2 birds with 1 stone again! (hrmm thats 4 birds now :)
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.8 Effect 7xy (Tremolo) ²±° ³ UPDATED: T0 [N] : INBETWEEN [Y]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect causes the volume to oscillate up and down in a fluctuating style
+around the current volume, like vibrato but affecting volume not pitch.
+If no parameter use the last tremolo parameter used for that channel.
+
+EG:
+C-2 01 772 (I want to vibrate the volume up and down using speed 7 & depth 2)
+--- 00 700 (continue with the tremolo at 7,2)
+
+Range: x = speed to vibrate volume at (0h-Fh)
+       y = depth of tremolo (0h-Fh)
+
+Seeing as this is a similar effect to vibrato, then we will use the same
+tables as it does.  The only difference with tremolo is that you divide the
+delta (or deviation) by 64 and not 128.  You also have to check for if the
+volume goes over or under 0 and 64.
+This means if the biggest value in the sine table 255 is divided by 64,
+then the biggest deviation with depth parameter of 1 would only be 4, on its
+peak.
+You're probably asking, what if the volume of the channel is 64?  Well in
+this case you would only hear the negative side of the tremolo, when the
+volume dips down and then back to full.  Same for the vice versa case if
+the volume is set to 0.
+
+On TICK 0 the 2 tremolo values (position and neg flag) should be cleared to 0
+if a new note is played, so we restart the waveform at the start again.
+
+This is how it works.
+- Work out the size of the delta (delta means how much to add or subtract)
+- ie. delta = tremolo_depth[CHANNEL] * sine_table[tremolo_pos[CHANNEL] / 64
+      if tremolo_negflag[CHANNEL] = 0, then {
+	     check if volume[CHANNEL] + delta > 64 and clip delta accordingly
+	     SetVolume(volume[CHANNEL]+delta)
+      }
+      else {
+	     check if volume[CHANNEL] - delta < 0 and clip delta accordingly
+	     SetVolume(volume[CHANNEL] - delta)
+      }
+- increase tremolo_position pointer and set neg flag accordingly (For any
+more information check vibrato because they really are the same.  It is
+explained in more detail, and the sine table mentioned is stored in there
+also.)
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.9 Effect 8xy (Pan) ²±° ³ UPDATED: T0 [N] : INBETWEEN [Y]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect is non-Protracker, but is worth mentioning.  It was introduced
+by Otto Chrons in DMP (dual mod player), and causes the left/right position
+of the current channel to be set to the position specified.  Hence Panning.
+
+EG:
+--- 00 800              (Set the position of the channel to the far left)
+
+00 = far left
+40 = middle
+80 = far right
+A4 = surround *
+
+(* Surround is usually achieved by having 2 copies of the sample, 1 inverted,
+   and you play them at -exactly- the same time, with one of the pair panned
+   fully left, and the other (the inverted one say) panned fully right.  This
+   will give a surround effect.  If you play both the samples in the same pan
+   position they will cancel each other out.  Experiment with this in a
+   tracker.  Using GoldWave(tm) you can invert a sample.
+   As efffect 8xy is a channel command, you will have to in effect have 2
+   channels (voices) ready for this channel, and make sure you set one
+   voice to the full left, and the other inverted, and to the full left.
+   You CAN have surround sound on a GUS.)
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.10 Effect 9xy (Sample Offset) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect causes the note to start playing at an offset into the sample,
+instead of just from the start.  It is used so that the beginning of a sample
+is not played, but skipped.
+
+EG:
+C-2 01 942 (I want to start the note playing at 4200h bytes into the sample)
+
+Range: xy = 00h-FFh
+
+As seen in the example, the argument is the first 2 digits of a 4 digit
+number (in hex) that the offset should take place from.
+
+so SAMPLE_OFFSET = EFFECT_PARAMETER * 0100h
+
+What you do to enable this effect is when you tell your soundcard or mixing
+buffer the start of the sample, also add to it the value SAMPLE_OFFSET and
+then play it.  Quite simple really.
+
+Remember to check if the user set an offset that is larger than the sample!
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.11 Effect Axy (Volume Slide) ²±° ³ UPDATED: T0 [N] : INBETWEEN [Y]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect causes the volume of the track to slide up or down.
+
+EG:
+A-2 01 A01  <- slide the volume down 1 * (speed-1) units
+--- 00 A01  <- slide the volume down 1 * (speed-1) units
+--- 00 A01  <- slide the volume down 1 * (speed-1) units
+--- 00 A20  <- now slide the volume up 2 * (speed-1) units
+--- 00 A20  <- slide the volume up 2 * (speed-1) units
+
+Range: x = amount to slide volume up by or, (0h-Fh)
+       y = amount to slide volume down by. (0h-Fh)
+
+On this affect you either slide the volume up x, or down y, but not both.
+This is a tick based effect so should be processed once a tick but not tick 0.
+if x > 0 then slide volume up x
+if y > 0 then slide volume down y
+if x > 0 and y > 0 then do nothing.
+
+On tick 0:
+Take note of the volume slide, but do nothing
+
+On other ticks:
+if x > 0 then add x to volume[CHANNEL] and set the volume
+if y > 0 then subtract y to volume[CHANNEL] and set the volume
+
+* before setting the volume, make sure you havent slid past 0 or 64.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.12 Effect Bxy (Jump To Pattern) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect jumps to a specified channel (in hex)
+
+EG:
+--- 00 B10 (I want to jump to order 10h, or 16)
+
+Range: xy = 00h-FFh
+
+This effect is fairly simple, after the ticks for the note are finished,
+then reset the position of the order, starting at row 0 again.
+Make sure you don't jump over the end of the song length, and if you do then
+set it to the last order.
+
+* if you increment your row after your PlayNote() function, then row should
+  be set to -1, so it is 1 less than 0, then as the tick handler adds 1 to
+  the row it is 0 again, and nothing is wrong.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.13 Effect Cxy (Set Volume) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect sets the volume of a channel.
+
+EG:
+C-2 01 C20 (I want to set the volume of the channel to 20h)
+
+Range: xy = 00h-40h
+
+This is about the easiest and first effect you should code.  It is just a
+simple case of setting the tracks volume to the argument specified (in hex)
+The volume cannot be set past 40h, and if it is then set it to 40h.
+Only process this effect on tick 0, and likewise only set the volume on tick
+0.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.14 Effect Dxy (Pattern Break) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect breaks to the next pattern starting at the specified row.
+
+EG:
+--- 00 D32 (I want to break from this pattern and start at row 32 on the next
+	    pattern)
+
+Range: xy = 00h-3Fh (0-63 decimal)
+
+This effect is similair to effect Bxy or pattern jump.  You only jump to
+the next pattern though, and you start tracking again at the specified row.
+The row should not be bigger than 63, and if it is take it as 0.
+It works something like this:
+  - increment order (only once, some mods have more than 1 pbreak on a row
+		      which could cause an increment order twice or more!)
+  - set row to be x*10 + y. (we have to get the decimal value not the hex)
+
+* if you increment your row after your PlayNote() function, then row should
+  be set to (x*10+y -1), so it is 1 less, then as the tick handler adds 1 to
+  to the row again, nothing is wrong.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.15 Effect Fxy (Set Speed) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect sets the speed of the song or the BPM.
+
+EG:
+--- 00 F07 (I want to set the speed of the song to 7 ticks a row)
+--- 00 F7D (I want to set the bpm of the song to 125 or 7Dh)
+
+Range: xy = 00h-1Fh for speed
+       xy = 20h-FFh for BPM
+
+This has 2 parts to it.  If the user specifies a parameter from 0 - 1Fh, then
+it is just simply a case of setting your speed variable, otherwise you need
+to set your bpm variable and reset the timer speed.  This is demonstrated in
+section 3.2 on how to change the speed of the system timer according to
+beats per minute.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.16 Effect E0x (Set Filter) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect turns on or off the hardware filter (not applicable to most pc
+sound cards)
+
+EG:
+--- 00 E01 (I want to turn the filter on)
+--- 00 E00 (I want to turn the filter off)
+
+Range: x = 0 to turn hardware filter off, 1 to turn it on (0-1)
+
+There isnt much to say about this effect, except for that it is a hardware
+function which was designed to turn on the amiga's filter.
+If you wanted to you could try implementing this effect in the SBPro's h/w
+filter.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.17 Effect E1x (Fine Porta Up) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect slides the pitch up by x amiga value's per row.
+
+EG:
+C-2 01 E11 (I want to start at note C-2, and move pitch up one amiga value)
+--- 00 E11 (keep sliding up...)
+--- 00 E11
+
+Range: x= amount to slide up by. (0h-Fh)
+
+This effect is only processed once per row, on tick 0, and it is as simple
+as just subtracting x from the current channel's frequency. (remember you
+subtract to raise the pitch.)  You don't subtract any finetunes or anything,
+just do a straight subtraction of x from the amigaval.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.18 Effect E2x (Fine Porta Down) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect slides the pitch down by x amiga value's per row.
+
+EG:
+C-2 01 E21 (I want to start at note C-2, and move pitch down one amiga value)
+--- 00 E21 (keep sliding down...)
+--- 00 E21
+
+Range: x = amount to slide pitch down by. (0h-Fh)
+
+This is identical to effect E2x, except but you add to the amigaval of the
+channel by x, and don't subtract.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.19 Effect E3x (Glissando Contrl) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect causes a change in the effect 3xy (porta to note).  It toggles
+whether to do a smooth slide or whether to slide in jumps of semitones.
+
+EG:
+--- 00 E31 (I want to turn on Glissando and have portas slide in semitones)
+--- 00 E30 (I want to turn off Glissando and have portas slide smoothly)
+
+Range: x = 0 to turn off glissando, 1 to turn it on (0-1)
+
+By default this value should be set as 0, or doing a smooth slide.  It is
+achieved by adding or subtracting the desired porta value too or from the
+amiga value in effect 3xy, but you already knew that :).
+With glissando turned on it is a different story.  It is just simply a case
+of setting the frequency to the next highest semitone (or 8 finetune values)
+if you are sliding the pitch up, and vice versa for going down.
+To implement this just keep a gliss flag and check it while doing your porta
+effect in your UpdateEffect function.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.20 Effect E4x (Vibrato Waveform) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect set the waveform for the vibrato command to follow.
+
+EG:
+--- 00 E42 (I want to select the squarewave function for the vibrato command)
+--- 00 E40 (I want to select the default sinewave for the vibrato command)
+
+Range: x = vibrato function to select (0-7)
+
+The following values of x select its corresponding vibrato function
+x=0 : Set sine wave  (default)
+x=1 : Set Ramp Down  |\|\|\     _   _
+x=2 : Set Squarewave         |_| |_| |_
+x=3 : Set Random     (anywhere)
+x=4 : don't retrig Sine waveform
+x=5 : don't retrig RampDown waveform
+x=6 : don't retrig Squarewave waveform
+x=7 : don't retrig random waveform
+
+- Sine wave is covered in the vibrato section (5.5), just apply a sine wave
+  to the frequency.
+- Square wave is simply subtracting and adding the VIB_DEPTH*256
+  (then divided by 128) to the current frequency, alternating the
+  add/subtract every VIB_SPEED number of ticks.
+- retrig waveform means that you start the vibrato waveform from position 0
+  everytime a new note is played.  If you have set the wave control flag to
+  4 or more, then the waveform is not restarted, and just continues from the
+  previous position in the vibrato waveform.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.21 Effect E5x (Set Finetune) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect sets the finetune on a selected instrument.
+
+EG:
+--- 01 E5F (I want to set the finetune of instrument 1 to -1)
+
+Range: x = value of finetune to set (0h-0Fh)
+
+if the value is > 7, just subtract 16 from it to get the signed value.
+(ie. 0-7 = 0-7, and 8-15 = -8 to -1)
+This effect is really easy, and I don't know why more players support it,
+apart from it being a useless effect :).
+To implement it, just
+- check the instrument number
+- get the finetune value in the effect
+- set the finetune for that instrument.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.22 Effect E6x (Pattern Loop) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect allows the user to loop a part of a pattern x number of times.
+
+EG:
+C-2 01 E60 (I want to set the loop start at this point)
+--- 00 000
+--- 00 E64 (I want to loop back to the starting point 4 times)
+
+Range: x=marks loop starting point, or sets the number of times to loop to
+	 the starting point (0h-0Fh)
+
+This effect is done in the following fashion.
+- If parameter x = 0, note down the row number
+- if parameter x > 0, then
+    - if PATTERN_LOOP = 0, then set PATTERN_LOOP = x
+	 else PATTERN_LOOP = PATTERN_LOOP -1
+    - if PATTERN_LOOP > 0 row = stored row number.   (if we are still looping
+							      then jump back)
+
+Remember when declaring the PATTERN_LOOP variable to initialize it as 0.
+Jumping back should just be a matter of setting your row number to the stored
+pattern loop number, and once the row is finished it should start playing at
+the specified position again.
+This is how my function works, in the UPDATE_NOTE function, or handler for
+tick 0.
+case 0x6 : if (eparmy == 0) patlooprow = row;   // store position of param=0
+	   else {
+		if (patloopno == 0) patloopno=eparmy;   // set times if 0
+		else patloopno--;                       // else subtract 1
+		if (patloopno > 0) row = patlooprow-1;  // if looping do jump
+	   }
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.23 Effect E7x (Tremolo WaveForm) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect set the waveform for the tremolo command to follow, just like
+vibrato.
+
+EG:
+--- 00 E42 (I want to select the squarewave function for the tremolo command)
+--- 00 E40 (I want to select the default sinewave for the tremolo command)
+
+Range: x = tremolo function to select (0-7)
+
+The following values of x select its corresponding tremolo function
+x=0 : Set sine wave  (default)
+x=1 : Set Ramp Down  |\|\|\     _   _
+x=2 : Set Squarewave         |_| |_| |_
+x=3 : Set Random     (anywhere)
+x=4 : don't retrig Sine waveform
+x=5 : don't retrig RampDown waveform
+x=6 : don't retrig Squarewave waveform
+x=7 : don't retrig random waveform
+
+see section 5.20 for information.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.24 Effect E8x (16 pos panning) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect lets you do 16 position panning
+
+EG:
+--- 00 E80 (I want to set the channel's pan value to the far left)
+--- 00 E8F (I want to set the channel's pan value to the far right)
+
+Range: x=position to pan too (0h-0Fh)
+
+On tick 0, just read in the parameter and set the relative panning value for
+the channel.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.25 Effect E9x (Retrig Note) ²±° ³ UPDATED: T0 [N] : INBETWEEN [Y]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect retiggers the current note every x ticks.
+
+EG:
+C-2 01 E93 (I want to retrig the note every 3 ticks - at speed 6 this would
+--- 00 000                                            retrig it only once)
+C-2 01 E91 (I want to retrig the note every tick - at speed 6 this would
+						   retrig the note 5 times)
+Range: x=ticks between retriggers (0h-0Fh)
+
+On this effect you need to use the modulus operator to check when the retrig
+should happen.  If x is 1 say, then it should retrig the note SPEED number of
+times in one note.
+ie.
+  tick MOD 1 = 0 always, so you would be retrigging every note.
+  tick MOD 2 = 0 on even numbers, 1 on odd numbers, so you would be retrigging
+		 every other note.
+etc.
+When it does happen just play out the note as you would normally.  The note is
+played on tick 0 as it would normally be.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.26 Effect EAx (Fine VolSlide Up) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect slides the volume up x values per row.
+
+EG:
+C-2 01 C00 (I want to start at note at volume 0)
+--- 00 EA1 (Now I want to slide the volume up for the channel by 1 unit)
+--- 00 EA1 (keep sliding up by 1 unit...)
+
+Range: x= amount to slide up by. (0h-Fh)
+
+This effect is only processed once per row, on tick 0, and it is as simple
+as just adding x to the current channel's volume.
+It is only processed on tick 0, and is not touched at all in the other ticks.
+The only checking to be done is for volumes larger than 64.
+hint: for all these volume commands, only do the checking for bounds once,
+just before you actually set the volume.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.27 Effect EBx (Fine VolSlide Down) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect slides the volume up x values per row.
+
+EG:
+C-2 01 EB1 (I want to slide the volume down for the channel by 1 unit)
+--- 00 EB1 (keep sliding down by 1 unit...)
+--- 00 EB1 (keep sliding down by 1 unit...)
+
+Range: x= amount to slide up by. (0h-Fh)
+
+This effect is only processed once per row, on tick 0, and it is as simple
+as just subtracting x from the current channel's volume.
+It is only processed on tick 0, and is not touched at all in the other ticks.
+The only checking to be done is for volumes smaller than 0.
+hint: for all these volume commands, only do the checking for bounds once,
+just before you actually set the volume.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.28 Effect ECx (Cut Note) ²±° ³ UPDATED: T0 [N] : INBETWEEN [Y]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect cuts the volume of the note to 0 after x amount of ticks.
+
+EG: (at speed 6 say)
+C-2 01 EC3 (I want to stop the note at tick 3, or half way between 2 notes)
+
+Range: x= number of ticks to wait before zeroing samples volume. (0h-Fh)
+
+This effect is ignored on tick 0, but on tick x when you are updating tick
+based effects, then just set the volume of the channel to 0.
+Of course if the user specified x as a number more than the speed of the song,
+then it would be ok because it would never get to tick x, and the effect is
+ignored.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.29 Effect EDx (Delay Note) ²±° ³ UPDATED: T0 [N] : INBETWEEN [Y]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect waits for x amount of ticks before it actually plays the sample.
+
+EG: (at speed 6 say)
+C-2 01 ED4 (I want to delay playing this note for another 4 ticks)
+
+Range: x= number of ticks to wait before playing sample. (0h-Fh)
+
+This effect is ignored on tick 0, AND you must make sure you don't play the
+sample on tick 0.
+When you arrive at tick x then just play the sample as you would normally.
+Again if the user specified x as a number more than the speed of the song,
+then it would be ok because it would never get to tick x, and the effect is
+ignored.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.30 Effect EEx (Pattern Delay) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect delays the pattern for the time it would take to play x number of
+notes.
+
+EG:
+C-2 01 EE8 (I want to play the c-2 note then wait for 8 notes before..
+C-2 01 000  ... playing the next note)
+
+Range: x= number of notes to delay pattern for. (0h-Fh)
+
+To implement this effect you are going to have to modify your main interrupt
+handler (see section 3.3):
+
+You are going to have to keep a counter that is subtracted every time your
+SPEED number of ticks is up, but don't play the note.  You must still keep
+playing the effects though.
+
+It would look something like this.
+if (tick >= speed) {
+	... blah blah blah etc...
+	if (patdelay == 0) {
+		increment row.
+		playnote.
+	}
+	else patdelay --;
+}
+else doeffects
+
+This just boils down to not playing the note or incrementing the row for x
+number of notes, until the pattern delay counter is 0.  When it is 0 the mod
+should keep playing as if nothing had happened.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.31 Effect EFx (Invert Loop) ²±° ³ UPDATED: T0 [Y] : INBETWEEN [N]
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+This effect inverts a sample loop or plays it backwards.
+
+EG:
+C-2 01 EF4 (I want to play the loop in this sample backwards at speed 4)
+
+Range: x = speed to set invert loop at (0h-0Fh)
+
+This effect is not supported in any player or tracker.  Don't bother with it.
+
+Made by: FireLight (firelight@yoyo.cc.monash.edu.au)

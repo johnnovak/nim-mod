@@ -87,10 +87,11 @@ proc loadSampleInfo(buf: var seq[uint8], pos: var int): Sample =
   samp.length *= 2    # convert length in words to length in bytes
   pos += 2
 
-  let finetune: uint8 = buf[pos] and 0xf
+  samp.finetune = buf[pos] and 0xf
+#  let finetune: uint8 = buf[pos] and 0xf
   # sign extend 4-bit signed nibble to 8-bit
-  if (finetune and 0x08) > 0'u8:
-    samp.finetune = cast[int8](finetune or 0xf0'u8)
+#  if (finetune and 0x08) > 0'u8:
+#    samp.finetune = cast[int8](finetune or 0xf0'u8)
   pos += 1
 
   samp.volume = int(buf[pos])

@@ -32,9 +32,10 @@ proc noteToStr(note: int): string =
 
 
 proc effectToStr(effect: int): string =
-  let cmd = (effect and 0xf00) shr 8
-  let x   = (effect and 0x0f0) shr 4
-  let y   =  effect and 0x00f
+  let
+    cmd = (effect and 0xf00) shr 8
+    x   = (effect and 0x0f0) shr 4
+    y   =  effect and 0x00f
 
   result = nibbleToChar(cmd) &
            nibbleToChar(x) &
@@ -53,8 +54,9 @@ proc `$`(m: Module): string =
 
 
 proc `$`(c: Cell): string =
-  let s1 = (c.sampleNum and 0xf0) shr 4
-  let s2 =  c.sampleNum and 0x0f
+  let
+    s1 = (c.sampleNum and 0xf0) shr 4
+    s2 =  c.sampleNum and 0x0f
 
   result = noteToStr(c.note) & " " &
            nibbleToChar(s1.int) & nibbleToChar(s2.int) & " " &
@@ -168,8 +170,9 @@ template setColor(t: TextColor) =
 
 
 proc drawPatternViewBorder(numTracks: int, mid, sep, last: string) =
-  const PATTERN_VIEW_ROWNUM_WIDTH = 5
-  const PATTERN_VIEW_TRACK_WIDTH  = 12
+  const
+    PATTERN_VIEW_ROWNUM_WIDTH = 5
+    PATTERN_VIEW_TRACK_WIDTH  = 12
 
   setColor gTheme.border
   put repeat(mid, PATTERN_VIEW_ROWNUM_WIDTH) & sep

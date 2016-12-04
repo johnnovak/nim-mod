@@ -56,7 +56,8 @@ proc main() =
 
   let (w, h) = terminalSize()
 
-  var buf = readFile("../data/STRWORLD.MOD")
+  #var buf = readFile("../data/STRWORLD.MOD")
+  var buf = readFile("../data/canalgreen.mod")
   let module = loadModule(buf)
 
   initPlaybackState(gPlaybackState, module)
@@ -94,9 +95,15 @@ proc main() =
     of keyPageDown, keyCtrlD: setRow(min(currRow + ROW_JUMP,
                                          ROWS_PER_PATTERN-1))
 
-    of keyLeft,  ord('H'): setPattern(max(currPattern - 1, 0))
-    of keyRight, ord('L'): setPattern(min(currPattern + 1,
-                                          module.patterns.high))
+#    of keyLeft,  ord('H'): setPattern(max(currPattern - 1, 0))
+#    of keyRight, ord('L'): setPattern(min(currPattern + 1,
+#                                          module.patterns.high))
+    of keyLeft,  ord('H'):
+      gPlaybackState.nextSongPos = max(0, gPlaybackState.songPos - 1)
+
+    of keyRight, ord('L'):
+      gPlaybackState.nextSongPos = min(module.songLength - 1,
+                                       gPlaybackState.songPos + 1)
 
     of keyF1: setTheme(0)
     of keyF2: setTheme(1)
