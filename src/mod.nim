@@ -32,7 +32,7 @@ var gPlaybackState: PlaybackState
 proc quitProc() {.noconv.} =
   resetAttributes()
   consoleDeinit()
-  exitFullscreen()
+#  exitFullscreen()
   showCursor()
 
 
@@ -51,7 +51,7 @@ proc main() =
   system.addQuitProc(quitProc)
 
   consoleInit()
-  enterFullscreen()
+#  enterFullscreen()
   hideCursor()
 
   let (w, h) = terminalSize()

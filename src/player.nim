@@ -170,8 +170,7 @@ proc updateChannelsInbetweenTick(ps: var PlaybackState, sampleRate: int) =
       of 0xc:   # note cut
         if ps.currTick == ch.cutTick:
           ch.volume = 0
-          ch.volumeScalar = 0
-          ps.cutTick = 0
+          ch.cutTick = 0
 
       of 0xd:   # note delay
         discard
@@ -234,7 +233,7 @@ proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
       ch.volume = ch.currSample.volume
       updateVolumeScalar(ch)
 
-    if cmd != 0x3 and cell.note != NOTE_NONE:
+    if cmd != 0x3 and cmd != 0x5 and cell.note != NOTE_NONE:
       ch.period = periodTable[ch.currSample.finetune * NUM_NOTES + cell.note]
       updateSampleStep(ch, sampleRate)
       ch.samplePos = 0
@@ -248,6 +247,10 @@ proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
         ch.portaToNote = cell.note
       if xy != 0:
         ch.portaSpeed = xy
+
+    of 0x5:   # volume slide + tone portamento
+      if cell.note != NOTE_NONE:
+        ch.portaToNote = cell.note
 
     of 0x6:   # volume slide + vibrato
       discard
@@ -264,7 +267,6 @@ proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
         ch.samplePos = offset.float
       else:
         ch.volume = 0
-        ch.volumeScalar = 0
 
     of 0xb:   # position jump
       discard
@@ -353,7 +355,6 @@ proc advancePlayPosition(ps: var PlaybackState, sampleRate: int) =
     for ch in ps.channels:
       ch.volume = 0
       ch.volumeScalar = 0
-      ch.currSample = nil
 
   else:
     ps.currTick += 1
