@@ -56,8 +56,13 @@ proc main() =
 
   let (w, h) = terminalSize()
 
-  #var buf = readFile("../data/STRWORLD.MOD")
-  var buf = readFile("../data/canalgreen.mod")
+  #var buf = readFile("../data/livin' insanity.MOD")
+  var buf = readFile("../data/STRWORLD.MOD")
+  #var buf = readFile("../data/back again.mod")
+  #var buf = readFile("../data/sainahi circles v2.mod")
+  #var buf = readFile("../data/REDHAIR.MOD")
+  #var buf = readFile("../data/canalgreen.mod")
+  #var buf = readFile("../data/condom corruption.mod")
   let module = loadModule(buf)
 
   initPlaybackState(gPlaybackState, module)
@@ -81,6 +86,12 @@ proc main() =
     if currPattern != lastPattern:
       gRedraw = true
 
+  proc toggleMuteChannel(chNum: Natural) =
+    if chNum <= gPlaybackState.channelState.high:
+      if gPlaybackState.channelState[chNum] == csMuted:
+        gPlaybackState.channelState[chNum] = csPlaying
+      else:
+        gPlaybackState.channelState[chNum] = csMuted
 
   while true:
     let key = getKey()
@@ -110,6 +121,11 @@ proc main() =
     of keyF3: setTheme(2)
     of keyF4: setTheme(3)
     of keyF5: setTheme(4)
+
+    of ord('1'): toggleMuteChannel(0)
+    of ord('2'): toggleMuteChannel(1)
+    of ord('3'): toggleMuteChannel(2)
+    of ord('4'): toggleMuteChannel(3)
 
     of ord('q'):
       closeAudio()

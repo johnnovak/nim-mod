@@ -11,10 +11,6 @@ import math
 const
   DEFAULT_BEATS_PER_MIN = 125
   DEFAULT_TICKS_PER_ROW = 6
-  DEFAULT_VOLUME        = 0x40
-  DEFAULT_PAN           = 0x40
-  ROWS_PER_BEAT         = 4
-  MILLIS_PER_MINUTE     = 60 * 1000
   REPEAT_LENGTH_MIN     = 3
   MAX_VOLUME            = 0x40
 
@@ -23,21 +19,31 @@ const
   AMIGA_BASE_FREQ_NTSC = 7159090.5
 
 const
-  AMPLIFICATION = 8
+  AMPLIFICATION = 128
+  STEREO_SEPARATION = 0.2
 
 
 type Channel = ref object
-  currSample:   Sample
-  samplePos:    float
-  pan:          int
-  volume:       int
-  volumeScalar: float
-  period:       int
-  sampleStep:   float
-  portaToNote:  int
-  portaSpeed:   int
-  volumeSlide:  int
-  cutTick:      int
+  currSample:     Sample
+  samplePos:      float
+  note:           int
+  period:         int
+  pan:            int
+  volume:         int
+  volumeScalar:   float
+  sampleStep:     float
+  portaToNote:    int
+  portaSpeed:     int
+  volumeSlide:    int
+  vibratoPos:     int
+  vibratoSign:    int
+  vibratoSpeed:   int
+  vibratoDepth:   int
+  vibratoPeriod:  int
+  offset:         int
+
+type ChannelState = enum
+  csPlaying, csMuted, csDimmed
 
 type PlaybackState = object
   module:              Module
@@ -48,24 +54,29 @@ type PlaybackState = object
   currTick:            int
   tickFramesRemaining: int
   channels:            seq[Channel]
-  nextSongPos:         int
+  channelState:        seq[ChannelState]
+  jumpRow:             int
+  jumpSongPos:         int
+  nextSongPos:         int    #XXX
 
 proc newChannel(): Channel =
   var ch = new Channel
+  ch.vibratoSign = 1
   result = ch
 
 proc initPlaybackState(ps: var PlaybackState, module: Module) =
   ps.module = module
   ps.beatsPerMin = DEFAULT_BEATS_PER_MIN
   ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
-  ps.songPos = 0
-  ps.currRow = 0
-  ps.currTick = 0
+  ps.jumpRow = -1
+  ps.jumpSongPos = -1
   ps.nextSongPos = -1 #XXX
 
   ps.channels = newSeq[Channel]()
+  ps.channelState = newSeq[ChannelState]()
   for ch in 0..<module.numChannels:
     ps.channels.add(newChannel())
+    ps.channelState.add(csPlaying)
 
   # XXX
   if module.numChannels == 4:
@@ -79,24 +90,32 @@ proc framesPerTick(ps: PlaybackState, sampleRate: int): int =
   let
     # 2500 / 125 (default BPM) gives the default 20 ms per tick
     # (equals to 50Hz PAL VBL)
-    millisPerTick  = int(2500 / ps.beatsPerMin)
-    framesPerMilli = sampleRate div 1000
+    millisPerTick  = 2500 / ps.beatsPerMin
+    framesPerMilli = sampleRate / 1000
 
-  result = millisPerTick * framesPerMilli
+  result = int(millisPerTick * framesPerMilli)
 
 
 proc render(ch: Channel, samples: AudioBufferPtr,
             frameOffset, numFrames: int) =
 
   for i in 0..<numFrames:
-    var s: int16
+    var s: float
     if ch.currSample != nil:
       if ch.volume == 0:
         s = 0
       else:
         # no interpolation
-        s = int16(ch.currSample.data[ch.samplePos.int].float *
-                  ch.volumeScalar)
+        #s = ch.currSample.data[ch.samplePos.int].float * ch.volumeScalar
+
+        # linear interpolation
+        let
+          posInt = ch.samplePos.int
+          s1 = ch.currSample.data[posInt].float
+          s2 = ch.currSample.data[posInt + 1].float
+          f = ch.samplePos - posInt.float
+
+        s = (s1*(1.0-f) + s2*f) * ch.volumeScalar
 
         # Advance sample position
         ch.samplePos += ch.sampleStep
@@ -106,23 +125,25 @@ proc render(ch: Channel, samples: AudioBufferPtr,
                                  ch.currSample.repeatLength:
             ch.samplePos = ch.currSample.repeatOffset.float
 
-        elif ch.samplePos.int >= ch.currSample.length:
+        elif ch.samplePos > (ch.currSample.length - 1).float:
           ch.volume = 0     # sample has finished playing, nothing to do
     else:
       s = 0
 
     # XXX
     if ch.pan == 0:
-      samples[(frameOffset + i)*2 + 0] += s
+      samples[(frameOffset + i)*2 + 0] += int16(s * (1.0 - STEREO_SEPARATION))
+      samples[(frameOffset + i)*2 + 1] += int16(s *        STEREO_SEPARATION)
     else:
-      samples[(frameOffset + i)*2 + 1] += s
+      samples[(frameOffset + i)*2 + 0] += int16(s *        STEREO_SEPARATION)
+      samples[(frameOffset + i)*2 + 1] += int16(s * (1.0 - STEREO_SEPARATION))
 
 
 proc periodToFreq(period: int): float =
   result = AMIGA_BASE_FREQ_PAL / float(period * 2)
 
 proc updateSampleStep(ch: Channel, sampleRate: int) =
-  ch.sampleStep = periodToFreq(ch.period) / float(sampleRate)
+  ch.sampleStep = periodToFreq(ch.period + ch.vibratoPeriod) / float(sampleRate)
 
 proc updateVolumeScalar(ch: Channel) =
   let vol_dB = 20 * log10(ch.volume / MAX_VOLUME)
@@ -143,7 +164,15 @@ proc updateChannelsInbetweenTick(ps: var PlaybackState, sampleRate: int) =
 
     case cmd:
     of 0x0:   # arpeggio
-      discard
+      if ch.volume > 0 and x > 0 and y > 0:
+        let baseNote = ch.currSample.finetune * NUM_NOTES + ch.note
+        # TODO implement wrapover bug
+        case ps.currTick mod 3:
+        of 0: ch.period = periodTable[baseNote]
+        of 1: ch.period = periodTable[min(baseNote + x, NOTE_MAX)]
+        of 2: ch.period = periodTable[min(baseNote + y, NOTE_MAX)]
+        else: discard
+        updateSampleStep(ch, sampleRate)
 
     of 0x1:   # portamento up
       ch.period = max(ch.period - xy, periodTable[periodTable.high])  # XXX
@@ -153,27 +182,25 @@ proc updateChannelsInbetweenTick(ps: var PlaybackState, sampleRate: int) =
       ch.period = min(ch.period + xy, periodTable[0])
       updateSampleStep(ch, sampleRate)
 
-    of 0x4:   # vibrato
-      discard
-
-    of 0x6:   # volume slide + vibrato
-      discard
-
     of 0x7:   # tremolo
       discard
 
     of 0xe:   # extended effects
       case x:
       of 0x9:   # retrigger
-        discard
+        if cell.note != NOTE_NONE and y != 0 and ps.currTick mod y == 0:
+          ch.samplePos = 0
+          updateSampleStep(ch, sampleRate)
 
       of 0xc:   # note cut
-        if ps.currTick == ch.cutTick:
+        if ps.currTick == y:
           ch.volume = 0
-          ch.cutTick = 0
 
       of 0xd:   # note delay
-        discard
+        if cell.note != NOTE_NONE and ps.currTick == y:
+          ch.volume = ch.currSample.volume
+          updateVolumeScalar(ch)
+
       of 0xe:   # pattern delay
         discard
       of 0xf:   # invert loop
@@ -182,7 +209,8 @@ proc updateChannelsInbetweenTick(ps: var PlaybackState, sampleRate: int) =
 
     else: discard
 
-    if cmd == 0x3 or  # tone portamento or
+    # tone portamento
+    if cmd == 0x3 or  # tone portamento
        cmd == 0x5:    # volume slide + tone portamento
 
       let toPeriod = periodTable[ch.currSample.finetune * NUM_NOTES +
@@ -195,8 +223,22 @@ proc updateChannelsInbetweenTick(ps: var PlaybackState, sampleRate: int) =
         ch.period = max(ch.period - ch.portaSpeed, toPeriod)
         updateSampleStep(ch, sampleRate)
 
-    if cmd == 0xa or  # volume slide or
-       cmd == 0x5:    # volume slide + tone portamento
+    if cmd == 0x4 or  # vibrato
+       cmd == 0x6:    # volume slide + vibrato
+
+      ch.vibratoPos += ch.vibratoSpeed
+      if ch.vibratoPos > vibratoTable.high:
+        ch.vibratoPos -= vibratoTable.len
+        ch.vibratoSign *= -1
+
+      ch.vibratoPeriod = ch.vibratoSign *
+                    ((vibratoTable[ch.vibratoPos] * ch.vibratoDepth) div 128)
+      updateSampleStep(ch, sampleRate)
+
+    # volume slide
+    if cmd == 0xa or  # volume slide
+       cmd == 0x5 or  # volume slide + tone portamento
+       cmd == 0x6:    # volume slide + vibrato
 
       if x > 0:
         ch.volume = min(ch.volume + x, MAX_VOLUME)
@@ -234,26 +276,31 @@ proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
       updateVolumeScalar(ch)
 
     if cmd != 0x3 and cmd != 0x5 and cell.note != NOTE_NONE:
-      ch.period = periodTable[ch.currSample.finetune * NUM_NOTES + cell.note]
+      ch.note = ch.currSample.finetune * NUM_NOTES + cell.note
+      ch.period = periodTable[ch.note]
       updateSampleStep(ch, sampleRate)
       ch.samplePos = 0
 
-    case cmd:
-    of 0x0:   # arpeggio
-      discard
+    ch.vibratoPeriod = 0
 
+    case cmd:
     of 0x3:   # tone portamento
       if cell.note != NOTE_NONE:
         ch.portaToNote = cell.note
       if xy != 0:
         ch.portaSpeed = xy
 
+    of 0x4:
+      if cell.note != NOTE_NONE:
+        ch.vibratoPos = 0
+        ch.vibratoSign = 1
+
+      if x > 0: ch.vibratoSpeed = x
+      if y > 0: ch.vibratoDepth = y
+
     of 0x5:   # volume slide + tone portamento
       if cell.note != NOTE_NONE:
         ch.portaToNote = cell.note
-
-    of 0x6:   # volume slide + vibrato
-      discard
 
     of 0x7:   # tremolo
       discard
@@ -262,11 +309,18 @@ proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
       discard
 
     of 0x9:   # sample offset
-      let offset = xy shl 7   # because offset is in words, not bytes
-      if offset <= ch.currSample.length div 2:
-        ch.samplePos = offset.float
-      else:
-        ch.volume = 0
+      if cell.note != NOTE_NONE:
+        var offset: int
+        if xy > 0:
+          offset = xy shl 8
+          ch.offset = offset
+        else:
+          offset = ch.offset
+
+        if offset <= ch.currSample.length:
+          ch.samplePos = offset.float
+        else:
+          ch.volume = 0
 
     of 0xb:   # position jump
       discard
@@ -277,11 +331,10 @@ proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
 
     of 0xd:   # pattern break
       if ps.songPos < ps.module.songLength-1:
-        ps.songPos += 1
+        ps.jumpSongPos = ps.songPos + 1
       else:
-        ps.songPos = 0
-      ps.currRow = min(x*10 + y, ROWS_PER_PATTERN-1)
-      updateChannelsFirstTick(ps, sampleRate)
+        ps.jumpSongPos = 0
+      ps.jumpRow = min(x*10 + y, ROWS_PER_PATTERN-1)
 
     of 0xe:   # extended effects
       case x:
@@ -300,6 +353,8 @@ proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
         discard
 
       of 0x5:   # set finetune
+        if ch.currSample != nil:
+          ch.currSample.finetune = y  # XXX is this correct?
         discard
 
       of 0x6:   # pattern loop start / pattern loop
@@ -311,9 +366,6 @@ proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
       of 0x8:   # set panning
         discard
 
-      of 0x9:   # retrigger
-        discard
-
       of 0xa:   # fine volume slide up
         ch.volume = min(ch.volume + y, MAX_VOLUME)
         updateVolumeScalar(ch)
@@ -322,11 +374,9 @@ proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
         ch.volume = max(ch.volume - y, 0)
         updateVolumeScalar(ch)
 
-      of 0xc:   # note cut
-        ch.cutTick = y
-
       of 0xd:   # note delay
-        discard
+        ch.volume = 0
+        ch.volumeScalar = 0
 
       of 0xe:   # pattern delay
         discard
@@ -361,12 +411,19 @@ proc advancePlayPosition(ps: var PlaybackState, sampleRate: int) =
 
     if ps.currTick > ps.ticksPerRow-1:
       ps.currTick = 0
-      ps.currRow += 1
 
-      if ps.currRow > ROWS_PER_PATTERN-1:
-        ps.currRow = 0
-        ps.songPos += 1
-        # TODO check song length
+      if ps.jumpRow > -1:
+        ps.songPos = ps.jumpSongPos
+        ps.currRow = ps.jumpRow
+        ps.jumpSongPos = -1
+        ps.jumpRow = -1
+      else:
+        ps.currRow += 1
+
+        if ps.currRow > ROWS_PER_PATTERN-1:
+          ps.currRow = 0
+          ps.songPos += 1
+          # TODO check song length
 
       updateChannelsFirstTick(ps, sampleRate)
     else:
@@ -393,8 +450,9 @@ proc render(ps: var PlaybackState, samples: AudioBufferPtr, numFrames: int,
   while framePos < numFrames-1:
     var frameCount = min(numFrames - framePos, ps.tickFramesRemaining)
 
-    for ch in ps.channels:
-      ch.render(samples, framePos, frameCount)
+    for chNum, ch in pairs(ps.channels):
+      if ps.channelState[chNum] == csPlaying:
+        ch.render(samples, framePos, frameCount)
 
     framePos += frameCount
     ps.tickFramesRemaining -= frameCount

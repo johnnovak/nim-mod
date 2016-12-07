@@ -2,7 +2,7 @@ const MAX_SONG_TITLE_LEN*  = 20
 const MAX_SAMPLE_NAME_LEN* = 22
 const MAX_SAMPLES*         = 31
 const MAX_PATTERNS*        = 128
-const MAX_SAMPLE_SIZE*     = 65536 * 2
+const MAX_SAMPLE_SIZE*     = 65535 * 2
 const ROWS_PER_PATTERN*    = 64
 
 const TAG_LEN        = 4
@@ -30,7 +30,9 @@ type Track* = ref object
 type Pattern* = ref object
   tracks*: seq[Track]
 
-type SampleDataPtr* = ptr array[MAX_SAMPLE_SIZE, int8]
+type
+  SampleData* {.unchecked.} = array[1, int8]
+  SampleDataPtr* = ptr SampleData
 
 type Sample* = ref object
   name*:         string
@@ -72,9 +74,10 @@ proc newModule*(): Module =
 
 
 const
+  NUM_NOTES* = 36
   NOTE_NONE* = -1
-  NOTE_C1*   =  0
-  NUM_NOTES  = 36
+  NOTE_MIN*  =  0
+  NOTE_MAX*  = NUM_NOTES - 1
 
 const vibratoTable = [
     0,  24,  49,  74,  97, 120, 141, 161,

@@ -193,22 +193,13 @@ proc loadModule*(buf: var seq[uint8]): Module =
   for sampNum in 1..MAX_SAMPLES:
     let length = module.samples[sampNum].length
     if length > 0:
-      var data = cast[SampleDataPtr](alloc(length))
+      const PADDING = 1   # extra padding for easy sample interpolation
+      var data = cast[SampleDataPtr](alloc(length + PADDING))
       copyMem(data, buf[pos].addr, length)
+      # XXX repeat the last byte, this works for linear interpolation only
+      data[length] = data[length-1]
       module.samples[sampNum].data = data
       pos += length
-      #[
-      var
-        data = cast[SampleDataPtr](alloc(length))
-        dataPos = 0
-
-      module.samples[sampNum].data = data
-
-      for i in 0..<(length div 2):
-        bigEndian16(data[dataPos].addr, buf[pos].addr)
-        pos += 2
-        dataPos += 2
-      ]#
 
   result = module
 
