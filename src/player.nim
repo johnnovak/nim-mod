@@ -13,20 +13,27 @@ const
   DEFAULT_TICKS_PER_ROW = 6
   REPEAT_LENGTH_MIN     = 3
   MAX_VOLUME            = 0x40
+  MIN_PERIOD            = periodTable[NUM_NOTES - 1]
+  MAX_PERIOD            = periodTable[0]
 
 const
   AMIGA_BASE_FREQ_PAL  = 7093789.2
   AMIGA_BASE_FREQ_NTSC = 7159090.5
 
 const
-  AMPLIFICATION = 128
-  STEREO_SEPARATION = 0.2
+  AMPLIFICATION     = 128
+  STEREO_SEPARATION = 0.0
 
+const vibratoTable = [
+    0,  24,  49,  74,  97, 120, 141, 161,
+  180, 197, 212, 224, 235, 244, 250, 253,
+  255, 253, 250, 244, 235, 224, 212, 197,
+  180, 161, 141, 120,  97,  74,  49,  24
+]
 
 type Channel = ref object
   currSample:     Sample
   samplePos:      float
-  note:           int
   period:         int
   pan:            int
   volume:         int
@@ -39,7 +46,6 @@ type Channel = ref object
   vibratoSign:    int
   vibratoSpeed:   int
   vibratoDepth:   int
-  vibratoPeriod:  int
   offset:         int
 
 type ChannelState = enum
@@ -61,6 +67,8 @@ type PlaybackState = object
 
 proc newChannel(): Channel =
   var ch = new Channel
+  ch.period = -1
+  ch.portaToNote = NOTE_NONE
   ch.vibratoSign = 1
   result = ch
 
@@ -102,7 +110,7 @@ proc render(ch: Channel, samples: AudioBufferPtr,
   for i in 0..<numFrames:
     var s: float
     if ch.currSample != nil:
-      if ch.volume == 0:
+      if ch.volume == 0 or ch.period == -1:
         s = 0
       else:
         # no interpolation
@@ -142,8 +150,22 @@ proc render(ch: Channel, samples: AudioBufferPtr,
 proc periodToFreq(period: int): float =
   result = AMIGA_BASE_FREQ_PAL / float(period * 2)
 
+proc findClosestNote(finetune, period: int): int =
+  result = -1
+  for n in 0..<NUM_NOTES:
+    if period >= periodTable[finetune + n]:
+      result = n
+      break
+  assert result > -1
+
+proc finetunedNote(s: Sample, note: int): int =
+  result = s.finetune * FINETUNE_PAD + note
+
 proc updateSampleStep(ch: Channel, sampleRate: int) =
-  ch.sampleStep = periodToFreq(ch.period + ch.vibratoPeriod) / float(sampleRate)
+  ch.sampleStep = periodToFreq(ch.period) / float(sampleRate)
+
+proc updateSampleStep(ch: Channel, period, sampleRate: int) =
+  ch.sampleStep = periodToFreq(period) / float(sampleRate)
 
 proc updateVolumeScalar(ch: Channel) =
   let vol_dB = 20 * log10(ch.volume / MAX_VOLUME)
@@ -165,21 +187,22 @@ proc updateChannelsInbetweenTick(ps: var PlaybackState, sampleRate: int) =
     case cmd:
     of 0x0:   # arpeggio
       if ch.volume > 0 and x > 0 and y > 0:
-        let baseNote = ch.currSample.finetune * NUM_NOTES + ch.note
-        # TODO implement wrapover bug
+        var period: int
         case ps.currTick mod 3:
-        of 0: ch.period = periodTable[baseNote]
-        of 1: ch.period = periodTable[min(baseNote + x, NOTE_MAX)]
-        of 2: ch.period = periodTable[min(baseNote + y, NOTE_MAX)]
+        of 0: period = ch.period
+        of 1: period = periodTable[findClosestNote(ch.currSample.finetune,
+                                                   ch.period) + x]
+        of 2: period = periodTable[findClosestNote(ch.currSample.finetune,
+                                                   ch.period) + y]
         else: discard
-        updateSampleStep(ch, sampleRate)
+        updateSampleStep(ch, period, sampleRate)
 
     of 0x1:   # portamento up
-      ch.period = max(ch.period - xy, periodTable[periodTable.high])  # XXX
+      ch.period = max(ch.period - xy, MIN_PERIOD)
       updateSampleStep(ch, sampleRate)
 
     of 0x2:   # portamento down
-      ch.period = min(ch.period + xy, periodTable[0])
+      ch.period = min(ch.period + xy, MAX_PERIOD)
       updateSampleStep(ch, sampleRate)
 
     of 0x7:   # tremolo
@@ -213,15 +236,16 @@ proc updateChannelsInbetweenTick(ps: var PlaybackState, sampleRate: int) =
     if cmd == 0x3 or  # tone portamento
        cmd == 0x5:    # volume slide + tone portamento
 
-      let toPeriod = periodTable[ch.currSample.finetune * NUM_NOTES +
-                                 ch.portaToNote]
-      if ch.period < toPeriod:
-        ch.period = min(ch.period + ch.portaSpeed, toPeriod)
-        updateSampleStep(ch, sampleRate)
+      if ch.portaToNote != NOTE_NONE and ch.period > -1:
+        let toPeriod = periodTable[finetunedNote(ch.currSample,
+                                                 ch.portaToNote)]
+        if ch.period < toPeriod:
+          ch.period = min(ch.period + ch.portaSpeed, toPeriod)
+          updateSampleStep(ch, sampleRate)
 
-      elif ch.period > toPeriod:
-        ch.period = max(ch.period - ch.portaSpeed, toPeriod)
-        updateSampleStep(ch, sampleRate)
+        elif ch.period > toPeriod:
+          ch.period = max(ch.period - ch.portaSpeed, toPeriod)
+          updateSampleStep(ch, sampleRate)
 
     if cmd == 0x4 or  # vibrato
        cmd == 0x6:    # volume slide + vibrato
@@ -231,9 +255,9 @@ proc updateChannelsInbetweenTick(ps: var PlaybackState, sampleRate: int) =
         ch.vibratoPos -= vibratoTable.len
         ch.vibratoSign *= -1
 
-      ch.vibratoPeriod = ch.vibratoSign *
-                    ((vibratoTable[ch.vibratoPos] * ch.vibratoDepth) div 128)
-      updateSampleStep(ch, sampleRate)
+      let vibratoPeriod = ch.vibratoSign * ((vibratoTable[ch.vibratoPos] *
+                                             ch.vibratoDepth) div 128)
+      updateSampleStep(ch, ch.period + vibratoPeriod, sampleRate)
 
     # volume slide
     if cmd == 0xa or  # volume slide
@@ -271,17 +295,24 @@ proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
       xy  =  cell.effect and 0x0ff
 
     if cell.sampleNum > 0:
-      ch.currSample = ps.module.samples[cell.sampleNum]
-      ch.volume = ch.currSample.volume
-      updateVolumeScalar(ch)
+      if cell.sampleNum <= ps.module.samples.high and
+         ps.module.samples[cell.sampleNum].data != nil:
 
-    if cmd != 0x3 and cmd != 0x5 and cell.note != NOTE_NONE:
-      ch.note = ch.currSample.finetune * NUM_NOTES + cell.note
-      ch.period = periodTable[ch.note]
+        ch.currSample = ps.module.samples[cell.sampleNum]
+        ch.volume = ch.currSample.volume
+        updateVolumeScalar(ch)
+      else:
+        ch.volume = 0
+        ch.volumeScalar = 0
+
+    if cmd != 0x3 and cmd != 0x5 and
+       cell.note != NOTE_NONE and ch.currSample != nil:
+
+      ch.period = periodTable[finetunedNote(ch.currSample, cell.note)]
       updateSampleStep(ch, sampleRate)
       ch.samplePos = 0
 
-    ch.vibratoPeriod = 0
+    updateSampleStep(ch, sampleRate)
 
     case cmd:
     of 0x3:   # tone portamento
@@ -290,13 +321,13 @@ proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
       if xy != 0:
         ch.portaSpeed = xy
 
-    of 0x4:
+    of 0x4:   # vibrato
       if cell.note != NOTE_NONE:
         ch.vibratoPos = 0
         ch.vibratoSign = 1
 
-      if x > 0: ch.vibratoSpeed = x
-      if y > 0: ch.vibratoDepth = y
+      if x > 0: ch.vibratoSpeed = x 
+      if y > 0: ch.vibratoDepth = y 
 
     of 0x5:   # volume slide + tone portamento
       if cell.note != NOTE_NONE:
@@ -320,7 +351,7 @@ proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
         if offset <= ch.currSample.length:
           ch.samplePos = offset.float
         else:
-          ch.volume = 0
+          ch.volume = 0       # XXX vol 0 or don't play at all?
 
     of 0xb:   # position jump
       discard
@@ -339,11 +370,11 @@ proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
     of 0xe:   # extended effects
       case x:
       of 0x1:   # fine portamento up
-        ch.period = ch.period + y
+        ch.period = max(ch.period + y, MIN_PERIOD)
         updateSampleStep(ch, sampleRate)
 
       of 0x2:   # fine portamento down
-        ch.period = ch.period - y
+        ch.period = min(ch.period - y, MAX_PERIOD)
         updateSampleStep(ch, sampleRate)
 
       of 0x3:   # glissando control
@@ -374,6 +405,10 @@ proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
         ch.volume = max(ch.volume - y, 0)
         updateVolumeScalar(ch)
 
+      of 0xc:   # note cut
+        if y == 0:
+          ch.volume = 0
+
       of 0xd:   # note delay
         ch.volume = 0
         ch.volumeScalar = 0
@@ -387,7 +422,7 @@ proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
       else: discard
 
     of 0xf:   # set speed / tempo
-      if xy < 0x20:
+      if xy < 0x20:   # TODO multiple speeds on same row
         ps.ticksPerRow = xy
       else:
         ps.beatsPerMin = xy

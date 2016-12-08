@@ -57,8 +57,10 @@ proc main() =
   let (w, h) = terminalSize()
 
   #var buf = readFile("../data/livin' insanity.MOD")
-  var buf = readFile("../data/STRWORLD.MOD")
-  #var buf = readFile("../data/back again.mod")
+  #var buf = readFile("../data/STRWORLD.MOD")
+  var buf = readFile("../data/back again.mod")
+  #var buf = readFile("../data/BUTCHER.MOD")
+  #var buf = readFile("../data/test.mod")
   #var buf = readFile("../data/sainahi circles v2.mod")
   #var buf = readFile("../data/REDHAIR.MOD")
   #var buf = readFile("../data/canalgreen.mod")
