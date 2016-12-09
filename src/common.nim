@@ -46,11 +46,45 @@ type Sample* = ref object
 type Module* = ref object
   moduleType*:    ModuleType
   numChannels*:   int
-  songTitle*:     string
+  songName*:     string
   songLength*:    int
   songPositions*: array[MAX_PATTERNS, int]
   samples*:       array[1..MAX_SAMPLES, Sample]
   patterns*:      seq[Pattern]
+
+type ChannelState = enum
+  csPlaying, csMuted, csDimmed
+
+type Channel = ref object
+  currSample:     Sample
+  samplePos:      float
+  period:         int
+  pan:            int
+  volume:         int
+  volumeScalar:   float
+  sampleStep:     float
+  portaToNote:    int
+  portaSpeed:     int
+  volumeSlide:    int
+  vibratoPos:     int
+  vibratoSign:    int
+  vibratoSpeed:   int
+  vibratoDepth:   int
+  offset:         int
+
+type PlaybackState = object
+  module:              Module
+  tempo:               int
+  ticksPerRow:         int
+  songPos:             int
+  currRow:             int
+  currTick:            int
+  tickFramesRemaining: int
+  channels:            seq[Channel]
+  channelState:        seq[ChannelState]
+  jumpRow:             int
+  jumpSongPos:         int
+  nextSongPos:         int    #XXX
 
 
 proc newCell*(): Cell =

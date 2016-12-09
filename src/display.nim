@@ -45,7 +45,7 @@ proc effectToStr(effect: int): string =
 proc `$`(m: Module): string =
   result =   "moduleType:  " & $m.moduleType &
            "\nnumChannels: " & $m.numChannels &
-           "\nsongTitle:   " & $m.songTitle &
+           "\nsongName:    " & $m.songName &
            "\nsongLength:  " & $m.songLength &
            "\nsongPositions:"
 
@@ -259,6 +259,27 @@ proc drawRow(patt: Pattern, rowNum, trackLo, trackHi: int, hilite: bool) =
 
   put "\n"
 
+proc drawPlaybackState(ps: PlaybackState) =
+  put "Songname: "
+  put ps.module.songName
+
+  cursorDown(stdout)
+  setCursorXPos(0)
+  put "Songpos:  "
+  put $ps.songPos
+  put "/"
+  put $ps.module.songLength
+
+  put "      Tempo: "
+  put $ps.tempo
+
+  cursorDown(stdout)
+  setCursorXPos(0)
+  put "Pattern:  "
+  put $ps.module.songPositions[ps.songPos]
+
+  put "         Speed: "
+  put $ps.ticksPerRow
 
 proc drawPatternView(patt: Pattern,
                      currRow, maxRows, startTrack, maxTracks: int) =

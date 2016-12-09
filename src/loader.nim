@@ -154,10 +154,10 @@ proc loadModule*(buf: var seq[uint8]): Module =
 
   (module.moduleType, module.numChannels) = determineModuleType(tag)
 
-  # read song title
-  var songTitle = cast[cstring](alloc0(MAX_SONG_TITLE_LEN + 1))
-  copyMem(songTitle, buf[pos].addr, MAX_SONG_TITLE_LEN)
-  module.songtitle = $songTitle
+  # read song name
+  var songName = cast[cstring](alloc0(MAX_SONG_TITLE_LEN + 1))
+  copyMem(songName, buf[pos].addr, MAX_SONG_TITLE_LEN)
+  module.songName = $songName
   pos += MAX_SONG_TITLE_LEN
 
   # load samples

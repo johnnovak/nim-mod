@@ -32,7 +32,7 @@ var gPlaybackState: PlaybackState
 proc quitProc() {.noconv.} =
   resetAttributes()
   consoleDeinit()
-#  exitFullscreen()
+  exitFullscreen()
   showCursor()
 
 
@@ -51,20 +51,20 @@ proc main() =
   system.addQuitProc(quitProc)
 
   consoleInit()
-#  enterFullscreen()
+  enterFullscreen()
   hideCursor()
 
   let (w, h) = terminalSize()
 
   #var buf = readFile("../data/livin' insanity.MOD")
   #var buf = readFile("../data/STRWORLD.MOD")
-  var buf = readFile("../data/back again.mod")
-  #var buf = readFile("../data/BUTCHER.MOD")
+  #var buf = readFile("../data/back again.mod")
   #var buf = readFile("../data/test.mod")
   #var buf = readFile("../data/sainahi circles v2.mod")
+  #var buf = readFile("../data/DRUNKEN.MOD")
   #var buf = readFile("../data/REDHAIR.MOD")
   #var buf = readFile("../data/canalgreen.mod")
-  #var buf = readFile("../data/condom corruption.mod")
+  var buf = readFile("../data/condom corruption.mod")
   let module = loadModule(buf)
 
   initPlaybackState(gPlaybackState, module)
@@ -148,6 +148,8 @@ proc main() =
 
     if gRedraw:
       setCursorPos(0, 0)
+      drawPlaybackState(gPlaybackState)
+      setCursorPos(0, 5)
       drawPatternView(module.patterns[currPattern],
                       currRow = currRow, maxRows = gMaxRows,
                       startTrack = 0, maxTracks = 4)

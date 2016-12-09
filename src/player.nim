@@ -22,7 +22,7 @@ const
 
 const
   AMPLIFICATION     = 128
-  STEREO_SEPARATION = 0.0
+  STEREO_SEPARATION = 0.3
 
 const vibratoTable = [
     0,  24,  49,  74,  97, 120, 141, 161,
@@ -30,40 +30,6 @@ const vibratoTable = [
   255, 253, 250, 244, 235, 224, 212, 197,
   180, 161, 141, 120,  97,  74,  49,  24
 ]
-
-type Channel = ref object
-  currSample:     Sample
-  samplePos:      float
-  period:         int
-  pan:            int
-  volume:         int
-  volumeScalar:   float
-  sampleStep:     float
-  portaToNote:    int
-  portaSpeed:     int
-  volumeSlide:    int
-  vibratoPos:     int
-  vibratoSign:    int
-  vibratoSpeed:   int
-  vibratoDepth:   int
-  offset:         int
-
-type ChannelState = enum
-  csPlaying, csMuted, csDimmed
-
-type PlaybackState = object
-  module:              Module
-  beatsPerMin:         int
-  ticksPerRow:         int
-  songPos:             int
-  currRow:             int
-  currTick:            int
-  tickFramesRemaining: int
-  channels:            seq[Channel]
-  channelState:        seq[ChannelState]
-  jumpRow:             int
-  jumpSongPos:         int
-  nextSongPos:         int    #XXX
 
 proc newChannel(): Channel =
   var ch = new Channel
@@ -74,7 +40,7 @@ proc newChannel(): Channel =
 
 proc initPlaybackState(ps: var PlaybackState, module: Module) =
   ps.module = module
-  ps.beatsPerMin = DEFAULT_BEATS_PER_MIN
+  ps.tempo = DEFAULT_BEATS_PER_MIN
   ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
   ps.jumpRow = -1
   ps.jumpSongPos = -1
@@ -98,7 +64,7 @@ proc framesPerTick(ps: PlaybackState, sampleRate: int): int =
   let
     # 2500 / 125 (default BPM) gives the default 20 ms per tick
     # (equals to 50Hz PAL VBL)
-    millisPerTick  = 2500 / ps.beatsPerMin
+    millisPerTick  = 2500 / ps.tempo
     framesPerMilli = sampleRate / 1000
 
   result = int(millisPerTick * framesPerMilli)
@@ -370,11 +336,11 @@ proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
     of 0xe:   # extended effects
       case x:
       of 0x1:   # fine portamento up
-        ch.period = max(ch.period + y, MIN_PERIOD)
+        ch.period = max(ch.period - y, MIN_PERIOD)
         updateSampleStep(ch, sampleRate)
 
       of 0x2:   # fine portamento down
-        ch.period = min(ch.period - y, MAX_PERIOD)
+        ch.period = min(ch.period + y, MAX_PERIOD)
         updateSampleStep(ch, sampleRate)
 
       of 0x3:   # glissando control
@@ -425,7 +391,7 @@ proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
       if xy < 0x20:   # TODO multiple speeds on same row
         ps.ticksPerRow = xy
       else:
-        ps.beatsPerMin = xy
+        ps.tempo = xy
 
     else: discard
 
