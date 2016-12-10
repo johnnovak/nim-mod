@@ -133,7 +133,7 @@ proc loadPattern(buf: var seq[uint8], pos: var int,
   result = patt
 
 
-# TODO add lots of validation
+# TODO add validation
 proc loadModule*(buf: var seq[uint8]): Module =
   var module = newModule()
   var pos = 0

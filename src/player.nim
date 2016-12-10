@@ -4,13 +4,9 @@ import module
 
 import audio/common
 
-# FAQ: BPM/SPD/Rows/Ticks etc
-# https://modarchive.org/forums/index.php?topic=2709.0
 #
 # Protracker V1.1B Playroutine
 # http://16-bits.org/pt_src/replayer/PT1.1b_replay_cia.s
-#
-#
 
 const
   DEFAULT_TEMPO         = 125
@@ -80,9 +76,11 @@ proc initPlaybackState*(ps: var PlaybackState, module: Module) =
   ps.module = module
   ps.tempo = DEFAULT_TEMPO
   ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
+  ps.currRow = -1
+  ps.currTick = DEFAULT_TICKS_PER_ROW - 1
   ps.jumpRow = -1
   ps.jumpSongPos = -1
-  ps.nextSongPos = -1 #XXX
+  ps.nextSongPos = -1 # TODO clean this up
 
   ps.channels = newSeq[Channel]()
   ps.channelState = newSeq[ChannelState]()
@@ -90,7 +88,7 @@ proc initPlaybackState*(ps: var PlaybackState, module: Module) =
     ps.channels.add(newChannel())
     ps.channelState.add(csPlaying)
 
-  # XXX
+  # TODO clean up panning
   if module.numChannels == 4:
     ps.channels[0].pan = 0x00
     ps.channels[1].pan = 0x80
@@ -100,14 +98,17 @@ proc initPlaybackState*(ps: var PlaybackState, module: Module) =
 
 proc framesPerTick(ps: PlaybackState, sampleRate: int): int =
   let
-    # 2500 / 125 (default BPM) gives the default 20 ms per tick
-    # (equals to 50Hz PAL VBL)
+    # 2500 / 125 (default tempo) gives the default 20 ms per tick
+    # that corresponds to 50Hz PAL VBL
+    # See: "FAQ: BPM/SPD/Rows/Ticks etc"
+    # https://modarchive.org/forums/index.php?topic=2709.0
     millisPerTick  = 2500 / ps.tempo
     framesPerMilli = sampleRate / 1000
 
   result = int(millisPerTick * framesPerMilli)
 
 
+# TODO use float mix buffer
 proc render(ch: Channel, samples: AudioBufferPtr,
             frameOffset, numFrames: int) =
 
@@ -142,7 +143,7 @@ proc render(ch: Channel, samples: AudioBufferPtr,
     else:
       s = 0
 
-    # XXX
+    # TODO clean up panning
     if ch.pan == 0:
       samples[(frameOffset + i)*2 + 0] += int16(s * (1.0 - STEREO_SEPARATION))
       samples[(frameOffset + i)*2 + 1] += int16(s *        STEREO_SEPARATION)
@@ -472,14 +473,6 @@ proc advancePlayPosition(ps: var PlaybackState, sampleRate: int) =
 proc render*(ps: var PlaybackState, samples: AudioBufferPtr, numFrames: int,
              sampleRate: int) =
 
-  # TODO get rid of this, only needed on init or after the sample rate has
-  # changed
-  assert ps.tickFramesRemaining >= 0
-  if ps.tickFramesRemaining == 0:
-    updateChannelsFirstTick(ps, sampleRate)
-    ps.tickFramesRemaining = framesPerTick(ps, sampleRate)
-
-  # XXX clear buffer
   for i in 0..<numFrames:
     samples[i*2] = 0
     samples[i*2+1] = 0
@@ -487,6 +480,10 @@ proc render*(ps: var PlaybackState, samples: AudioBufferPtr, numFrames: int,
   var framePos = 0
 
   while framePos < numFrames-1:
+    if ps.tickFramesRemaining == 0:
+      advancePlayPosition(ps, sampleRate)
+      ps.tickFramesRemaining = framesPerTick(ps, sampleRate)
+
     var frameCount = min(numFrames - framePos, ps.tickFramesRemaining)
 
     for chNum, ch in pairs(ps.channels):
@@ -496,8 +493,4 @@ proc render*(ps: var PlaybackState, samples: AudioBufferPtr, numFrames: int,
     framePos += frameCount
     ps.tickFramesRemaining -= frameCount
     assert ps.tickFramesRemaining >= 0
-
-    if ps.tickFramesRemaining == 0:
-      advancePlayPosition(ps, sampleRate)
-      ps.tickFramesRemaining = framesPerTick(ps, sampleRate)
 

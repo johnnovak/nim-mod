@@ -92,7 +92,6 @@ proc noteToStr*(note: int): string =
   if note == NOTE_NONE:
    return "---"
 
-  result = ""
   case note mod NUM_SEMITONES:
   of  0: result = "C-"
   of  1: result = "C#"
@@ -132,7 +131,6 @@ proc `$`*(c: Cell): string =
 
 
 proc `$`*(p: Pattern): string =
-  result = ""
   for row in 0..<ROWS_PER_PATTERN:
     result &= align($row, 2, '0') & " | "
 
