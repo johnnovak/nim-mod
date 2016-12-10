@@ -1,20 +1,12 @@
 import endians
 
+import module
 
-# TODO convert everything back to fread
-proc readFile(fname: string): seq[uint8] =
-  var f: File
-  if not open(f, fname, fmRead):
-    raise newException(IOError, "Cannot open file: '" & fname & "'")
 
-  let size = f.getFileSize()
-  newSeq(result, size)
-
-  let read = f.readBuffer(result[0].addr, size)
-  if read != size:
-    raise newException(IOError, "Error reading file '" & fname & "'")
-
-  f.close()
+const
+  TAG_LEN        = 4
+  TAG_OFFSET     = 1080
+  BYTES_PER_CELL = 4
 
 
 proc mkTag(tag: string): int =
@@ -202,4 +194,24 @@ proc loadModule*(buf: var seq[uint8]): Module =
       pos += length
 
   result = module
+
+
+proc readFileAsBytes(fname: string): seq[uint8] =
+  var f: File
+  if not open(f, fname, fmRead):
+    raise newException(IOError, "Cannot open file: '" & fname & "'")
+
+  let size = f.getFileSize()
+  newSeq(result, size)
+
+  let read = f.readBuffer(result[0].addr, size)
+  if read != size:
+    raise newException(IOError, "Error reading file '" & fname & "'")
+
+  f.close()
+
+
+proc loadModule*(fname: string): Module =
+  var f = readFileAsBytes(fname)
+  loadModule(f)
 

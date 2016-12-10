@@ -1,5 +1,8 @@
 import posix
 
+import ../../common
+export common
+
 import alsa
 
 # http://www.volkerschatz.com/noise/alsa.html
@@ -7,14 +10,6 @@ import alsa
 type
   AreasArray {.unchecked.} = array[1, ChannelArea]
   AreasArrayPtr = ptr AreasArray
-
-type
-  AudioBuffer* {.unchecked.} = array[1, int16]
-  AudioBufferPtr* = ptr AudioBuffer
-
-
-type AudioCallback* = proc (samples: AudioBufferPtr,
-                            numFrames: int) {.cdecl, gcsafe.}
 
 let
   device = "plughw:0,0"

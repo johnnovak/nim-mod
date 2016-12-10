@@ -1,25 +1,13 @@
-import os, terminal
+import os, strutils
 
 import illwill/illwill
 import audio/linux/alsa/alsadriver
 
-include common
-include loader
-include display
-include themes
-include player
+import module
+import loader
+import player
+import display
 
-
-when defined(windows):
-  gGfx = gfxCharsCP850
-else:
-  when defined(posix):
-    if "utf" in getEnv("LANG").toLowerAscii:
-      gGfx = gfxCharsUnicode
-  else:
-    gGfx = gfxCharsAscii
-
-gTheme = themes[0]
 
 var gRedraw = true
 var gMaxRows = 32
@@ -34,12 +22,6 @@ proc quitProc() {.noconv.} =
   consoleDeinit()
   exitFullscreen()
   showCursor()
-
-
-proc setTheme(n: Natural) =
-  if n <= themes.high:
-    gTheme = themes[n]
-    gRedraw = true
 
 const SAMPLE_RATE = 44100
 
@@ -56,16 +38,7 @@ proc main() =
 
   let (w, h) = terminalSize()
 
-  #var buf = readFile("../data/livin' insanity.MOD")
-  #var buf = readFile("../data/STRWORLD.MOD")
-  #var buf = readFile("../data/back again.mod")
-  #var buf = readFile("../data/test.mod")
-  #var buf = readFile("../data/sainahi circles v2.mod")
-  #var buf = readFile("../data/DRUNKEN.MOD")
-  #var buf = readFile("../data/REDHAIR.MOD")
-  #var buf = readFile("../data/canalgreen.mod")
-  var buf = readFile("../data/condom corruption.mod")
-  let module = loadModule(buf)
+  let module = loadModule("../data/condom corruption.mod")
 
   initPlaybackState(gPlaybackState, module)
   initAudio(playerCallback)
@@ -118,11 +91,11 @@ proc main() =
       gPlaybackState.nextSongPos = min(module.songLength - 1,
                                        gPlaybackState.songPos + 1)
 
-    of keyF1: setTheme(0)
-    of keyF2: setTheme(1)
-    of keyF3: setTheme(2)
-    of keyF4: setTheme(3)
-    of keyF5: setTheme(4)
+    of keyF1: setTheme(0); gRedraw = true
+    of keyF2: setTheme(1); gRedraw = true
+    of keyF3: setTheme(2); gRedraw = true
+    of keyF4: setTheme(3); gRedraw = true
+    of keyF5: setTheme(4); gRedraw = true
 
     of ord('1'): toggleMuteChannel(0)
     of ord('2'): toggleMuteChannel(1)

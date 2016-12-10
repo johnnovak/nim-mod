@@ -1,5 +1,7 @@
 import os, terminal
 
+export terminal
+
 
 const keyNone* = -1
 

@@ -1,87 +1,11 @@
 import strutils
 
-
-proc nibbleToChar(n: int): char =
-  assert n >= 0 and n <= 15
-  if n < 10:
-    result = char(ord('0') + n)
-  else:
-    result = char(ord('A') + n - 10)
+import module
+import illwill/illwill
+from player import PlaybackState
 
 
-proc noteToStr(note: int): string =
-  if note == NOTE_NONE:
-   return "---"
-
-  result = ""
-  case note mod 12:
-  of  0: result = "C-"
-  of  1: result = "C#"
-  of  2: result = "D-"
-  of  3: result = "D#"
-  of  4: result = "E-"
-  of  5: result = "F-"
-  of  6: result = "F#"
-  of  7: result = "G-"
-  of  8: result = "G#"
-  of  9: result = "A-"
-  of 10: result = "A#"
-  of 11: result = "B-"
-  else: discard
-  result &= $(note div 12 + 1)
-
-
-proc effectToStr(effect: int): string =
-  let
-    cmd = (effect and 0xf00) shr 8
-    x   = (effect and 0x0f0) shr 4
-    y   =  effect and 0x00f
-
-  result = nibbleToChar(cmd) &
-           nibbleToChar(x) &
-           nibbleToChar(y)
-
-
-proc `$`(m: Module): string =
-  result =   "moduleType:  " & $m.moduleType &
-           "\nnumChannels: " & $m.numChannels &
-           "\nsongName:    " & $m.songName &
-           "\nsongLength:  " & $m.songLength &
-           "\nsongPositions:"
-
-  for pos, pattNum in m.songPositions.pairs:
-    result &= "\n  " & align($pos, 3) & " -> " & align($pattNum, 3)
-
-
-proc `$`(c: Cell): string =
-  let
-    s1 = (c.sampleNum and 0xf0) shr 4
-    s2 =  c.sampleNum and 0x0f
-
-  result = noteToStr(c.note) & " " &
-           nibbleToChar(s1.int) & nibbleToChar(s2.int) & " " &
-           effectToStr(c.effect.int)
-
-
-proc `$`(p: Pattern): string =
-  result = ""
-  for row in 0..<ROWS_PER_PATTERN:
-    result &= align($row, 2, '0') & " | "
-
-    for track in p.tracks:
-      result &= $track.rows[row] & " | "
-    result &= "\n"
-
-
-proc `$`(s: Sample): string =
-  result =   "name:         " & $s.name &
-           "\nlength:       " & $s.length &
-           "\nfinetune:     " & $s.finetune &
-           "\nvolume:       " & $s.volume &
-           "\nrepeatOffset: " & $s.repeatOffset &
-           "\nrepeatLength: " & $s.repeatLength
-
-
+# TODO move into illwill
 type GraphicsChars = object
   boxHoriz:     string
   boxHorizUp:   string
@@ -137,8 +61,19 @@ let gfxCharsAscii = GraphicsChars(
   boxUpLeft:    "+"
 )
 
+# TODO belongs to illwill
 # Global variable to hold the set of gfx chars to use
 var gGfx: GraphicsChars
+
+when defined(windows):
+  gGfx = gfxCharsCP850
+else:
+  when defined(posix):
+    import os
+    if "utf" in getEnv("LANG").toLowerAscii:
+      gGfx = gfxCharsUnicode
+  else:
+    gGfx = gfxCharsAscii
 
 
 type TextColor = object
@@ -158,9 +93,16 @@ type Theme = object
   cursor:     TextColor
   cursorBg:   BackgroundColor
 
+include themes
+
 # Global variable to hold the current theme
 var gTheme: Theme
 
+gTheme = themes[0]
+
+proc setTheme*(n: Natural) =
+  if n <= themes.high:
+    gTheme = themes[n]
 
 template setColor(t: TextColor) =
   resetAttributes(stdout)
@@ -183,6 +125,7 @@ proc drawPatternViewBorder(numTracks: int, mid, sep, last: string) =
     else:
       put last
   put "\n"
+
 
 proc drawPatternViewTopBorder(numTracks: int) =
   drawPatternViewBorder(numTracks, mid  = gGfx.boxHoriz,
@@ -259,13 +202,14 @@ proc drawRow(patt: Pattern, rowNum, trackLo, trackHi: int, hilite: bool) =
 
   put "\n"
 
-proc drawPlaybackState(ps: PlaybackState) =
+
+proc drawPlaybackState*(ps: PlaybackState) =
   put "Songname: "
   put ps.module.songName
 
   cursorDown(stdout)
   setCursorXPos(0)
-  put "Songpos:  "
+  put "Position: "
   put $ps.songPos
   put "/"
   put $ps.module.songLength
@@ -281,8 +225,9 @@ proc drawPlaybackState(ps: PlaybackState) =
   put "         Speed: "
   put $ps.ticksPerRow
 
-proc drawPatternView(patt: Pattern,
-                     currRow, maxRows, startTrack, maxTracks: int) =
+
+proc drawPatternView*(patt: Pattern,
+                      currRow, maxRows, startTrack, maxTracks: int) =
   assert currRow < ROWS_PER_PATTERN
 
   var

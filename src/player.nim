@@ -1,5 +1,9 @@
 import math
 
+import module
+
+import audio/common
+
 # FAQ: BPM/SPD/Rows/Ticks etc
 # https://modarchive.org/forums/index.php?topic=2709.0
 #
@@ -9,7 +13,7 @@ import math
 #
 
 const
-  DEFAULT_BEATS_PER_MIN = 125
+  DEFAULT_TEMPO         = 125
   DEFAULT_TICKS_PER_ROW = 6
   REPEAT_LENGTH_MIN     = 3
   MAX_VOLUME            = 0x40
@@ -31,6 +35,40 @@ const vibratoTable = [
   180, 161, 141, 120,  97,  74,  49,  24
 ]
 
+type ChannelState* = enum
+  csPlaying, csMuted, csDimmed
+
+type Channel = ref object
+  currSample:     Sample
+  samplePos:      float
+  period:         int
+  pan:            int
+  volume:         int
+  volumeScalar:   float
+  sampleStep:     float
+  portaToNote:    int
+  portaSpeed:     int
+  volumeSlide:    int
+  vibratoPos:     int
+  vibratoSign:    int
+  vibratoSpeed:   int
+  vibratoDepth:   int
+  offset:         int
+
+type PlaybackState* = object
+  module*:             Module
+  tempo*:              int
+  ticksPerRow*:        int
+  songPos*:            int
+  currRow*:            int
+  currTick:            int
+  tickFramesRemaining: int
+  channels:            seq[Channel]
+  channelState*:       seq[ChannelState]
+  jumpRow:             int
+  jumpSongPos:         int
+  nextSongPos*:        int    # TODO this should be done in a better way
+
 proc newChannel(): Channel =
   var ch = new Channel
   ch.period = -1
@@ -38,9 +76,9 @@ proc newChannel(): Channel =
   ch.vibratoSign = 1
   result = ch
 
-proc initPlaybackState(ps: var PlaybackState, module: Module) =
+proc initPlaybackState*(ps: var PlaybackState, module: Module) =
   ps.module = module
-  ps.tempo = DEFAULT_BEATS_PER_MIN
+  ps.tempo = DEFAULT_TEMPO
   ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
   ps.jumpRow = -1
   ps.jumpSongPos = -1
@@ -431,8 +469,8 @@ proc advancePlayPosition(ps: var PlaybackState, sampleRate: int) =
       updateChannelsInbetweenTick(ps, sampleRate)
 
 
-proc render(ps: var PlaybackState, samples: AudioBufferPtr, numFrames: int,
-            sampleRate: int) =
+proc render*(ps: var PlaybackState, samples: AudioBufferPtr, numFrames: int,
+             sampleRate: int) =
 
   # TODO get rid of this, only needed on init or after the sample rate has
   # changed
@@ -462,5 +500,4 @@ proc render(ps: var PlaybackState, samples: AudioBufferPtr, numFrames: int,
     if ps.tickFramesRemaining == 0:
       advancePlayPosition(ps, sampleRate)
       ps.tickFramesRemaining = framesPerTick(ps, sampleRate)
-
 
