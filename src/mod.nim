@@ -22,7 +22,7 @@ const ROW_JUMP = 8
 var gSampleRate: int
 
 proc audioCb(samples: AudioBufferPtr, numFrames: int) {.cdecl, gcsafe.} =
-  render(gPlaybackState, samples, numFrames, gSampleRate)
+  render(gPlaybackState, samples, numFrames)
 
 
 proc quitProc() {.noconv.} =
@@ -67,13 +67,13 @@ proc main() =
     quit(1)
 
   # Init audio stuff
-  initPlaybackState(gPlaybackState, module)
-
   if not audio.initAudio():
     echo audio.getLastError()
     quit(1)
 
   gSampleRate = audio.getSampleRate()
+
+  initPlaybackState(gPlaybackState, gSampleRate, module)
 
   if not audio.startPlayback(audioCb):
     echo audio.getLastError()
@@ -83,7 +83,7 @@ proc main() =
   system.addQuitProc(quitProc)
 
   consoleInit()
-  enterFullscreen()
+#  enterFullscreen()
   hideCursor()
 
   let (w, h) = terminalSize()

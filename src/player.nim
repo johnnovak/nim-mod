@@ -36,6 +36,7 @@ type ChannelState* = enum
 
 type Channel = ref object
   currSample:     Sample
+  nextSample:     Sample
   samplePos:      float
   period:         int
   pan:            int
@@ -44,7 +45,6 @@ type Channel = ref object
   sampleStep:     float
   portaToNote:    int
   portaSpeed:     int
-  volumeSlide:    int
   vibratoPos:     int
   vibratoSign:    int
   vibratoSpeed:   int
@@ -53,6 +53,7 @@ type Channel = ref object
 
 type PlaybackState* = object
   module*:             Module
+  sampleRate:          int
   tempo*:              int
   ticksPerRow*:        int
   songPos*:            int
@@ -72,8 +73,10 @@ proc newChannel(): Channel =
   ch.vibratoSign = 1
   result = ch
 
-proc initPlaybackState*(ps: var PlaybackState, module: Module) =
+proc initPlaybackState*(ps: var PlaybackState,
+                        sampleRate: int, module: Module) =
   ps.module = module
+  ps.sampleRate = sampleRate
   ps.tempo = DEFAULT_TEMPO
   ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
   ps.currRow = -1
@@ -96,14 +99,14 @@ proc initPlaybackState*(ps: var PlaybackState, module: Module) =
     ps.channels[3].pan = 0x00
 
 
-proc framesPerTick(ps: PlaybackState, sampleRate: int): int =
+proc framesPerTick(ps: PlaybackState): int =
   let
     # 2500 / 125 (default tempo) gives the default 20 ms per tick
     # that corresponds to 50Hz PAL VBL
     # See: "FAQ: BPM/SPD/Rows/Ticks etc"
     # https://modarchive.org/forums/index.php?topic=2709.0
     millisPerTick  = 2500 / ps.tempo
-    framesPerMilli = sampleRate / 1000
+    framesPerMilli = ps.sampleRate / 1000
 
   result = int(millisPerTick * framesPerMilli)
 
@@ -115,7 +118,10 @@ proc render(ch: Channel, samples: AudioBufferPtr,
   for i in 0..<numFrames:
     var s: float
     if ch.currSample != nil:
-      if ch.volume == 0 or ch.period == -1:
+      if ch.volume == 0 or ch.period == -1 or
+        ch.samplePos > (ch.currSample.length).float:
+        # this check works because of the extra 1 zero byte we've added at the
+        # end of every sample to make LERP easier
         s = 0
       else:
         # no interpolation
@@ -134,12 +140,14 @@ proc render(ch: Channel, samples: AudioBufferPtr,
         ch.samplePos += ch.sampleStep
 
         if ch.currSample.repeatLength >= REPEAT_LENGTH_MIN:
-          if ch.samplePos.int >= ch.currSample.repeatOffset +
-                                 ch.currSample.repeatLength:
-            ch.samplePos = ch.currSample.repeatOffset.float
+          if ch.samplePos >= (ch.currSample.repeatOffset +
+                              ch.currSample.repeatLength).float:
+            # sample swap
+            if ch.nextSample != nil:
+              ch.currSample = ch.nextSample
+              ch.nextSample = nil
 
-        elif ch.samplePos > (ch.currSample.length - 1).float:
-          ch.volume = 0     # sample has finished playing, nothing to do
+            ch.samplePos = ch.currSample.repeatOffset.float
     else:
       s = 0
 
@@ -176,267 +184,316 @@ proc updateVolumeScalar(ch: Channel) =
   let vol_dB = 20 * log10(ch.volume / MAX_VOLUME)
   ch.volumeScalar = pow(10.0, vol_dB / 20) * AMPLIFICATION
 
-proc updateChannelsInbetweenTick(ps: var PlaybackState, sampleRate: int) =
-  let patt = ps.module.patterns[ps.module.songPositions[ps.songPos]]
+# Effects
 
-  for chanIdx in 0..ps.channels.high:
-    let cell = patt.tracks[chanIdx].rows[ps.currRow]
-    var ch = ps.channels[chanIdx]
-
-    let
-      cmd = (cell.effect and 0xf00) shr 8
-      x   = (cell.effect and 0x0f0) shr 4
-      y   =  cell.effect and 0x00f
-      xy  =  cell.effect and 0x0ff
-
-    case cmd:
-    of 0x0:   # arpeggio
-      if ch.volume > 0 and x > 0 and y > 0:
-        var period: int
-        case ps.currTick mod 3:
-        of 0: period = ch.period
-        of 1: period = periodTable[findClosestNote(ch.currSample.finetune,
-                                                   ch.period) + x]
-        of 2: period = periodTable[findClosestNote(ch.currSample.finetune,
-                                                   ch.period) + y]
-        else: discard
-        updateSampleStep(ch, period, sampleRate)
-
-    of 0x1:   # portamento up
-      ch.period = max(ch.period - xy, MIN_PERIOD)
-      updateSampleStep(ch, sampleRate)
-
-    of 0x2:   # portamento down
-      ch.period = min(ch.period + xy, MAX_PERIOD)
-      updateSampleStep(ch, sampleRate)
-
-    of 0x7:   # tremolo
-      discard
-
-    of 0xe:   # extended effects
-      case x:
-      of 0x9:   # retrigger
-        if cell.note != NOTE_NONE and y != 0 and ps.currTick mod y == 0:
-          ch.samplePos = 0
-          updateSampleStep(ch, sampleRate)
-
-      of 0xc:   # note cut
-        if ps.currTick == y:
-          ch.volume = 0
-
-      of 0xd:   # note delay
-        if cell.note != NOTE_NONE and ps.currTick == y:
-          ch.volume = ch.currSample.volume
-          updateVolumeScalar(ch)
-
-      of 0xe:   # pattern delay
-        discard
-      of 0xf:   # invert loop
-        discard
-      else: discard
-
-    else: discard
-
-    # tone portamento
-    if cmd == 0x3 or  # tone portamento
-       cmd == 0x5:    # volume slide + tone portamento
-
-      if ch.portaToNote != NOTE_NONE and ch.period > -1:
-        let toPeriod = periodTable[finetunedNote(ch.currSample,
-                                                 ch.portaToNote)]
-        if ch.period < toPeriod:
-          ch.period = min(ch.period + ch.portaSpeed, toPeriod)
-          updateSampleStep(ch, sampleRate)
-
-        elif ch.period > toPeriod:
-          ch.period = max(ch.period - ch.portaSpeed, toPeriod)
-          updateSampleStep(ch, sampleRate)
-
-    if cmd == 0x4 or  # vibrato
-       cmd == 0x6:    # volume slide + vibrato
-
-      ch.vibratoPos += ch.vibratoSpeed
-      if ch.vibratoPos > vibratoTable.high:
-        ch.vibratoPos -= vibratoTable.len
-        ch.vibratoSign *= -1
-
-      let vibratoPeriod = ch.vibratoSign * ((vibratoTable[ch.vibratoPos] *
-                                             ch.vibratoDepth) div 128)
-      updateSampleStep(ch, ch.period + vibratoPeriod, sampleRate)
-
-    # volume slide
-    if cmd == 0xa or  # volume slide
-       cmd == 0x5 or  # volume slide + tone portamento
-       cmd == 0x6:    # volume slide + vibrato
-
-      if x > 0:
-        ch.volume = min(ch.volume + x, MAX_VOLUME)
-        updateVolumeScalar(ch)
-        ch.volumeSlide = x
-      elif y > 0:
-        ch.volume = max(ch.volume - y, 0)
-        updateVolumeScalar(ch)
-        ch.volumeSlide = -y
-      else:
-        if ch.volumeSlide > 0:
-          ch.volume = min(ch.volume + x, MAX_VOLUME)
-          updateVolumeScalar(ch)
-        elif ch.volumeSlide < 0:
-          ch.volume = max(ch.volume - y, 0)
-          updateVolumeScalar(ch)
+proc doArpeggio(ps: PlaybackState, ch: Channel, note1, note2: int) =
+  if ps.currTick > 0:
+    if ch.currSample != nil and ch.volume > 0 and (note1 > 0 or note2 > 0):
+      var period = ch.period
+      case ps.currTick mod 3:
+      of 1:
+        if note1 > 0:
+          period = periodTable[findClosestNote(ch.currSample.finetune,
+                                                   ch.period) + note1]
+      of 2:
+        if note2 > 0:
+          period = periodTable[findClosestNote(ch.currSample.finetune,
+                                                   ch.period) + note2]
+      else: assert false
+      updateSampleStep(ch, period, ps.sampleRate)
 
 
-proc updateChannelsFirstTick(ps: var PlaybackState, sampleRate: int) =
-  let patt = ps.module.patterns[ps.module.songPositions[ps.songPos]]
+proc doSlideUp(ps: PlaybackState, ch: Channel, speed: int) =
+  if ps.currTick > 0:
+    ch.period = max(ch.period - speed, MIN_PERIOD)
+    updateSampleStep(ch, ps.sampleRate)
 
-  for chanIdx in 0..ps.channels.high:
-    let cell = patt.tracks[chanIdx].rows[ps.currRow]
-    var ch = ps.channels[chanIdx]
+proc doSlideDown(ps: PlaybackState, ch: Channel, speed: int) =
+  if ps.currTick > 0:
+    ch.period = min(ch.period + speed, MAX_PERIOD)
+    updateSampleStep(ch, ps.sampleRate)
 
-    let
-      cmd = (cell.effect and 0xf00) shr 8
-      x   = (cell.effect and 0x0f0) shr 4
-      y   =  cell.effect and 0x00f
-      xy  =  cell.effect and 0x0ff
 
-    if cell.sampleNum > 0:
-      if cell.sampleNum <= ps.module.samples.high and
-         ps.module.samples[cell.sampleNum].data != nil:
+proc tonePortamento(ps: PlaybackState, ch: Channel) =
+  if ch.portaToNote != NOTE_NONE and ch.period > -1:
+    let toPeriod = periodTable[finetunedNote(ch.currSample,
+                                             ch.portaToNote)]
+    if ch.period < toPeriod:
+      ch.period = min(ch.period + ch.portaSpeed, toPeriod)
+      updateSampleStep(ch, ps.sampleRate)
 
-        ch.currSample = ps.module.samples[cell.sampleNum]
-        ch.volume = ch.currSample.volume
-        updateVolumeScalar(ch)
-      else:
-        ch.volume = 0
-        ch.volumeScalar = 0
+    elif ch.period > toPeriod:
+      ch.period = max(ch.period - ch.portaSpeed, toPeriod)
+      updateSampleStep(ch, ps.sampleRate)
 
-    if cmd != 0x3 and cmd != 0x5 and
-       cell.note != NOTE_NONE and ch.currSample != nil:
+proc doTonePortamento(ps: PlaybackState, ch: Channel, speed: int,
+                      note: int) =
+  if ps.currTick == 0:
+    if note != NOTE_NONE:
+      ch.portaToNote = note
+    if speed != 0:
+      ch.portaSpeed = speed
+  else:
+    tonePortamento(ps, ch)
 
-      ch.period = periodTable[finetunedNote(ch.currSample, cell.note)]
-      updateSampleStep(ch, sampleRate)
-      ch.samplePos = 0
 
-    updateSampleStep(ch, sampleRate)
+proc vibrato(ps: PlaybackState, ch: Channel) =
+  if ps.currTick > 0:
+    ch.vibratoPos += ch.vibratoSpeed
+    if ch.vibratoPos > vibratoTable.high:
+      ch.vibratoPos -= vibratoTable.len
+      ch.vibratoSign *= -1
 
-    case cmd:
-    of 0x3:   # tone portamento
-      if cell.note != NOTE_NONE:
-        ch.portaToNote = cell.note
-      if xy != 0:
-        ch.portaSpeed = xy
+    let vibratoPeriod = ch.vibratoSign * ((vibratoTable[ch.vibratoPos] *
+                                           ch.vibratoDepth) div 128)
+    updateSampleStep(ch, ch.period + vibratoPeriod, ps.sampleRate)
 
-    of 0x4:   # vibrato
-      if cell.note != NOTE_NONE:
-        ch.vibratoPos = 0
-        ch.vibratoSign = 1
+proc doVibrato(ps: PlaybackState, ch: Channel, speed, depth: int,
+               note: int) =
+  if ps.currTick == 0:
+    if note != NOTE_NONE:
+      ch.vibratoPos = 0
+      ch.vibratoSign = 1
+    if speed > 0: ch.vibratoSpeed = speed
+    if depth > 0: ch.vibratoDepth = depth
+  else:
+    vibrato(ps, ch)
 
-      if x > 0: ch.vibratoSpeed = x 
-      if y > 0: ch.vibratoDepth = y 
 
-    of 0x5:   # volume slide + tone portamento
-      if cell.note != NOTE_NONE:
-        ch.portaToNote = cell.note
-
-    of 0x7:   # tremolo
-      discard
-
-    of 0x8:   # set panning
-      discard
-
-    of 0x9:   # sample offset
-      if cell.note != NOTE_NONE:
-        var offset: int
-        if xy > 0:
-          offset = xy shl 8
-          ch.offset = offset
-        else:
-          offset = ch.offset
-
-        if offset <= ch.currSample.length:
-          ch.samplePos = offset.float
-        else:
-          ch.volume = 0       # XXX vol 0 or don't play at all?
-
-    of 0xb:   # position jump
-      discard
-
-    of 0xc:   # set volume
-      ch.volume = min(xy, MAX_VOLUME)
+proc volumeSlide(ps: PlaybackState, ch: Channel, upSpeed, downSpeed: int) =
+  if ps.currTick > 0:
+    if upSpeed > 0:
+      ch.volume = min(ch.volume + upSpeed, MAX_VOLUME)
+      updateVolumeScalar(ch)
+    elif downSpeed > 0:
+      ch.volume = max(ch.volume - downSpeed, 0)
       updateVolumeScalar(ch)
 
-    of 0xd:   # pattern break
-      if ps.songPos < ps.module.songLength-1:
-        ps.jumpSongPos = ps.songPos + 1
+proc doTonePortamentoAndVolumeSlide(ps: PlaybackState, ch: Channel,
+                                    upSpeed, downSpeed: int,
+                                    note: int) =
+  if ps.currTick == 0:
+    if note != NOTE_NONE:
+      ch.portaToNote = note
+  else:
+    tonePortamento(ps, ch)
+    volumeSlide(ps, ch, upSpeed, downSpeed)
+
+proc doVibratoAndVolumeSlide(ps: PlaybackState, ch: Channel,
+                             upSpeed, downSpeed: int) =
+  if ps.currTick > 0:
+    vibrato(ps, ch)
+    volumeSlide(ps, ch, upSpeed, downSpeed)
+
+proc doTremolo(ps: PlaybackState, ch: Channel, speed, depth: int) =
+  discard
+
+proc doSetSampleOffset(ps: PlaybackState, ch: Channel, offset: int,
+                       note: int) =
+  if ps.currTick == 0:
+    if note != NOTE_NONE:
+      var offs: int
+      if offset > 0:
+        offs = offset shl 8
+        ch.offset = offs
       else:
-        ps.jumpSongPos = 0
-      ps.jumpRow = min(x*10 + y, ROWS_PER_PATTERN-1)
+        offs = ch.offset
 
-    of 0xe:   # extended effects
-      case x:
-      of 0x1:   # fine portamento up
-        ch.period = max(ch.period - y, MIN_PERIOD)
-        updateSampleStep(ch, sampleRate)
-
-      of 0x2:   # fine portamento down
-        ch.period = min(ch.period + y, MAX_PERIOD)
-        updateSampleStep(ch, sampleRate)
-
-      of 0x3:   # glissando control
-        discard
-
-      of 0x4:   # set vibrato waveform
-        discard
-
-      of 0x5:   # set finetune
-        if ch.currSample != nil:
-          ch.currSample.finetune = y  # XXX is this correct?
-        discard
-
-      of 0x6:   # pattern loop start / pattern loop
-        discard
-
-      of 0x7:   # set tremolo waveform
-        discard
-
-      of 0x8:   # set panning
-        discard
-
-      of 0xa:   # fine volume slide up
-        ch.volume = min(ch.volume + y, MAX_VOLUME)
-        updateVolumeScalar(ch)
-
-      of 0xb:   # fine volume slide down
-        ch.volume = max(ch.volume - y, 0)
-        updateVolumeScalar(ch)
-
-      of 0xc:   # note cut
-        if y == 0:
-          ch.volume = 0
-
-      of 0xd:   # note delay
+      if offs <= ch.currSample.length:
+        ch.samplePos = offs.float
+      else:
         ch.volume = 0
-        ch.volumeScalar = 0
-
-      of 0xe:   # pattern delay
-        discard
-
-      of 0xf:   # invert loop
-        discard
-
-      else: discard
-
-    of 0xf:   # set speed / tempo
-      if xy < 0x20:   # TODO multiple speeds on same row
-        ps.ticksPerRow = xy
-      else:
-        ps.tempo = xy
-
-    else: discard
 
 
-proc advancePlayPosition(ps: var PlaybackState, sampleRate: int) =
-  # XXX
+proc doVolumeSlide(ps: PlaybackState, ch: Channel, upSpeed, downSpeed: int) =
+  volumeSlide(ps, ch, upSpeed, downSpeed)
+
+proc doPositionJump(ps: PlaybackState, ch: Channel, songPos: int) =
+  discard
+
+proc doSetVolume(ps: PlaybackState, ch: Channel, volume: int) =
+  if ps.currTick == 0:
+    ch.volume = min(volume, MAX_VOLUME)
+    updateVolumeScalar(ch)
+
+proc doPatternBreak(ps: var PlaybackState, ch: Channel, breakPos: int) =
+  if ps.currTick == 0:
+    if ps.songPos < ps.module.songLength-1:
+      ps.jumpSongPos = ps.songPos + 1
+    else:
+      ps.jumpSongPos = 0
+    ps.jumpRow = min(breakPos, ROWS_PER_PATTERN-1)
+
+proc doSetFilter(ps: PlaybackState, ch: Channel, state: int) =
+  discard
+
+proc doFineSlideUp(ps: PlaybackState, ch: Channel, value: int) =
+  if ps.currTick == 0:
+    ch.period = max(ch.period - value, MIN_PERIOD)
+    updateSampleStep(ch, ps.sampleRate)
+
+proc doFineSlideDown(ps: PlaybackState, ch: Channel, value: int) =
+  if ps.currTick == 0:
+    ch.period = min(ch.period + value, MAX_PERIOD)
+    updateSampleStep(ch, ps.sampleRate)
+
+proc doGlissandoControl(ps: PlaybackState, ch: Channel, state: int) =
+  discard
+
+proc doSetVibratoWaveform(ps: PlaybackState, ch: Channel, value: int) =
+  discard
+
+proc doSetFinetune(ps: PlaybackState, ch: Channel, value: int) =
+  if ps.currTick == 0:
+    if ch.currSample != nil:
+      ch.currSample.finetune = value  # XXX is this correct?
+
+proc doPatternLoop(ps: var PlaybackState, ch: Channel, numRepeats: int) =
+  discard
+
+proc doSetTremoloWaveform(ps: PlaybackState, ch: Channel, value: int) =
+  discard
+
+proc doRetrigNote(ps: PlaybackState, ch: Channel, ticks, note: int) =
+  if ps.currTick > 0:
+    if note != NOTE_NONE and ticks != 0 and ps.currTick mod ticks == 0:
+      ch.samplePos = 0
+
+proc doFineVolumeSlideUp(ps: PlaybackState, ch: Channel, value: int) =
+  if ps.currTick == 0:
+    ch.volume = min(ch.volume + value, MAX_VOLUME)
+    updateVolumeScalar(ch)
+
+proc doFineVolumeSlideDown(ps: PlaybackState, ch: Channel, value: int) =
+  if ps.currTick == 0:
+    ch.volume = max(ch.volume - value, 0)
+    updateVolumeScalar(ch)
+
+proc doNoteCut(ps: PlaybackState, ch: Channel, ticks: int) =
+  if ps.currTick == 0:
+    if ticks == 0:
+      ch.volume = 0
+  else:
+    if ps.currTick == ticks:
+      ch.volume = 0
+
+proc doNoteDelay(ps: PlaybackState, ch: Channel, ticks, note: int) =
+  if ps.currTick > 0:
+    if note != NOTE_NONE and ps.currTick == ticks:
+      # sample swap
+      if ch.nextSample != nil:
+        ch.currSample = ch.nextSample
+        ch.nextSample = nil
+
+      ch.period = periodTable[finetunedNote(ch.currSample, note)]
+      ch.samplePos = 0
+
+proc doPatternDelay(ps: PlaybackState, ch: Channel, delay: int) =
+  discard
+
+proc doInvertLoop(ps: PlaybackState, ch: Channel, speed: int) =
+  discard
+
+proc doSetSpeed(ps: var PlaybackState, ch: Channel, value: int) =
+  if ps.currTick == 0:
+    if value < 0x20:
+      ps.ticksPerRow = value
+    else:
+      ps.tempo = value
+
+proc doTick(ps: var PlaybackState) =
+  let patt = ps.module.patterns[ps.module.songPositions[ps.songPos]]
+
+  for chanIdx in 0..ps.channels.high:
+    let cell = patt.tracks[chanIdx].rows[ps.currRow]
+    var ch = ps.channels[chanIdx]
+
+    let
+      note =  cell.note
+      cmd  = (cell.effect and 0xf00) shr 8
+      x    = (cell.effect and 0x0f0) shr 4
+      y    =  cell.effect and 0x00f
+      xy   =  cell.effect and 0x0ff
+
+    if ps.currTick == 0:
+      if cell.sampleNum > 0:
+        if cell.sampleNum <= ps.module.samples.high and
+           ps.module.samples[cell.sampleNum].data != nil:
+
+          ch.volume = ps.module.samples[cell.sampleNum].volume
+          updateVolumeScalar(ch)
+
+          if cmd != 0x3 and cmd != 0x5 and            # tone portamento
+             ((cell.effect and 0xff0) != 0xed0) and   # note delay
+             cell.note != NOTE_NONE:
+
+            ch.currSample = ps.module.samples[cell.sampleNum]
+            ch.period = periodTable[finetunedNote(ch.currSample, cell.note)]
+            ch.samplePos = 0
+          else:
+            # sample swap
+            ch.nextSample = ps.module.samples[cell.sampleNum]
+        else:
+          ch.currSample = nil
+
+      else: # cell.sampleNum == 0
+        if cmd != 0x3 and cmd != 0x5 and            # tone portamento
+           ((cell.effect and 0xff0) != 0xed0) and   # node delay
+           cell.note != NOTE_NONE:
+
+          # sample swap
+          if ch.nextSample != nil:
+            ch.currSample = ch.nextSample
+            ch.nextSample = nil
+
+          ch.period = periodTable[finetunedNote(ch.currSample, cell.note)]
+          ch.samplePos = 0
+
+    updateSampleStep(ch, ps.sampleRate)
+
+    case cmd:
+    of 0x0: doArpeggio(ps, ch, x, y)
+    of 0x1: doSlideUp(ps, ch, xy)
+    of 0x2: doSlideDown(ps, ch, xy)
+    of 0x3: doTonePortamento(ps, ch, xy, note)
+    of 0x4: doVibrato(ps, ch, x, y, note)
+    of 0x5: doTonePortamentoAndVolumeSlide(ps, ch, x, y, note)
+    of 0x6: doVibratoAndVolumeSlide(ps, ch, x, y)
+    of 0x7: doTremolo(ps, ch, x, y)
+    of 0x8: discard  # SetPanning
+    of 0x9: doSetSampleOffset(ps, ch, xy, note)
+    of 0xa: doVolumeSlide(ps, ch, x, y)
+    of 0xb: doPositionJump(ps, ch, xy)
+    of 0xc: doSetVolume(ps, ch, xy)
+    of 0xd: doPatternBreak(ps, ch, x*10 + y)
+
+    of 0xe:
+      case x:
+      of 0x0: doSetFilter(ps, ch, y)
+      # extended effects
+      of 0x1: doFineSlideUp(ps, ch, y)
+      of 0x2: doFineSlideDown(ps, ch, y)
+      of 0x3: doGlissandoControl(ps, ch, y)
+      of 0x4: doSetVibratoWaveform(ps, ch, y)
+      of 0x5: doSetFinetune(ps, ch, y)
+      of 0x6: doPatternLoop(ps, ch, y)
+      of 0x7: doSetTremoloWaveform(ps, ch, y)
+      of 0x8: discard  # SetPanning (coarse)
+      of 0x9: doRetrigNote(ps, ch, y, note)
+      of 0xa: doFineVolumeSlideUp(ps, ch, y)
+      of 0xb: doFineVolumeSlideDown(ps, ch, y)
+      of 0xc: doNoteCut(ps, ch, y)
+      of 0xd: doNoteDelay(ps, ch, y, note)
+      of 0xe: doPatternDelay(ps, ch, y)
+      of 0xf: doInvertLoop(ps, ch, y)
+      else: assert false
+
+    of 0xf: doSetSpeed(ps, ch, xy)
+    else: assert false
+
+
+proc advancePlayPosition(ps: var PlaybackState) =
+  # TODO changing play position should be done properly
   if ps.nextSongPos >= 0:
     ps.songPos = ps.nextSongPos
     ps.currRow = 0
@@ -465,14 +522,12 @@ proc advancePlayPosition(ps: var PlaybackState, sampleRate: int) =
           ps.songPos += 1
           # TODO check song length
 
-      updateChannelsFirstTick(ps, sampleRate)
-    else:
-      updateChannelsInbetweenTick(ps, sampleRate)
+    doTick(ps)
 
 
-proc render*(ps: var PlaybackState, samples: AudioBufferPtr, numFrames: int,
-             sampleRate: int) =
+proc render*(ps: var PlaybackState, samples: AudioBufferPtr, numFrames: int) =
 
+  # clear buffer
   for i in 0..<numFrames:
     samples[i*2] = 0
     samples[i*2+1] = 0
@@ -481,8 +536,8 @@ proc render*(ps: var PlaybackState, samples: AudioBufferPtr, numFrames: int,
 
   while framePos < numFrames-1:
     if ps.tickFramesRemaining == 0:
-      advancePlayPosition(ps, sampleRate)
-      ps.tickFramesRemaining = framesPerTick(ps, sampleRate)
+      advancePlayPosition(ps)
+      ps.tickFramesRemaining = framesPerTick(ps)
 
     var frameCount = min(numFrames - framePos, ps.tickFramesRemaining)
 
