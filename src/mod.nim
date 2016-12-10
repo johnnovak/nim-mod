@@ -1,7 +1,7 @@
 import parseopt, os, strutils
 
 import illwill/illwill
-import audio/linux/alsa/alsadriver
+import audio/linux/alsa/alsadriver as audio
 
 import module
 import loader
@@ -17,6 +17,12 @@ var
   gPlaybackState: PlaybackState
 
 const ROW_JUMP = 8
+
+
+var gSampleRate: int
+
+proc audioCb(samples: AudioBufferPtr, numFrames: int) {.cdecl, gcsafe.} =
+  render(gPlaybackState, samples, numFrames, gSampleRate)
 
 
 proc quitProc() {.noconv.} =
@@ -60,6 +66,19 @@ proc main() =
     echo "Error loading module: " & getCurrentExceptionMsg()
     quit(1)
 
+  # Init audio stuff
+  initPlaybackState(gPlaybackState, module)
+
+  if not audio.initAudio():
+    echo audio.getLastError()
+    quit(1)
+
+  gSampleRate = audio.getSampleRate()
+
+  if not audio.startPlayback(audioCb):
+    echo audio.getLastError()
+    quit(1)
+
   # Init console
   system.addQuitProc(quitProc)
 
@@ -69,15 +88,6 @@ proc main() =
 
   let (w, h) = terminalSize()
 
-  # Init audio stuff
-  initPlaybackState(gPlaybackState, module)
-
-  const gSampleRate = 44100
-
-  proc playerCallback(samples: AudioBufferPtr, numFrames: int) {.cdecl, gcsafe.} =
-    render(gPlaybackState, samples, numFrames, gSampleRate)
-
-  initAudio(playerCallback)
 
   var
     currPattern = 0
@@ -139,7 +149,7 @@ proc main() =
     of ord('4'): toggleMuteChannel(3)
 
     of ord('q'):
-      closeAudio()
+      discard audio.closeAudio()
       quit(0)
 
     else: discard

@@ -33,59 +33,60 @@ var
 
 
 proc setHwParams(handle: PcmPtr, params: HwParamsPtr,
-                 access: PcmAccess): cint =
+                 access: PcmAccess): (cint, string) =
 
   var err: cint
 
   # choose all parameters
   err = snd_pcm_hw_params_any(ghandle, params)
   if err < 0:
-    echo "Broken configuration for playback: no configurations available: " &
-         $snd_strerror(err)
-    return err
+    let msg =
+      "Broken configuration for playback: no configurations available: " &
+      $snd_strerror(err)
+    return (err, msg)
 
   # set the interleaved read/write format
   err = snd_pcm_hw_params_set_access(handle, params, access)
   if err < 0:
-    echo "Access type not available for playback: " & $snd_strerror(err)
-    return err
+    let msg = "Access type not available for playback: " &
+              $snd_strerror(err)
+    return (err, msg)
 
   # set the sample format
   err = snd_pcm_hw_params_set_format(handle, params, format)
   if err < 0:
-    echo "Sample format not available for playback: " &  $snd_strerror(err)
-    return err
+    let msg = "Sample format not available for playback: " &
+              $snd_strerror(err)
+    return (err, msg)
 
   # set the count of channels
   err = snd_pcm_hw_params_set_channels(handle, params, NUM_CHANNELS)
   if err < 0:
-    echo "Channels count (" & $NUM_CHANNELS & $") not available for playback: " &
-         $snd_strerror(err)
-    return err
+    let msg = "Channels count (" & $NUM_CHANNELS &
+              $") not available for playback: " & $snd_strerror(err)
+    return (err, msg)
 
   # set the stream rate
-  var rrate: cuint
-  rrate = rate
-  err = snd_pcm_hw_params_set_rate_near(handle, params, rrate.addr, nil)
+  err = snd_pcm_hw_params_set_rate_near(handle, params, rate.addr, nil)
   if err < 0:
-    echo "Rate " & $rate & "Hz not available for playback " &
-         $snd_strerror(err)
-    return err
+    let msg = "Rate " & $rate & "Hz not available for playback " &
+               $snd_strerror(err)
+    return (err, msg)
 
   # set the buffer time
   var dir: cint
   err = snd_pcm_hw_params_set_buffer_time_near(handle, params,
                                                buffer_time.addr, dir.addr)
   if err < 0:
-    echo "Unable to set buffer time " & $buffer_time & " for playback: " &
-         $snd_strerror(err)
-    return err
+    let msg = "Unable to set buffer time " & $buffer_time &
+              " for playback: " & $snd_strerror(err)
+    return (err, msg)
 
   var size: UFrames
   err = snd_pcm_hw_params_get_buffer_size(params, size.addr)
   if err < 0:
-    echo "Unable to get buffer size for playback: "  & $snd_strerror(err)
-    return err
+    let msg = "Unable to get buffer size for playback: "  & $snd_strerror(err)
+    return (err, msg)
 
   buffer_size = SFrames(size)
 
@@ -93,44 +94,44 @@ proc setHwParams(handle: PcmPtr, params: HwParamsPtr,
   err = snd_pcm_hw_params_set_period_time_near(handle, params,
                                                period_time.addr, dir.addr)
   if err < 0:
-    echo "Unable to set period time " & $period_time & " for playback: " &
-         $snd_strerror(err)
-    return err
+    let msg = "Unable to set period time " & $period_time &
+              " for playback: " & $snd_strerror(err)
+    return (err, msg)
 
   err = snd_pcm_hw_params_get_period_size(params, size.addr, dir.addr)
   if err < 0:
-    echo "Unable to get period size for playback: " & $snd_strerror(err)
-    return err
+    let msg = "Unable to get period size for playback: " & $snd_strerror(err)
+    return (err, msg)
 
   period_size = SFrames(size)
 
   # write the parameters to device
   err = snd_pcm_hw_params(handle, params)
   if err < 0:
-    echo "Unable to set hw params for playback: " & $snd_strerror(err)
-    return err
+    let msg = "Unable to set hw params for playback: " & $snd_strerror(err)
+    return (err, msg)
 
-  return 0
+  return (cint(0), "")
 
 
-proc setSwParams(handle: PcmPtr, swparams: SwParamsPtr): cint =
+proc setSwParams(handle: PcmPtr, swparams: SwParamsPtr): (cint, string) =
   var err: cint
 
   # get the current swparams
   err = snd_pcm_sw_params_current(handle, swparams)
   if err < 0:
-    echo "Unable to determine current swparams for playback: " &
-         $snd_strerror(err)
-    return err
+    let msg = "Unable to determine current swparams for playback: " &
+              $snd_strerror(err)
+    return (err, msg)
 
   # start the transfer when the buffer is almost full:
   # (buffer_size / avail_min) * avail_min
   let frames = UFrames((buffer_size / period_size).SFrames * period_size)
   err = snd_pcm_sw_params_set_start_threshold(handle, swparams, frames)
   if err < 0:
-    echo "Unable to set start threshold mode for playback: " &
-         $snd_strerror(err)
-    return err
+    let msg = "Unable to set start threshold mode for playback: " &
+              $snd_strerror(err)
+    return (err, msg)
 
   # allow the transfer when at least period_size samples can be processed or
   # disable this mechanism when period event is enabled (aka interrupt like
@@ -138,16 +139,16 @@ proc setSwParams(handle: PcmPtr, swparams: SwParamsPtr): cint =
   err = snd_pcm_sw_params_set_avail_min(handle, swparams,
                                         UFrames(period_size))
   if err < 0:
-    echo "Unable to set avail min for playback: " & $snd_strerror(err)
-    return err
+    let msg = "Unable to set avail min for playback: " & $snd_strerror(err)
+    return (err, msg)
 
   # write the parameters to the playback device */
   err = snd_pcm_sw_params(handle, swparams)
   if err < 0:
-    echo "Unable to set sw params for playback: " & $snd_strerror(err)
-    return err
+    let msg = "Unable to set sw params for playback: " & $snd_strerror(err)
+    return (err, msg)
 
-  return 0
+  return (cint(0), "")
 
 
 var ESTRPIPE* {.importc, header: "<errno.h>".}: cint
@@ -262,7 +263,8 @@ proc async_direct_callback(ahandler: AsyncHandlerPtr) {.cdecl.} =
       size -= frames
 
 
-proc startPlayback(handle: PcmPtr, audioCallback: AudioCallback) =
+proc startPlayback(handle: PcmPtr,
+                   audioCallback: AudioCallback): (bool, string) =
   var err, count: cint
 
   var ahandler: AsyncHandlerPtr
@@ -270,8 +272,7 @@ proc startPlayback(handle: PcmPtr, audioCallback: AudioCallback) =
                                   async_direct_callback,
                                   audioCallback)
   if err < 0:
-    echo "Unable to register async handler"
-    quit(1)
+    return (false, "Unable to register async handler")
 
   var
     offset, frames, size: UFrames
@@ -288,8 +289,7 @@ proc startPlayback(handle: PcmPtr, audioCallback: AudioCallback) =
       if err < 0:
         err = xrun_recovery(handle, err)
         if err < 0:
-          echo "MMAP begin avail error: " & $snd_strerror(err)
-          quit(1)
+          return (false, "MMAP begin avail error: " & $snd_strerror(err))
 
       var buffer =
         cast[AudioBufferPtr](cast[ByteAddress](areas[0].address) +%
@@ -303,20 +303,34 @@ proc startPlayback(handle: PcmPtr, audioCallback: AudioCallback) =
         var error = cint(if commitres >= 0: -EPIPE else: commitres.int32)
         err = xrun_recovery(handle, error)
         if err < 0:
-          echo "MMAP commit error: " & $snd_strerror(err)
-          quit(1)
+          return (false, "MMAP commit error: " & $snd_strerror(err))
 
       size -= frames
 
   err = snd_pcm_start(handle)
   if err < 0:
-    echo "Start error: %s\n" & $snd_strerror(err)
-    quit(1)
+    return (false, "Start error: %s\n" & $snd_strerror(err))
+
+  return (true, "")
 
 
-proc initAudio*(callback: AudioCallback) =
+var
+  gInitialised = false
+  gLastError = ""
+
+proc getLastError*(): string =
+  result = gLastError
+
+proc isInitialised*(): bool =
+  result = gInitialised
+
+proc initAudio*(): bool =
+  if gInitialised:
+    return false
+
   var
     err: cint
+    msg: string
     hwparams: HwParamsPtr
     swparams: SwParamsPtr
 
@@ -325,27 +339,54 @@ proc initAudio*(callback: AudioCallback) =
 
   err = snd_output_stdio_attach(gOutput.addr, stdout, 0)
   if err < 0:
-    echo "Output failed: %s\n" & $snd_strerror(err)
-    quit(0)
+    gLastError = "Output failed: %s\n" & $snd_strerror(err)
+    return false
 
   err = snd_pcm_open(gHandle.addr, device, SND_PCM_STREAM_PLAYBACK, 0)
   if err < 0:
-    echo  "Playback open error: " & $snd_strerror(err)
-    quit(0)
+    gLastError = "Playback open error: " & $snd_strerror(err)
+    return false
 
-  err = setHwParams(gHandle, hwparams, SND_PCM_ACCESS_MMAP_INTERLEAVED)
+  var errStr = ""
+  (err, msg) = setHwParams(gHandle, hwparams, SND_PCM_ACCESS_MMAP_INTERLEAVED)
   if err < 0:
-    echo "Setting of hwparams failed: " & $snd_strerror(err)
-    quit(1)
+    gLastError = "Setting of hwparams failed: " & msg
+    return false
 
-  err = setSwParams(gHandle, swparams)
+  (err, msg) = setSwParams(gHandle, swparams)
   if err < 0:
-    echo "Setting of swparams failed: " & $snd_strerror(err)
-    quit(1)
+    gLastError = "Setting of swparams failed: " & msg
+    return false
 
-  startPlayback(gHandle, callback)
+  gInitialised = true
+  gLastError = ""
+  return true
 
 
-proc closeAudio*() =
+proc getSampleRate*(): int =
+  if gInitialised:
+    result = int(rate)
+  else:
+    result = -1
+
+
+proc startPlayback*(callback: AudioCallback): bool =
+  if not gInitialised:
+    gLastError = "Not initialised"
+    return false
+
+  let (ok, msg) = startPlayback(gHandle, callback)
+  gLastError = msg
+  result = ok
+
+
+proc closeAudio*(): bool =
+  if not gInitialised:
+    gLastError = "Not initialised"
+    return false
+
   discard snd_pcm_close(gHandle)
+
+  gLastError = ""
+  return true
 
