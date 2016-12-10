@@ -1,4 +1,4 @@
-import os, strutils
+import parseopt, os, strutils
 
 import illwill/illwill
 import audio/linux/alsa/alsadriver
@@ -9,12 +9,14 @@ import player
 import display
 
 
-var gRedraw = true
-var gMaxRows = 32
+const VERSION = "0.1.0"
+
+var
+  gRedraw = true
+  gMaxRows = 32
+  gPlaybackState: PlaybackState
 
 const ROW_JUMP = 8
-
-var gPlaybackState: PlaybackState
 
 
 proc quitProc() {.noconv.} =
@@ -23,13 +25,42 @@ proc quitProc() {.noconv.} =
   exitFullscreen()
   showCursor()
 
-const SAMPLE_RATE = 44100
+proc printVersion() =
+  echo "nim-mod version " & VERSION
+  echo "Copyright (c) 2016 by John Novak"
 
-proc playerCallback(samples: AudioBufferPtr, numFrames: int) {.cdecl, gcsafe.} =
-  render(gPlaybackState, samples, numFrames, SAMPLE_RATE)
+proc printHelp() =
+  printVersion()
+  echo "\nUsage: nim-mod FILENAME"
 
 
 proc main() =
+  # Command line arguments handling
+  var filename = ""
+
+  for kind, key, val in getopt():
+    case kind:
+    of cmdArgument:
+      filename = key
+    of cmdLongOption, cmdShortOption:
+      case key:
+      of "help",    "h": printHelp();    quit(0)
+      of "version", "v": printVersion(); quit(0)
+    of cmdEnd: assert(false)
+
+  if filename == "":
+    printHelp()
+    quit(0)
+
+  # Load module
+  var module: Module
+  try:
+    module = loadModule(filename)
+  except:
+    echo "Error loading module: " & getCurrentExceptionMsg()
+    quit(1)
+
+  # Init console
   system.addQuitProc(quitProc)
 
   consoleInit()
@@ -38,9 +69,14 @@ proc main() =
 
   let (w, h) = terminalSize()
 
-  let module = loadModule("../data/condom corruption.mod")
-
+  # Init audio stuff
   initPlaybackState(gPlaybackState, module)
+
+  const gSampleRate = 44100
+
+  proc playerCallback(samples: AudioBufferPtr, numFrames: int) {.cdecl, gcsafe.} =
+    render(gPlaybackState, samples, numFrames, gSampleRate)
+
   initAudio(playerCallback)
 
   var
@@ -129,6 +165,7 @@ proc main() =
       gRedraw = false
 
     sleep(1)
+
 
 main()
 
