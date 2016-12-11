@@ -395,6 +395,7 @@ proc doNoteDelay(ps: PlaybackState, ch: Channel, ticks, note: int) =
       if ch.currSample != nil:
         ch.period = periodTable[finetunedNote(ch.currSample, note)]
         ch.samplePos = 0
+        setSampleStep(ch, ps.sampleRate)
 
 proc doPatternDelay(ps: PlaybackState, ch: Channel, delay: int) =
   discard
@@ -425,7 +426,7 @@ proc doTick(ps: var PlaybackState) =
 
     if ps.currTick == 0:
       if cell.sampleNum > 0:
-        if ps.module.samples[cell.sampleNum].data == nil:
+        if ps.module.samples[cell.sampleNum].data == nil:  # empty sample
           setVolume(ch, 0)
         else:
           setVolume(ch, ps.module.samples[cell.sampleNum].volume)
@@ -438,7 +439,6 @@ proc doTick(ps: var PlaybackState) =
             ch.period = periodTable[finetunedNote(ch.currSample, note)]
             ch.samplePos = 0
           else:
-            # sample swap
             ch.swapSample = ps.module.samples[cell.sampleNum]
 
       else: # cell.sampleNum == 0

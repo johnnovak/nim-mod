@@ -28,7 +28,7 @@ proc audioCb(samples: AudioBufferPtr, numFrames: int) {.cdecl, gcsafe.} =
 proc quitProc() {.noconv.} =
   resetAttributes()
   consoleDeinit()
-  exitFullscreen()
+#  exitFullscreen()
   showCursor()
 
 proc printVersion() =
