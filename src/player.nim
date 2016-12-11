@@ -36,7 +36,7 @@ type ChannelState* = enum
 
 type Channel = ref object
   currSample:     Sample
-  nextSample:     Sample
+  swapSample:     Sample
   samplePos:      float
   period:         int
   pan:            int
@@ -111,6 +111,14 @@ proc framesPerTick(ps: PlaybackState): int =
   result = int(millisPerTick * framesPerMilli)
 
 
+proc sampleSwap(ch: Channel) =
+  if ch.swapSample != nil:
+    ch.currSample = ch.swapSample
+    ch.swapSample = nil
+
+proc isLooped(s: Sample): bool =
+  return s.repeatLength >= REPEAT_LENGTH_MIN
+
 # TODO use float mix buffer
 proc render(ch: Channel, samples: AudioBufferPtr,
             frameOffset, numFrames: int) =
@@ -120,9 +128,7 @@ proc render(ch: Channel, samples: AudioBufferPtr,
     if ch.currSample == nil:
       s = 0
     else:
-      if ch.period == -1 or ch.samplePos > (ch.currSample.length).float:
-        # this check works because of the extra 1 zero byte we've added at the
-        # end of every sample to make LERP easier
+      if ch.period == -1 or ch.samplePos >= (ch.currSample.length).float:
         s = 0
       else:
         # no interpolation
@@ -140,14 +146,16 @@ proc render(ch: Channel, samples: AudioBufferPtr,
         # Advance sample position
         ch.samplePos += ch.sampleStep
 
-        if ch.currSample.repeatLength >= REPEAT_LENGTH_MIN:
+        if ch.currSample.isLooped():
           if ch.samplePos >= (ch.currSample.repeatOffset +
                               ch.currSample.repeatLength).float:
-            # sample swap
-            if ch.nextSample != nil:
-              ch.currSample = ch.nextSample
-              ch.nextSample = nil
+            sampleSwap(ch)
+            ch.samplePos = ch.currSample.repeatOffset.float
+        else:
+          if ch.samplePos >= (ch.currSample.length).float and
+             ch.swapSample != nil and ch.swapSample.isLooped():
 
+            sampleSwap(ch)
             ch.samplePos = ch.currSample.repeatOffset.float
 
     # TODO clean up panning
@@ -191,7 +199,7 @@ proc setVolume(ch: Channel, vol: int) =
 
 proc doArpeggio(ps: PlaybackState, ch: Channel, note1, note2: int) =
   if ps.currTick > 0:
-    if ch.currSample != nil and ch.volume > 0 and (note1 > 0 or note2 > 0):
+    if ch.currSample != nil and ch.volume > 0:
       var period = ch.period
       case ps.currTick mod 3:
       of 0: discard
@@ -219,7 +227,7 @@ proc doSlideDown(ps: PlaybackState, ch: Channel, speed: int) =
 
 
 proc tonePortamento(ps: PlaybackState, ch: Channel) =
-  if ch.portaToNote != NOTE_NONE and ch.period > -1:
+  if ch.portaToNote != NOTE_NONE and ch.period > -1 and ch.currSample != nil:
     let toPeriod = periodTable[finetunedNote(ch.currSample,
                                              ch.portaToNote)]
     if ch.period < toPeriod:
@@ -297,7 +305,7 @@ proc doTremolo(ps: PlaybackState, ch: Channel, speed, depth: int) =
 proc doSetSampleOffset(ps: PlaybackState, ch: Channel, offset: int,
                        note: int) =
   if ps.currTick == 0:
-    if note != NOTE_NONE:
+    if note != NOTE_NONE and ch.currSample != nil:
       var offs: int
       if offset > 0:
         offs = offset shl 8
@@ -308,8 +316,7 @@ proc doSetSampleOffset(ps: PlaybackState, ch: Channel, offset: int,
       if offs <= ch.currSample.length:
         ch.samplePos = offs.float
       else:
-        ch.volume = 0
-        ch.volumeScalar = 0
+        setVolume(ch, 0)
 
 
 proc doVolumeSlide(ps: PlaybackState, ch: Channel, upSpeed, downSpeed: int) =
@@ -376,23 +383,18 @@ proc doFineVolumeSlideDown(ps: PlaybackState, ch: Channel, value: int) =
 proc doNoteCut(ps: PlaybackState, ch: Channel, ticks: int) =
   if ps.currTick == 0:
     if ticks == 0:
-      ch.volume = 0
-      ch.volumeScalar = 0
+      setVolume(ch, 0)
   else:
     if ps.currTick == ticks:
-      ch.volume = 0
-      ch.volumeScalar = 0
+      setVolume(ch, 0)
 
 proc doNoteDelay(ps: PlaybackState, ch: Channel, ticks, note: int) =
   if ps.currTick > 0:
     if note != NOTE_NONE and ps.currTick == ticks:
-      # sample swap
-      if ch.nextSample != nil:
-        ch.currSample = ch.nextSample
-        ch.nextSample = nil
-
-      ch.period = periodTable[finetunedNote(ch.currSample, note)]
-      ch.samplePos = 0
+      sampleSwap(ch)
+      if ch.currSample != nil:
+        ch.period = periodTable[finetunedNote(ch.currSample, note)]
+        ch.samplePos = 0
 
 proc doPatternDelay(ps: PlaybackState, ch: Channel, delay: int) =
   discard
@@ -424,33 +426,28 @@ proc doTick(ps: var PlaybackState) =
     if ps.currTick == 0:
       if cell.sampleNum > 0:
         if ps.module.samples[cell.sampleNum].data == nil:
-          ch.volume = 0
-          ch.volumeScalar = 0
+          setVolume(ch, 0)
         else:
           setVolume(ch, ps.module.samples[cell.sampleNum].volume)
 
           if cmd != 0x3 and cmd != 0x5 and            # tone portamento
              ((cell.effect and 0xff0) != 0xed0) and   # note delay
-             cell.note != NOTE_NONE:
+             note != NOTE_NONE:
 
             ch.currSample = ps.module.samples[cell.sampleNum]
-            ch.period = periodTable[finetunedNote(ch.currSample, cell.note)]
+            ch.period = periodTable[finetunedNote(ch.currSample, note)]
             ch.samplePos = 0
           else:
             # sample swap
-            ch.nextSample = ps.module.samples[cell.sampleNum]
+            ch.swapSample = ps.module.samples[cell.sampleNum]
 
       else: # cell.sampleNum == 0
         if cmd != 0x3 and cmd != 0x5 and            # tone portamento
            ((cell.effect and 0xff0) != 0xed0) and   # node delay
-           cell.note != NOTE_NONE:
+           note != NOTE_NONE:
 
-          # sample swap
-          if ch.nextSample != nil:
-            ch.currSample = ch.nextSample
-            ch.nextSample = nil
-
-          ch.period = periodTable[finetunedNote(ch.currSample, cell.note)]
+          sampleSwap(ch)
+          ch.period = periodTable[finetunedNote(ch.currSample, note)]
           ch.samplePos = 0
 
     setSampleStep(ch, ps.sampleRate)
@@ -504,8 +501,7 @@ proc advancePlayPosition(ps: var PlaybackState) =
     ps.currTick = 0
     ps.nextSongPos = -1
     for ch in ps.channels:
-      ch.volume = 0
-      ch.volumeScalar = 0
+      setVolume(ch, 0)
 
   else:
     ps.currTick += 1
