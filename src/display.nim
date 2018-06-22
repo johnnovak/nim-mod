@@ -5,68 +5,13 @@ import illwill/illwill
 from player import PlaybackState
 
 
-# TODO move into illwill
-type GraphicsChars = object
-  boxHoriz:     string
-  boxHorizUp:   string
-  boxHorizDown: string
-  boxVert:      string
-  boxVertLeft:  string
-  boxVertRight: string
-  boxVertHoriz: string
-  boxDownLeft:  string
-  boxDownRight: string
-  boxUpRight:   string
-  boxUpLeft:    string
-
-let gfxCharsUnicode = GraphicsChars(
-  boxHoriz:     "─",
-  boxHorizUp:   "┴",
-  boxHorizDown: "┬",
-  boxVert:      "│",
-  boxVertLeft:  "┤",
-  boxVertRight: "├",
-  boxVertHoriz: "┼",
-  boxDownLeft:  "┐",
-  boxDownRight: "┌",
-  boxUpRight:   "└",
-  boxUpLeft:    "┘"
-)
-
-let gfxCharsCP850 = GraphicsChars(
-  boxHoriz:     "\196",
-  boxHorizUp:   "\193",
-  boxHorizDown: "\194",
-  boxVert:      "\179",
-  boxVertLeft:  "\180",
-  boxVertRight: "\195",
-  boxVertHoriz: "\197",
-  boxDownLeft:  "\191",
-  boxDownRight: "\218",
-  boxUpRight:   "\192",
-  boxUpLeft:    "\217"
-)
-
-let gfxCharsAscii = GraphicsChars(
-  boxHoriz:     "-",
-  boxHorizUp:   "+",
-  boxHorizDown: "+",
-  boxVert:      "|",
-  boxVertLeft:  "+",
-  boxVertRight: "+",
-  boxVertHoriz: "+",
-  boxDownLeft:  "+",
-  boxDownRight: "+",
-  boxUpRight:   "+",
-  boxUpLeft:    "+"
-)
-
 # TODO belongs to illwill
 # Global variable to hold the set of gfx chars to use
 var gGfx: GraphicsChars
 
 when defined(windows):
-  gGfx = gfxCharsCP850
+#  gGfx = gfxCharsAscii
+  gGfx = gfxCharsUnicode
 else:
   when defined(posix):
     import os

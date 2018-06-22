@@ -1,7 +1,7 @@
 import parseopt, os, strutils
 
 import illwill/illwill
-import audio/linux/alsa/alsadriver as audio
+import audio/fmod/fmoddriver as audio
 
 import module
 import loader
@@ -19,17 +19,19 @@ var
 const ROW_JUMP = 8
 
 
-var gSampleRate: int
+var gSampleRate = 44100
 
-proc audioCb(samples: AudioBufferPtr, numFrames: int) {.cdecl, gcsafe.} =
+proc audioCb(samples: AudioBufferPtr, numFrames: int) =
   render(gPlaybackState, samples, numFrames)
 
 
 proc quitProc() {.noconv.} =
   resetAttributes()
   consoleDeinit()
-#  exitFullscreen()
+  exitFullscreen()
   showCursor()
+  discard audio.closeAudio()
+
 
 proc printVersion() =
   echo "nim-mod version " & VERSION
@@ -66,16 +68,14 @@ proc main() =
     echo "Error loading module: " & getCurrentExceptionMsg()
     quit(1)
 
+  initPlaybackState(gPlaybackState, gSampleRate, module)
+
   # Init audio stuff
-  if not audio.initAudio():
+  if not audio.initAudio(audioCb):
     echo audio.getLastError()
     quit(1)
 
-  gSampleRate = audio.getSampleRate()
-
-  initPlaybackState(gPlaybackState, gSampleRate, module)
-
-  if not audio.startPlayback(audioCb):
+  if not audio.startPlayback():
     echo audio.getLastError()
     quit(1)
 
@@ -83,11 +83,10 @@ proc main() =
   system.addQuitProc(quitProc)
 
   consoleInit()
-#  enterFullscreen()
+  enterFullscreen()
   hideCursor()
 
   let (w, h) = terminalSize()
-
 
   var
     currPattern = 0
@@ -148,8 +147,18 @@ proc main() =
     of ord('3'): toggleMuteChannel(2)
     of ord('4'): toggleMuteChannel(3)
 
+    of ord('r'):
+      # TODO do this in a more optimal way
+      resetAttributes()
+      consoleDeinit()
+      exitFullscreen()
+      showCursor()
+
+      consoleInit()
+      enterFullscreen()
+      hideCursor()
+
     of ord('q'):
-      discard audio.closeAudio()
       quit(0)
 
     else: discard
@@ -174,7 +183,7 @@ proc main() =
                       startTrack = 0, maxTracks = 4)
       gRedraw = false
 
-    sleep(1)
+    sleep(10)
 
 
 main()

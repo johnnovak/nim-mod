@@ -136,11 +136,11 @@ when defined(windows):
   var utf16LEConverter = open(destEncoding = "utf-16", srcEncoding = "UTF-8")
 
   proc put*(s: string) =
-    stdout.write s
-    #var us = utf16LEConverter.convert(s)
-    #var numWritten: DWORD
-    #discard writeConsole(hStdout, pointer(us[0].addr), DWORD(s.runeLen),
-    #                     numWritten.addr, nil)
+    #stdout.write s
+    var us = utf16LEConverter.convert(s)
+    var numWritten: DWORD
+    discard writeConsole(hStdout, pointer(us[0].addr), DWORD(s.runeLen),
+                         numWritten.addr, nil)
 
 
 else:  # OSX & Linux
@@ -293,6 +293,7 @@ proc exitFullscreen*() =
     eraseScreen()
 
 
+#[
 when defined(posix):
   # TODO doesn't work... why?
   onSignal(SIGTSTP):
@@ -312,26 +313,27 @@ when defined(posix):
 
   onSignal(SIGWINCH):
     quit(1)
+]#
 
 
-type GraphicsChars = object
-  boxHoriz:     string
-  boxHorizUp:   string
-  boxHorizDown: string
-  boxVert:      string
-  boxVertLeft:  string
-  boxVertRight: string
-  boxVertHoriz: string
-  boxDownLeft:  string
-  boxDownRight: string
-  boxUpRight:   string
-  boxUpLeft:    string
-  fullBlock:    string
-  darkShade:    string
-  mediumShade:  string
-  lightShade:   string
+type GraphicsChars* = object
+  boxHoriz*:     string
+  boxHorizUp*:   string
+  boxHorizDown*: string
+  boxVert*:      string
+  boxVertLeft*:  string
+  boxVertRight*: string
+  boxVertHoriz*: string
+  boxDownLeft*:  string
+  boxDownRight*: string
+  boxUpRight*:   string
+  boxUpLeft*:    string
+  fullBlock*:    string
+  darkShade*:    string
+  mediumShade*:  string
+  lightShade*:   string
 
-let gfxCharsUnicode = GraphicsChars(
+let gfxCharsUnicode* = GraphicsChars(
   boxHoriz:     "─",
   boxHorizUp:   "┴",
   boxHorizDown: "┬",
@@ -349,25 +351,7 @@ let gfxCharsUnicode = GraphicsChars(
   lightShade:   "░"
 )
 
-let gfxCharsCP850 = GraphicsChars(
-  boxHoriz:     "\196",
-  boxHorizUp:   "\193",
-  boxHorizDown: "\194",
-  boxVert:      "\179",
-  boxVertLeft:  "\180",
-  boxVertRight: "\195",
-  boxVertHoriz: "\197",
-  boxDownLeft:  "\191",
-  boxDownRight: "\218",
-  boxUpRight:   "\192",
-  boxUpLeft:    "\217",
-  fullBlock:    " ",
-  darkShade:    " ",
-  mediumShade:  " ",
-  lightShade:   " "
-)
-
-let gfxCharsAscii = GraphicsChars(
+let gfxCharsAscii* = GraphicsChars(
   boxHoriz:     "-",
   boxHorizUp:   "+",
   boxHorizDown: "+",
@@ -379,8 +363,8 @@ let gfxCharsAscii = GraphicsChars(
   boxDownRight: "+",
   boxUpRight:   "+",
   boxUpLeft:    "+",
-  fullBlock:    " ",
-  darkShade:    " ",
+  fullBlock:    "#",
+  darkShade:    "#",
   mediumShade:  " ",
   lightShade:   " "
 )

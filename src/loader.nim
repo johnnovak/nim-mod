@@ -79,7 +79,7 @@ proc loadSampleInfo(buf: var seq[uint8], pos: var int): Sample =
   samp.length *= 2    # convert length in words to length in bytes
   pos += 2
 
-  samp.finetune = buf[pos] and 0xf
+  samp.finetune = (buf[pos] and 0xf).int
 #  let finetune: uint8 = buf[pos] and 0xf
   # sign extend 4-bit signed nibble to 8-bit
 #  if (finetune and 0x08) > 0'u8:

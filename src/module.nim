@@ -38,7 +38,7 @@ type Pattern* = ref object
   tracks*: seq[Track]
 
 type
-  SampleData* {.unchecked.} = array[1, int8]
+  SampleData* = UncheckedArray[int8]
   SampleDataPtr* = ptr SampleData
 
 type Sample* = ref object
