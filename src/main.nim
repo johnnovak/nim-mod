@@ -1,8 +1,8 @@
 import parseopt, os, strutils
 
 import illwill/illwill
-import audio/fmod/fmoddriver as audio
 
+import audio/fmod/fmoddriver as audio
 import module
 import loader
 import player
@@ -15,13 +15,12 @@ var
   gRedraw = true
   gMaxRows = 32
   gPlaybackState: PlaybackState
+  gSampleRate = 44100
 
 const ROW_JUMP = 8
 
 
-var gSampleRate = 44100
-
-proc audioCb(samples: AudioBufferPtr, numFrames: int) =
+proc audioCb(samples: AudioBufferPtr, numFrames: Natural) =
   render(gPlaybackState, samples, numFrames)
 
 

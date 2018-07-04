@@ -1,7 +1,8 @@
 import strutils
 
-import module
 import illwill/illwill
+
+import module
 from player import PlaybackState
 
 

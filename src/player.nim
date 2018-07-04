@@ -1,11 +1,9 @@
 import math
 
+import audio/common
 import module
 
-import audio/common
-
-#
-# Protracker V1.1B Playroutine
+# Reference: Protracker V1.1B Playroutine
 # http://16-bits.org/pt_src/replayer/PT1.1b_replay_cia.s
 
 const
@@ -13,16 +11,17 @@ const
   DEFAULT_TICKS_PER_ROW = 6
   REPEAT_LENGTH_MIN     = 3
   MAX_VOLUME            = 0x40
-  MIN_PERIOD            = periodTable[NUM_NOTES - 1]
-  MAX_PERIOD            = periodTable[0]
+  MIN_PERIOD            = periodTable[NOTE_MAX]
+  MAX_PERIOD            = periodTable[NOTE_MIN]
 
-const
   AMIGA_BASE_FREQ_PAL  = 7093789.2
   AMIGA_BASE_FREQ_NTSC = 7159090.5
 
-const
   AMPLIFICATION     = 128
   STEREO_SEPARATION = 0.3
+
+  NO_VALUE = -1
+
 
 const vibratoTable = [
     0,  24,  49,  74,  97, 120, 141, 161,
@@ -31,44 +30,48 @@ const vibratoTable = [
   180, 161, 141, 120,  97,  74,  49,  24
 ]
 
-type ChannelState* = enum
-  csPlaying, csMuted, csDimmed
+type
+  PlaybackState* = object
+    module*:             Module
+    sampleRate:          Natural
+    tempo*:              Natural
+    ticksPerRow*:        Natural
+    songPos*:            Natural
+    currRow*:            int
+    currTick:            Natural
+    tickFramesRemaining: Natural
+    channels:            seq[Channel]
+    channelState*:       seq[ChannelState]
+    jumpRow:             int
+    jumpSongPos:         int
+    nextSongPos*:        int  # TODO this should be done in a better way
 
-type Channel = ref object
-  currSample:     Sample
-  swapSample:     Sample
-  samplePos:      float
-  period:         int
-  pan:            int
-  volume:         int
-  volumeScalar:   float
-  sampleStep:     float
-  portaToNote:    int
-  portaSpeed:     int
-  vibratoPos:     int
-  vibratoSign:    int
-  vibratoSpeed:   int
-  vibratoDepth:   int
-  offset:         int
+  Channel = ref object
+    currSample:     Sample
+    swapSample:     Sample
+    samplePos:      float
+    period:         int #
+    pan:            int
+    volume:         int
+    volumeScalar:   float
+    sampleStep:     float
+    portaToNote:    int
+    portaSpeed:     int
+    vibratoPos:     int
+    vibratoSign:    int
+    vibratoSpeed:   int
+    vibratoDepth:   int
+    offset:         int
 
-type PlaybackState* = object
-  module*:             Module
-  sampleRate:          int
-  tempo*:              int
-  ticksPerRow*:        int
-  songPos*:            int
-  currRow*:            int
-  currTick:            int
-  tickFramesRemaining: int
-  channels:            seq[Channel]
-  channelState*:       seq[ChannelState]
-  jumpRow:             int
-  jumpSongPos:         int
-  nextSongPos*:        int    # TODO this should be done in a better way
+  ChannelState* = enum
+    csPlaying, csMuted, csDimmed
+
+  MixBuffer = array[1024, float32]
+
 
 proc newChannel(): Channel =
   var ch = new Channel
-  ch.period = -1
+  ch.period = NO_VALUE
   ch.portaToNote = NOTE_NONE
   ch.vibratoSign = 1
   result = ch
@@ -79,11 +82,11 @@ proc initPlaybackState*(ps: var PlaybackState,
   ps.sampleRate = sampleRate
   ps.tempo = DEFAULT_TEMPO
   ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
-  ps.currRow = -1
+  ps.currRow = NO_VALUE
   ps.currTick = DEFAULT_TICKS_PER_ROW - 1
-  ps.jumpRow = -1
-  ps.jumpSongPos = -1
-  ps.nextSongPos = -1 # TODO clean this up
+  ps.jumpRow = NO_VALUE
+  ps.jumpSongPos = NO_VALUE
+  ps.nextSongPos = NO_VALUE # TODO clean this up
 
   ps.channels = newSeq[Channel]()
   ps.channelState = newSeq[ChannelState]()
@@ -99,7 +102,7 @@ proc initPlaybackState*(ps: var PlaybackState,
     ps.channels[3].pan = 0x00
 
 
-proc framesPerTick(ps: PlaybackState): int =
+proc framesPerTick(ps: PlaybackState): Natural =
   let
     # 2500 / 125 (default tempo) gives the default 20 ms per tick
     # that corresponds to 50Hz PAL VBL
@@ -108,7 +111,7 @@ proc framesPerTick(ps: PlaybackState): int =
     millisPerTick  = 2500 / ps.tempo
     framesPerMilli = ps.sampleRate / 1000
 
-  result = int(millisPerTick * framesPerMilli)
+  result = (millisPerTick * framesPerMilli).int
 
 
 proc sampleSwap(ch: Channel) =
@@ -119,16 +122,13 @@ proc sampleSwap(ch: Channel) =
 proc isLooped(s: Sample): bool =
   return s.repeatLength >= REPEAT_LENGTH_MIN
 
-# TODO use float mix buffer
-proc render(ch: Channel, samples: AudioBufferPtr,
-            frameOffset, numFrames: int) =
-
+proc render(ch: Channel, mixBuffer: var MixBuffer, frameOffset, numFrames: Natural) =
   for i in 0..<numFrames:
-    var s: float
+    var s: float32
     if ch.currSample == nil:
       s = 0
     else:
-      if ch.period == -1 or ch.samplePos >= (ch.currSample.length).float:
+      if ch.period == NO_VALUE or ch.samplePos >= (ch.currSample.length).float32:
         s = 0
       else:
         # no interpolation
@@ -137,9 +137,9 @@ proc render(ch: Channel, samples: AudioBufferPtr,
         # linear interpolation
         let
           posInt = ch.samplePos.int
-          s1 = ch.currSample.data[posInt].float
-          s2 = ch.currSample.data[posInt + 1].float
-          f = ch.samplePos - posInt.float
+          s1 = ch.currSample.data[posInt]
+          s2 = ch.currSample.data[posInt + 1]
+          f = ch.samplePos - posInt.float32
 
         s = (s1*(1.0-f) + s2*f) * ch.volumeScalar
 
@@ -160,19 +160,19 @@ proc render(ch: Channel, samples: AudioBufferPtr,
 
     # TODO clean up panning
     if ch.pan == 0:
-      samples[(frameOffset + i)*2 + 0] += int16(s * (1.0 - STEREO_SEPARATION))
-      samples[(frameOffset + i)*2 + 1] += int16(s *        STEREO_SEPARATION)
+      mixBuffer[(frameOffset + i)*2 + 0] += s * (1.0 - STEREO_SEPARATION)
+      mixBuffer[(frameOffset + i)*2 + 1] += s *        STEREO_SEPARATION
     else:
-      samples[(frameOffset + i)*2 + 0] += int16(s *        STEREO_SEPARATION)
-      samples[(frameOffset + i)*2 + 1] += int16(s * (1.0 - STEREO_SEPARATION))
+      mixBuffer[(frameOffset + i)*2 + 0] += s *        STEREO_SEPARATION
+      mixBuffer[(frameOffset + i)*2 + 1] += s * (1.0 - STEREO_SEPARATION)
 
 
 proc periodToFreq(period: int): float =
-  result = AMIGA_BASE_FREQ_PAL / float(period * 2)
+  result = AMIGA_BASE_FREQ_PAL / (period * 2).float
 
 proc findClosestNote(finetune, period: int): int =
   result = -1
-  for n in 0..<NUM_NOTES:
+  for n in NOTE_MIN..<NOTE_MAX:
     if period >= periodTable[finetune + n]:
       result = n
       break
@@ -182,10 +182,10 @@ proc finetunedNote(s: Sample, note: int): int =
   result = s.finetune * FINETUNE_PAD + note
 
 proc setSampleStep(ch: Channel, sampleRate: int) =
-  ch.sampleStep = periodToFreq(ch.period) / float(sampleRate)
+  ch.sampleStep = periodToFreq(ch.period) / sampleRate.float
 
 proc setSampleStep(ch: Channel, period, sampleRate: int) =
-  ch.sampleStep = periodToFreq(period) / float(sampleRate)
+  ch.sampleStep = periodToFreq(period) / sampleRate.float
 
 proc setVolume(ch: Channel, vol: int) =
   ch.volume = vol
@@ -205,12 +205,13 @@ proc doArpeggio(ps: PlaybackState, ch: Channel, note1, note2: int) =
       of 0: discard
       of 1:
         if note1 > 0:
-          period = periodTable[findClosestNote(ch.currSample.finetune,
-                                                   ch.period) + note1]
+          period = periodTable[
+            findClosestNote(ch.currSample.finetune, ch.period) + note1]
       of 2:
         if note2 > 0:
-          period = periodTable[findClosestNote(ch.currSample.finetune,
-                                                   ch.period) + note2]
+          period = periodTable[
+            findClosestNote(ch.currSample.finetune, ch.period) + note2]
+
       else: assert false
       setSampleStep(ch, period, ps.sampleRate)
 
@@ -228,8 +229,7 @@ proc doSlideDown(ps: PlaybackState, ch: Channel, speed: int) =
 
 proc tonePortamento(ps: PlaybackState, ch: Channel) =
   if ch.portaToNote != NOTE_NONE and ch.period > -1 and ch.currSample != nil:
-    let toPeriod = periodTable[finetunedNote(ch.currSample,
-                                             ch.portaToNote)]
+    let toPeriod = periodTable[finetunedNote(ch.currSample, ch.portaToNote)]
     if ch.period < toPeriod:
       ch.period = min(ch.period + ch.portaSpeed, toPeriod)
       setSampleStep(ch, ps.sampleRate)
@@ -242,8 +242,7 @@ proc tonePortamento(ps: PlaybackState, ch: Channel) =
       ch.portaToNote = NOTE_NONE
 
 
-proc doTonePortamento(ps: PlaybackState, ch: Channel, speed: int,
-                      note: int) =
+proc doTonePortamento(ps: PlaybackState, ch: Channel, speed: int, note: int) =
   if ps.currTick == 0:
     if note != NOTE_NONE:
       ch.portaToNote = note
@@ -264,8 +263,7 @@ proc vibrato(ps: PlaybackState, ch: Channel) =
                                            ch.vibratoDepth) div 128)
     setSampleStep(ch, ch.period + vibratoPeriod, ps.sampleRate)
 
-proc doVibrato(ps: PlaybackState, ch: Channel, speed, depth: int,
-               note: int) =
+proc doVibrato(ps: PlaybackState, ch: Channel, speed, depth: int, note: int) =
   if ps.currTick == 0:
     if note != NOTE_NONE:
       ch.vibratoPos = 0
@@ -284,8 +282,7 @@ proc volumeSlide(ps: PlaybackState, ch: Channel, upSpeed, downSpeed: int) =
       setVolume(ch, max(ch.volume - downSpeed, 0))
 
 proc doTonePortamentoAndVolumeSlide(ps: PlaybackState, ch: Channel,
-                                    upSpeed, downSpeed: int,
-                                    note: int) =
+                                    upSpeed, downSpeed: int, note: int) =
   if ps.currTick == 0:
     if note != NOTE_NONE:
       ch.portaToNote = note
@@ -499,38 +496,37 @@ proc advancePlayPosition(ps: var PlaybackState) =
     ps.songPos = ps.nextSongPos
     ps.currRow = 0
     ps.currTick = 0
-    ps.nextSongPos = -1
-    for ch in ps.channels:
-      setVolume(ch, 0)
+    ps.nextSongPos = NO_VALUE
 
+    # TODO this was probably wrong
+#    for ch in ps.channels:
+#      setVolume(ch, 0)
   else:
     ps.currTick += 1
 
     if ps.currTick > ps.ticksPerRow-1:
       ps.currTick = 0
 
-      if ps.jumpRow > -1:
-        ps.songPos = ps.jumpSongPos
-        ps.currRow = ps.jumpRow
-        ps.jumpSongPos = -1
-        ps.jumpRow = -1
-      else:
+      if ps.jumpRow == NO_VALUE:
         ps.currRow += 1
 
         if ps.currRow > ROWS_PER_PATTERN-1:
           ps.currRow = 0
           ps.songPos += 1
           # TODO check song length
+      else:
+        ps.songPos = ps.jumpSongPos
+        ps.currRow = ps.jumpRow
+        ps.jumpSongPos = NO_VALUE
+        ps.jumpRow = NO_VALUE
 
     doTick(ps)
 
 
-proc render*(ps: var PlaybackState, samples: AudioBufferPtr, numFrames: int) =
-
-  # clear buffer
-  for i in 0..<numFrames:
-    samples[i*2] = 0
-    samples[i*2+1] = 0
+proc renderInternal(ps: var PlaybackState, mixBuffer: var MixBuffer,
+                    numFrames: int) =
+  for i in 0..<numFrames * 2:
+    mixBuffer[i] = 0
 
   var framePos = 0
 
@@ -543,9 +539,30 @@ proc render*(ps: var PlaybackState, samples: AudioBufferPtr, numFrames: int) =
 
     for chNum, ch in pairs(ps.channels):
       if ps.channelState[chNum] == csPlaying:
-        ch.render(samples, framePos, frameCount)
+        ch.render(mixBuffer, framePos, frameCount)
 
     framePos += frameCount
     ps.tickFramesRemaining -= frameCount
     assert ps.tickFramesRemaining >= 0
+
+
+var gMixBuffer: MixBuffer
+
+proc render*(ps: var PlaybackState, samples: AudioBufferPtr,
+             numFrames: Natural) =
+
+  let numFramesMixBuffer = gMixBuffer.len div 2
+  var
+    framesLeft = numFrames.int
+    samplesOffs = 0
+
+  while framesLeft > 0:
+    let frames = min(numFramesMixBuffer, framesLeft)
+    renderInternal(ps, gMixBuffer, frames)
+
+    for i in 0..<frames * 2:
+      samples[samplesOffs + i] = gMixBuffer[i].int16
+
+    dec(framesLeft, numFramesMixBuffer)
+    inc(samplesOffs, frames * 2)
 

@@ -9,8 +9,6 @@ var
   gLastError = ""
   gAudioCallback: AudioCallback
 
-var
-  currPhase = 0.0
 
 proc pcmReadCallback(sound: ptr FmodSound, data: pointer,
                      datalen: cuint): FmodResult {.cdecl.} =

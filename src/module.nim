@@ -3,65 +3,59 @@ import strutils
 include periodtable
 
 const
+  SONG_TITLE_LEN*     = 20
+  SAMPLE_NAME_LEN*    = 22
+  NUM_SAMPLES *       = 31
+  NUM_SONG_POSITIONS* = 128
+  ROWS_PER_PATTERN*   = 64
+
   NUM_NOTES*     = 36
   NUM_SEMITONES* = 12
   NOTE_NONE*     = -1
   NOTE_MIN*      =  0
   NOTE_MAX*      = NUM_NOTES - 1
+
   FINETUNE_PAD*  = 37
 
-const
-  MAX_SONG_TITLE_LEN*  = 20
-  MAX_SAMPLE_NAME_LEN* = 22
-  MAX_SAMPLES*         = 31
-  MAX_PATTERNS*        = 128
-  ROWS_PER_PATTERN*    = 64
-
-type ModuleType* = enum
-  mtFastTracker,
-  mtOctaMED,
-  mtOktalyzer,
-  mtProtracker,
-  mtSoundTracker,
-  mtStarTrekker,
-  mtTakeTracker
-
-type Cell* = ref object
-  note*:      int
-  sampleNum*: int
-  effect*:    int
-
-type Track* = ref object
-  rows*: array[ROWS_PER_PATTERN, Cell]
-
-type Pattern* = ref object
-  tracks*: seq[Track]
-
 type
-  SampleData* = UncheckedArray[int8]
-  SampleDataPtr* = ptr SampleData
+  Module* = ref object
+    moduleType*:    ModuleType
+    numChannels*:   Natural
+    songName*:      string
+    songLength*:    Natural
+    songPositions*: array[NUM_SONG_POSITIONS, Natural]
+    samples*:       array[1..NUM_SAMPLES, Sample]
+    patterns*:      seq[Pattern]
 
-type Sample* = ref object
-  name*:         string
-  length*:       int
-  finetune*:     int
-  volume*:       int
-  repeatOffset*: int
-  repeatLength*: int
-  data*:         SampleDataPtr
+  ModuleType* = enum
+    mtFastTracker,
+    mtOctaMED,
+    mtOktalyzer,
+    mtProTracker,
+    mtSoundTracker,
+    mtStarTrekker,
+    mtTakeTracker
 
-type Module* = ref object
-  moduleType*:    ModuleType
-  numChannels*:   int
-  songName*:      string
-  songLength*:    int
-  songPositions*: array[MAX_PATTERNS, int]
-  samples*:       array[1..MAX_SAMPLES, Sample]
-  patterns*:      seq[Pattern]
+  Sample* = ref object
+    name*:         string
+    length*:       Natural
+    finetune*:     int
+    volume*:       Natural
+    repeatOffset*: Natural
+    repeatLength*: Natural
+    data*:         seq[float32]
 
+  Pattern* = ref object
+    tracks*: seq[Track]
 
-proc newCell*(): Cell =
-  result = new Cell
+  Track* = ref object
+    rows*: array[ROWS_PER_PATTERN, Cell]
+
+  Cell* = object
+    note*:      int
+    sampleNum*: int
+    effect*:    int
+
 
 proc newTrack*(): Track =
   result = new Track

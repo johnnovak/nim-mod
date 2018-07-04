@@ -185,9 +185,9 @@ else:  # OSX & Linux
   proc consoleDeinit*() =
     nonblock(false)
 
-  # surely a 20 char buffer is more than enough; the longest
+  # surely a 100 char buffer is more than enough; the longest
   # keycode sequence I've seen was 6 chars
-  const KEY_SEQUENCE_MAXLEN = 20
+  const KEY_SEQUENCE_MAXLEN = 100
 
   # global keycode buffer
   var keyBuf: array[KEY_SEQUENCE_MAXLEN, int]
@@ -292,6 +292,58 @@ proc exitFullscreen*() =
   else:
     eraseScreen()
 
+type GraphicsChars* = object
+  boxHoriz*:     string
+  boxHorizUp*:   string
+  boxHorizDown*: string
+  boxVert*:      string
+  boxVertLeft*:  string
+  boxVertRight*: string
+  boxVertHoriz*: string
+  boxUpRight*:   string
+  boxUpLeft*:    string
+  boxDownLeft*:  string
+  boxDownRight*: string
+  fullBlock*:    string
+  darkShade*:    string
+  mediumShade*:  string
+  lightShade*:   string
+
+let gfxCharsUnicode* = GraphicsChars(
+  boxHoriz:     "─",
+  boxHorizUp:   "┴",
+  boxHorizDown: "┬",
+  boxVert:      "│",
+  boxVertLeft:  "┤",
+  boxVertRight: "├",
+  boxVertHoriz: "┼",
+  boxUpRight:   "└",
+  boxUpLeft:    "┘",
+  boxDownLeft:  "┐",
+  boxDownRight: "┌",
+  fullBlock:    "█",
+  darkShade:    "▓",
+  mediumShade:  "▒",
+  lightShade:   "░"
+)
+
+let gfxCharsAscii* = GraphicsChars(
+  boxHoriz:     "-",
+  boxHorizUp:   "+",
+  boxHorizDown: "+",
+  boxVert:      "|",
+  boxVertLeft:  "+",
+  boxVertRight: "+",
+  boxVertHoriz: "+",
+  boxUpRight:   "+",
+  boxUpLeft:    "+",
+  boxDownLeft:  "+",
+  boxDownRight: "+",
+  fullBlock:    "#",
+  darkShade:    "#",
+  mediumShade:  " ",
+  lightShade:   " "
+)
 
 #[
 when defined(posix):
@@ -315,57 +367,4 @@ when defined(posix):
     quit(1)
 ]#
 
-
-type GraphicsChars* = object
-  boxHoriz*:     string
-  boxHorizUp*:   string
-  boxHorizDown*: string
-  boxVert*:      string
-  boxVertLeft*:  string
-  boxVertRight*: string
-  boxVertHoriz*: string
-  boxDownLeft*:  string
-  boxDownRight*: string
-  boxUpRight*:   string
-  boxUpLeft*:    string
-  fullBlock*:    string
-  darkShade*:    string
-  mediumShade*:  string
-  lightShade*:   string
-
-let gfxCharsUnicode* = GraphicsChars(
-  boxHoriz:     "─",
-  boxHorizUp:   "┴",
-  boxHorizDown: "┬",
-  boxVert:      "│",
-  boxVertLeft:  "┤",
-  boxVertRight: "├",
-  boxVertHoriz: "┼",
-  boxDownLeft:  "┐",
-  boxDownRight: "┌",
-  boxUpRight:   "└",
-  boxUpLeft:    "┘",
-  fullBlock:    "█",
-  darkShade:    "▓",
-  mediumShade:  "▒",
-  lightShade:   "░"
-)
-
-let gfxCharsAscii* = GraphicsChars(
-  boxHoriz:     "-",
-  boxHorizUp:   "+",
-  boxHorizDown: "+",
-  boxVert:      "|",
-  boxVertLeft:  "+",
-  boxVertRight: "+",
-  boxVertHoriz: "+",
-  boxDownLeft:  "+",
-  boxDownRight: "+",
-  boxUpRight:   "+",
-  boxUpLeft:    "+",
-  fullBlock:    "#",
-  darkShade:    "#",
-  mediumShade:  " ",
-  lightShade:   " "
-)
 

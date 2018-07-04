@@ -1,12 +1,14 @@
-import endians
+import algorithm, endians, strformat
 
 import module
 
-
 const
   TAG_LEN        = 4
-  TAG_OFFSET     = 1080
+  TAG_OFFSET     = 1080   # this is the correct offset for all MOD types
+                          # EXCEPT for old 15-sample SoundTracker modules
   BYTES_PER_CELL = 4
+
+type ModuleLoadError* = object of Exception
 
 
 proc mkTag(tag: string): int =
@@ -36,7 +38,7 @@ proc determineModuleType(tag: int): (ModuleType, int) =
 
 
   if tag == mkTag("M.K.") or tag == mkTag("M!K!"):
-    result = (mtProtracker, 4)
+    result = (mtProTracker, 4)
 
   elif tag == mkTag("2CHN") or tag == mkTag("4CHN") or
        tag == mkTag("6CHN") or tag == mkTag("8CHN"):
@@ -50,8 +52,9 @@ proc determineModuleType(tag: int): (ModuleType, int) =
 
   elif (tag and 0xffff) == (mkTag("xxCH") and 0xffff):
     let chans = firstTwoDigitsToInt(tag)
-    assert chans >= 10 and chans <= 32
-    assert chans mod 2 == 0
+    if not (chans >= 10 and chans <= 32 and chans mod 2 == 0):
+      raise newException(ModuleLoadError,
+                         fmt"Invalid FastTracker module tag: '{tag}'")
     result = (mtFastTracker, chans)
 
   elif (tag and 0xffff) == (mkTag("xxCN") and 0xffff):
@@ -66,79 +69,100 @@ proc determineModuleType(tag: int): (ModuleType, int) =
   elif tag == mkTag("FLT4") or tag == mkTag("FLT8"):
     result = (mtStarTrekker, lastDigitToInt(tag))
 
+  else:
+    result = (mtSoundTracker, 4)
+
 
 proc loadSampleInfo(buf: var seq[uint8], pos: var int): Sample =
   var samp = newSample()
 
-  var name = cast[cstring](alloc0(MAX_SAMPLE_NAME_LEN + 1))
-  copyMem(name, buf[pos].addr, MAX_SAMPLE_NAME_LEN)
+  var name = cast[cstring](alloc0(SAMPLE_NAME_LEN + 1))
+  copyMem(name, buf[pos].addr, SAMPLE_NAME_LEN)
   samp.name = $name
-  pos += MAX_SAMPLE_NAME_LEN
+  inc(pos, SAMPLE_NAME_LEN)
 
   bigEndian16(samp.length.addr, buf[pos].addr)
   samp.length *= 2    # convert length in words to length in bytes
-  pos += 2
+  inc(pos, 2)
 
   samp.finetune = (buf[pos] and 0xf).int
-#  let finetune: uint8 = buf[pos] and 0xf
-  # sign extend 4-bit signed nibble to 8-bit
-#  if (finetune and 0x08) > 0'u8:
-#    samp.finetune = cast[int8](finetune or 0xf0'u8)
-  pos += 1
+  inc(pos, 1)
 
   samp.volume = int(buf[pos])
-  pos += 1
+  inc(pos)
 
   bigEndian16(samp.repeatOffset.addr, buf[pos].addr)
   samp.repeatOffset *= 2
-  pos += 2
+  inc(pos, 2)
 
   bigEndian16(samp.repeatLength.addr, buf[pos].addr)
   samp.repeatLength *= 2
-  pos += 2
+  inc(pos, 2)
 
   result = samp
 
 
 proc periodToNote(period: int): int =
+  # Find closest note in the period table as in some modules the periods can
+  # be a little off.
   if period == 0:
     return NOTE_NONE
 
-  for i, p in periodTable.pairs:
-    if p == period:
-      return i
-  raise newException(ValueError, "Invalid period value: " & $period)
+  if period >= periodTable[0]:
+    return NOTE_MIN
+
+  for i in 1..NUM_NOTES:
+    if periodTable[i] <= period:
+      let d1 = period - periodTable[i]
+      let d2 = periodTable[i-1] - period
+      if d1 < d2:
+        return i
+      else:
+        return i-1
+
+  return NOTE_MAX
 
 
-proc loadPattern(buf: var seq[uint8], pos: var int,
-                 numChannels: int): Pattern =
+proc read(f: File, dest: pointer, len: Natural) =
+  let numBytesRead = f.readBuffer(dest, len)
+  if numBytesRead != len:
+    raise newException(ModuleLoadError, "Unexpected end of file")
 
+
+proc loadPattern(f: File, numChannels: int): Pattern =
   var patt = newPattern(numChannels)
+  var buf: array[BYTES_PER_CELL, uint8]
 
   for rowNum in 0..<ROWS_PER_PATTERN:
-    for trackNum in 0..<numChannels:
-      var cell = newCell()
-      cell.note = periodToNote(((buf[pos] and 0x0f).int shl 8) or
-                                 buf[pos+1].int)
+    for track in 0..<numChannels:
+      read(f, buf[0].addr, BYTES_PER_CELL)
 
-      cell.sampleNum =  (buf[pos]   and 0xf0).int or
-                       ((buf[pos+2] and 0xf0).int shr 4)
+      var cell: Cell
+      cell.note = periodToNote(((buf[0] and 0x0f).int shl 8) or
+                                 buf[1].int)
 
-      cell.effect = ((buf[pos+2] and 0x0f).int shl 8) or
-                      buf[pos+3].int
+      cell.sampleNum =  (buf[0] and 0xf0).int or
+                       ((buf[2] and 0xf0).int shr 4)
 
-      patt.tracks[trackNum].rows[rowNum] = cell
-      pos += BYTES_PER_CELL
+      cell.effect = ((buf[2] and 0x0f).int shl 8) or
+                      buf[3].int
+
+      patt.tracks[track].rows[rowNum] = cell
 
   result = patt
 
 
-# TODO add validation
-proc loadModule*(buf: var seq[uint8]): Module =
+proc loadModule*(f: File): Module =
   var module = newModule()
+
+  # We want to check the tag first, but instead of seeking we read ahead so we
+  # can load from streams as well.
+  var buf = newSeq[uint8](TAG_OFFSET + TAG_LEN)
   var pos = 0
 
-  # read module tag & determine module type
+  read(f, buf[0].addr, buf.len)
+
+  # Try to determine module type from the tag
   var tagBuf: array[TAG_LEN + 1, uint8]
   copyMem(tagBuf.addr, buf[TAG_OFFSET].addr, TAG_LEN)
   tagBuf[TAG_LEN] = 0
@@ -146,72 +170,71 @@ proc loadModule*(buf: var seq[uint8]): Module =
 
   (module.moduleType, module.numChannels) = determineModuleType(tag)
 
-  # read song name
-  var songName = cast[cstring](alloc0(MAX_SONG_TITLE_LEN + 1))
-  copyMem(songName, buf[pos].addr, MAX_SONG_TITLE_LEN)
+  # Read song name
+  var songName = cast[cstring](alloc0(SONG_TITLE_LEN + 1))
+  copyMem(songName, buf[pos].addr, SONG_TITLE_LEN)
   module.songName = $songName
-  pos += MAX_SONG_TITLE_LEN
+  inc(pos, SONG_TITLE_LEN)
 
-  # load samples
-  for i in 1..MAX_SAMPLES:
+  # Read sample info
+  for i in 1..NUM_SAMPLES:
     module.samples[i] = loadSampleInfo(buf, pos)
 
-  # read song length
+  # Read song length
   module.songLength = int(buf[pos])
-  pos += 1
+  inc(pos)
 
-  # skip byte TODO ?
-  pos += 1
+  # TODO Magic constant or song restart point (depending on module type),
+  # skip it for now...
+  inc(pos)
 
-  # read song positions
-  for i in 0..<MAX_PATTERNS:
+  # Read song positions
+  for i in 0..<NUM_SONG_POSITIONS:
     module.songPositions[i] = buf[pos].int
-    pos += 1
+    inc(pos)
 
-  pos += TAG_LEN
-
-  # song length = the pattern with the highest number in the songpos table + 1
+  # Determine the number of patterns:
+  # the pattern with the highest number in the songpos table + 1
   var numPatterns = 0
   for sp in module.songPositions:
     numPatterns = max(sp.int, numPatterns)
-  numPatterns += 1
+  inc(numPatterns)
 
-  # load patterns
+  # Read pattern data
   for pattNum in 0..<numPatterns:
-    module.patterns.add(
-      loadPattern(buf, pos, module.numChannels))
+    let patt = loadPattern(f, module.numChannels)
+    module.patterns.add(patt)
 
-  # load samples
-  for sampNum in 1..MAX_SAMPLES:
-    let length = module.samples[sampNum].length
-    if length > 0:
-      const PADDING = 1   # extra padding for easy sample interpolation
-      var data = cast[SampleDataPtr](alloc(length + PADDING))
-      copyMem(data, buf[pos].addr, length)
-      # XXX repeat the last byte, this works for linear interpolation only
-      data[length] = data[length-1]
-      module.samples[sampNum].data = data
-      pos += length
+  # Read sample data
+  for sampNum in 1..NUM_SAMPLES:
+    let sampLen = module.samples[sampNum].length
+    if sampLen > 0:
+      # Load signed 8-bit sample data
+      var byteData: seq[int8]
+      newSeq(byteData, sampLen)
+      read(f, byteData[0].addr, sampLen)
+
+      # Convert sample data to float
+      var floatData: seq[float32]
+      const SAMPLE_PADDING = 1   # padding for easier interpolation
+      newSeq(floatData, byteData.len + SAMPLE_PADDING)
+
+      for i in 0..byteData.high:
+        floatData[i] = byteData[i].float32
+
+      # repeat the last sample value for easier linear interpolation
+      floatData[sampLen] = floatData[sampLen-1]
+
+      module.samples[sampNum].data = floatData
 
   result = module
 
 
-proc readFileAsBytes(fname: string): seq[uint8] =
+proc loadModule*(fname: string): Module =
   var f: File
   if not open(f, fname, fmRead):
-    raise newException(IOError, "Cannot open file: '" & fname & "'")
+    raise newException(IOError, fmt"Cannot open file: '{fname}'")
 
-  let size = f.getFileSize()
-  newSeq(result, size)
-
-  let read = f.readBuffer(result[0].addr, size)
-  if read != size:
-    raise newException(IOError, "Error reading file '" & fname & "'")
-
+  result = loadModule(f)
   f.close()
-
-
-proc loadModule*(fname: string): Module =
-  var f = readFileAsBytes(fname)
-  loadModule(f)
 
