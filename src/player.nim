@@ -94,12 +94,9 @@ proc initPlaybackState*(ps: var PlaybackState,
     ps.channels.add(newChannel())
     ps.channelState.add(csPlaying)
 
-  # TODO clean up panning
-  if module.numChannels == 4:
-    ps.channels[0].pan = 0x00
-    ps.channels[1].pan = 0x80
-    ps.channels[2].pan = 0x80
-    ps.channels[3].pan = 0x00
+  # TODO making pan separation configurable
+  for i, ch in ps.channels.pairs:
+    ch.pan = if i mod 2 == 0: 0x00 else: 0x80
 
 
 proc framesPerTick(ps: PlaybackState): Natural =

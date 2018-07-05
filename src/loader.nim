@@ -1,4 +1,4 @@
-import algorithm, endians, strformat
+import algorithm, endians, logging, strformat
 
 import module
 
@@ -13,29 +13,30 @@ type ModuleLoadError* = object of Exception
 
 proc mkTag(tag: string): int =
   assert tag.len == 4
-  result =  cast[int](tag[0]) +
-            cast[int](tag[1]) shl  8 +
-            cast[int](tag[2]) shl 16 +
-            cast[int](tag[3]) shl 24
+  result =  cast[int](tag[0]) shl 24 or
+            cast[int](tag[1]) shl 16 or
+            cast[int](tag[2]) shl  8 or
+            cast[int](tag[3])
 
+proc digitToInt(c: char): int = c.int - '0'.int
+
+proc firstDigitToInt(tag: int): int =
+  digitToInt(cast[char]((tag and 0xff000000) shr 24))
+
+proc lastDigitToInt(tag: int): int =
+  digitToInt(cast[char](tag and 0xff))
+
+proc firstTwoDigitsToInt(tag: int): int =
+  let
+    digit1 = digitToInt(cast[char]((tag and 0xff000000) shr 24))
+    digit2 = digitToInt(cast[char]((tag and 0x00ff0000) shr 16))
+  result = digit1 * 10 + digit2
 
 proc determineModuleType(tag: int): (ModuleType, int) =
-  # based on https://wiki.multimedia.cx/index.php?title=Protracker_Module
-
-  proc digitToInt(c: char): int = c.int - '0'.int
-
-  proc firstDigitToInt(tag: int): int =
-    digitToInt(cast[char]((tag and 0xff000000) shr 24))
-
-  proc lastDigitToInt(tag: int): int =
-    digitToInt(cast[char](tag and 0xff))
-
-  proc firstTwoDigitsToInt(tag: int): int =
-    let
-      digit1 = digitToInt(cast[char]((tag and 0xff000000) shr 24))
-      digit2 = digitToInt(cast[char]((tag and 0x00ff0000) shr 16))
-    result = digit1 * 10 + digit2
-
+  # Based on:
+  # https://wiki.multimedia.cx/index.php?title=Protracker_Module
+  # https://chipflip.wordpress.com/2011/04/22/taketracker-mystery-solved/
+  # https://greg-kennedy.com/tracker/modformat.html
 
   if tag == mkTag("M.K.") or tag == mkTag("M!K!"):
     result = (mtProTracker, 4)
@@ -58,7 +59,7 @@ proc determineModuleType(tag: int): (ModuleType, int) =
     result = (mtFastTracker, chans)
 
   elif (tag and 0xffff) == (mkTag("xxCN") and 0xffff):
-    result = (mtTakeTracker, firstTwoDigitsToInt(tag))
+    result = (mtFastTracker, firstTwoDigitsToInt(tag))
 
   elif tag == mkTag("TDZ1") or tag == mkTag("TDZ2") or tag == mkTag("TDZ3"):
     result = (mtTakeTracker, lastDigitToInt(tag))
@@ -166,14 +167,19 @@ proc loadModule*(f: File): Module =
   var tagBuf: array[TAG_LEN + 1, uint8]
   copyMem(tagBuf.addr, buf[TAG_OFFSET].addr, TAG_LEN)
   tagBuf[TAG_LEN] = 0
-  let tag = mkTag($cast[cstring](tagBuf[0].addr))
+  let tagString = $cast[cstring](tagBuf[0].addr)
+  debug(fmt"Module tag: {tagString}")
 
+  let tag = mkTag(tagString)
   (module.moduleType, module.numChannels) = determineModuleType(tag)
+  debug(fmt"Detected module type: {module.moduleType}, " &
+        fmt"{module.numChannels} channels")
 
   # Read song name
   var songName = cast[cstring](alloc0(SONG_TITLE_LEN + 1))
   copyMem(songName, buf[pos].addr, SONG_TITLE_LEN)
   module.songName = $songName
+  debug(fmt"Songname: {songname}")
   inc(pos, SONG_TITLE_LEN)
 
   # Read sample info
@@ -182,6 +188,7 @@ proc loadModule*(f: File): Module =
 
   # Read song length
   module.songLength = int(buf[pos])
+  debug(fmt"Song length: {module.songLength}")
   inc(pos)
 
   # TODO Magic constant or song restart point (depending on module type),
@@ -199,13 +206,18 @@ proc loadModule*(f: File): Module =
   for sp in module.songPositions:
     numPatterns = max(sp.int, numPatterns)
   inc(numPatterns)
+  debug(fmt"Number of patterns: {numPatterns}")
 
   # Read pattern data
+  debug(fmt"Reading pattern data...")
+
   for pattNum in 0..<numPatterns:
     let patt = loadPattern(f, module.numChannels)
     module.patterns.add(patt)
 
   # Read sample data
+  debug(fmt"Reading sample data...")
+
   for sampNum in 1..NUM_SAMPLES:
     let sampLen = module.samples[sampNum].length
     if sampLen > 0:
@@ -227,14 +239,94 @@ proc loadModule*(f: File): Module =
 
       module.samples[sampNum].data = floatData
 
+  debug(fmt"Module loaded successfully")
   result = module
 
 
 proc loadModule*(fname: string): Module =
+  debug(fmt"Loading module '{fname}'")
+
   var f: File
   if not open(f, fname, fmRead):
     raise newException(IOError, fmt"Cannot open file: '{fname}'")
 
   result = loadModule(f)
   f.close()
+
+
+# Unit tests
+when isMainModule:
+  assert digitToInt('1') == 1
+
+  assert mkTag("2CHN") == (ord('2').int shl 24 or
+                           ord('C').int shl 16 or
+                           ord('H').int shl  8 or
+                           ord('N').int)
+
+  assert firstDigitToInt(mkTag("2CHN")) == 2
+  assert firstDigitToInt(mkTag("8CHN")) == 8
+
+  var
+    mt: ModuleType
+    ch: int
+
+  (mt, ch) = determineModuleType(mkTag("M.K."))
+  assert mt == mtProTracker
+  assert ch == 4
+
+  (mt, ch) = determineModuleType(mkTag("M!K!"))
+  assert mt == mtProTracker
+  assert ch == 4
+
+  (mt, ch) = determineModuleType(mkTag("2CHN"))
+  assert mt == mtFastTracker
+  assert ch == 2
+
+  (mt, ch) = determineModuleType(mkTag("4CHN"))
+  assert mt == mtFastTracker
+  assert ch == 4
+
+  (mt, ch) = determineModuleType(mkTag("6CHN"))
+  assert mt == mtFastTracker
+  assert ch == 6
+
+  (mt, ch) = determineModuleType(mkTag("8CHN"))
+  assert mt == mtFastTracker
+  assert ch == 8
+
+  (mt, ch) = determineModuleType(mkTag("CD81"))
+  assert mt == mtOktalyzer
+  assert ch == 8
+
+  (mt, ch) = determineModuleType(mkTag("OKTA"))
+  assert mt == mtOktalyzer
+  assert ch == 8
+
+  (mt, ch) = determineModuleType(mkTag("OCTA"))
+  assert mt == mtOctaMED
+  assert ch == 8
+
+  (mt, ch) = determineModuleType(mkTag("32CH"))
+  assert mt == mtFastTracker
+  assert ch == 32
+
+  (mt, ch) = determineModuleType(mkTag("05CN"))
+  assert mt == mtTakeTracker
+  assert ch == 5
+
+  (mt, ch) = determineModuleType(mkTag("TDZ1"))
+  assert mt == mtTakeTracker
+  assert ch == 1
+
+  (mt, ch) = determineModuleType(mkTag("5CHN"))
+  assert mt == mtTakeTracker
+  assert ch == 5
+
+  (mt, ch) = determineModuleType(mkTag("FLT8"))
+  assert mt == mtStarTrekker
+  assert ch == 8
+
+  (mt, ch) = determineModuleType(mkTag("    "))
+  assert mt == mtSoundTracker
+  assert ch == 4
 

@@ -102,7 +102,7 @@ type
     Data3*: cushort
     Data4*: array[8, cuchar]
 
-  FMOD_FILE_ASYNCDONE_FUNC* = proc (info: ptr FMOD_ASYNCREADINFO; result: FMOD_RESULT)
+  FMOD_FILE_ASYNCDONE_FUNC* = proc (info: ptr FMOD_ASYNCREADINFO; result: FMOD_RESULT) {.cdecl.}
   FMOD_ASYNCREADINFO* = object
     handle*: pointer
     offset*: cuint
@@ -345,18 +345,18 @@ type
     fsbguid*: ptr FMOD_GUID
 
   FMOD_REVERB_PROPERTIES* = object
-    DecayTime*: cfloat
-    EarlyDelay*: cfloat
-    LateDelay*: cfloat
-    HFReference*: cfloat
-    HFDecayRatio*: cfloat
-    Diffusion*: cfloat
-    Density*: cfloat
-    LowShelfFrequency*: cfloat
-    LowShelfGain*: cfloat
-    HighCut*: cfloat
-    EarlyLateMix*: cfloat
-    WetLevel*: cfloat
+    decayTime*: cfloat
+    earlyDelay*: cfloat
+    lateDelay*: cfloat
+    hfReference*: cfloat
+    hfDecayRatio*: cfloat
+    diffusion*: cfloat
+    density*: cfloat
+    lowShelfFrequency*: cfloat
+    lowShelfGain*: cfloat
+    highCut*: cfloat
+    earlyLateMix*: cfloat
+    wetLevel*: cfloat
 
   FMOD_ADVANCEDSETTINGS* = object
     cbSize*: cint
@@ -754,72 +754,72 @@ type
   FMOD_DSP_SYSTEM_MIX_CALLBACK* = proc (dsp_state: ptr FMOD_DSP_STATE; stage: cint): FMOD_RESULT {.cdecl.}
 
   FMOD_DSP_ALLOC_FUNC* = proc (size: cuint; `type`: FMOD_MEMORY_TYPE;
-                            sourcestr: cstring): pointer
+                               sourcestr: cstring): pointer {.cdecl.}
 
   FMOD_DSP_REALLOC_FUNC* = proc (`ptr`: pointer; size: cuint; `type`: FMOD_MEMORY_TYPE;
-                              sourcestr: cstring): pointer
+                                 sourcestr: cstring): pointer {.cdecl.}
 
   FMOD_DSP_FREE_FUNC* = proc (`ptr`: pointer; `type`: FMOD_MEMORY_TYPE;
-                           sourcestr: cstring)
+                              sourcestr: cstring) {.cdecl.}
 
   FMOD_DSP_LOG_FUNC* = proc (level: FMOD_DEBUG_FLAGS; file: cstring; line: cint;
-                          function: cstring; string: cstring) {.varargs.}
+                             function: cstring; string: cstring) {.varargs, cdecl.}
 
-  FMOD_DSP_GETSAMPLERATE_FUNC* = proc (dsp_state: ptr FMOD_DSP_STATE; rate: ptr cint): FMOD_RESULT
+  FMOD_DSP_GETSAMPLERATE_FUNC* = proc (dsp_state: ptr FMOD_DSP_STATE; rate: ptr cint): FMOD_RESULT {.cdecl.}
 
   FMOD_DSP_GETBLOCKSIZE_FUNC* = proc (dsp_state: ptr FMOD_DSP_STATE;
-                                   blocksize: ptr cuint): FMOD_RESULT
+                                      blocksize: ptr cuint): FMOD_RESULT {.cdecl.}
 
   FMOD_DSP_GETSPEAKERMODE_FUNC* = proc (dsp_state: ptr FMOD_DSP_STATE;
-                                     speakermode_mixer: ptr FMOD_SPEAKERMODE;
-                                     speakermode_output: ptr FMOD_SPEAKERMODE): FMOD_RESULT
+                                        speakermode_mixer: ptr FMOD_SPEAKERMODE;
+                                        speakermode_output: ptr FMOD_SPEAKERMODE): FMOD_RESULT {.cdecl.}
 
   FMOD_DSP_GETCLOCK_FUNC* = proc (dsp_state: ptr FMOD_DSP_STATE;
-                               clock: ptr culonglong; offset: ptr cuint;
-                               length: ptr cuint): FMOD_RESULT
+                                  clock: ptr culonglong; offset: ptr cuint;
+                                  length: ptr cuint): FMOD_RESULT {.cdecl.}
 
   FMOD_DSP_GETLISTENERATTRIBUTES_FUNC* = proc (dsp_state: ptr FMOD_DSP_STATE;
-      numlisteners: ptr cint; attributes: ptr FMOD_3D_ATTRIBUTES): FMOD_RESULT
+      numlisteners: ptr cint; attributes: ptr FMOD_3D_ATTRIBUTES): FMOD_RESULT {.cdecl.}
 
   FMOD_DSP_GETUSERDATA_FUNC* = proc (dsp_state: ptr FMOD_DSP_STATE;
-                                  userdata: ptr pointer): FMOD_RESULT
+                                     userdata: ptr pointer): FMOD_RESULT {.cdecl.}
 
   FMOD_DSP_DFT_FFTREAL_FUNC* = proc (dsp_state: ptr FMOD_DSP_STATE; size: cint;
-                                  signal: ptr cfloat; dft: ptr FMOD_COMPLEX;
-                                  window: ptr cfloat; signalhop: cint): FMOD_RESULT
+                                     signal: ptr cfloat; dft: ptr FMOD_COMPLEX;
+                                     window: ptr cfloat; signalhop: cint): FMOD_RESULT {.cdecl.}
 
   FMOD_DSP_DFT_IFFTREAL_FUNC* = proc (dsp_state: ptr FMOD_DSP_STATE; size: cint;
-                                   dft: ptr FMOD_COMPLEX; signal: ptr cfloat;
-                                   window: ptr cfloat; signalhop: cint): FMOD_RESULT
+                                      dft: ptr FMOD_COMPLEX; signal: ptr cfloat;
+                                      window: ptr cfloat; signalhop: cint): FMOD_RESULT {.cdecl.}
 
   FMOD_DSP_PAN_SUMMONOMATRIX_FUNC* = proc (dsp_state: ptr FMOD_DSP_STATE;
-                                        sourceSpeakerMode: FMOD_SPEAKERMODE;
-                                        lowFrequencyGain: cfloat;
-                                        overallGain: cfloat; matrix: ptr cfloat): FMOD_RESULT
+                                           sourceSpeakerMode: FMOD_SPEAKERMODE;
+                                           lowFrequencyGain: cfloat;
+                                           overallGain: cfloat; matrix: ptr cfloat): FMOD_RESULT {.cdecl.}
 
   FMOD_DSP_PAN_SUMSTEREOMATRIX_FUNC* = proc (dsp_state: ptr FMOD_DSP_STATE;
       sourceSpeakerMode: FMOD_SPEAKERMODE; pan: cfloat; lowFrequencyGain: cfloat;
-      overallGain: cfloat; matrixHop: cint; matrix: ptr cfloat): FMOD_RESULT
+      overallGain: cfloat; matrixHop: cint; matrix: ptr cfloat): FMOD_RESULT {.cdecl.}
 
   FMOD_DSP_PAN_SUMSURROUNDMATRIX_FUNC* = proc (dsp_state: ptr FMOD_DSP_STATE;
       sourceSpeakerMode: FMOD_SPEAKERMODE; targetSpeakerMode: FMOD_SPEAKERMODE;
       direction: cfloat; extent: cfloat; rotation: cfloat; lowFrequencyGain: cfloat;
       overallGain: cfloat; matrixHop: cint; matrix: ptr cfloat;
-      flags: FMOD_DSP_PAN_SURROUND_FLAGS): FMOD_RESULT
+      flags: FMOD_DSP_PAN_SURROUND_FLAGS): FMOD_RESULT {.cdecl.}
 
   FMOD_DSP_PAN_SUMMONOTOSURROUNDMATRIX_FUNC* = proc (dsp_state: ptr FMOD_DSP_STATE;
       targetSpeakerMode: FMOD_SPEAKERMODE; direction: cfloat; extent: cfloat;
       lowFrequencyGain: cfloat; overallGain: cfloat; matrixHop: cint;
-      matrix: ptr cfloat): FMOD_RESULT
+      matrix: ptr cfloat): FMOD_RESULT {.cdecl.}
 
   FMOD_DSP_PAN_SUMSTEREOTOSURROUNDMATRIX_FUNC* = proc (
       dsp_state: ptr FMOD_DSP_STATE; targetSpeakerMode: FMOD_SPEAKERMODE;
       direction: cfloat; extent: cfloat; rotation: cfloat; lowFrequencyGain: cfloat;
-      overallGain: cfloat; matrixHop: cint; matrix: ptr cfloat): FMOD_RESULT
+      overallGain: cfloat; matrixHop: cint; matrix: ptr cfloat): FMOD_RESULT {.cdecl.}
 
   FMOD_DSP_PAN_GETROLLOFFGAIN_FUNC* = proc (dsp_state: ptr FMOD_DSP_STATE;
       rolloff: FMOD_DSP_PAN_3D_ROLLOFF_TYPE; distance: cfloat; mindistance: cfloat;
-      maxdistance: cfloat; gain: ptr cfloat): FMOD_RESULT
+      maxdistance: cfloat; gain: ptr cfloat): FMOD_RESULT {.cdecl.}
 
   FMOD_DSP_PARAMETER_TYPE* = enum
     FMOD_DSP_PARAMETER_TYPE_FLOAT, FMOD_DSP_PARAMETER_TYPE_INT,
@@ -1024,29 +1024,29 @@ type
       object3d: pointer; info: ptr FMOD_OUTPUT_OBJECT3DINFO): FMOD_RESULT {.cdecl.}
 
   FMOD_OUTPUT_OPENPORT_CALLBACK* = proc (output_state: ptr FMOD_OUTPUT_STATE;
-                                      portType: FMOD_PORT_TYPE;
-                                      portIndex: FMOD_PORT_INDEX;
-                                      portId: ptr cint; portRate: ptr cint;
-                                      portChannels: ptr cint;
-                                      portFormat: ptr FMOD_SOUND_FORMAT): FMOD_RESULT {.cdecl.}
+                                         portType: FMOD_PORT_TYPE;
+                                         portIndex: FMOD_PORT_INDEX;
+                                         portId: ptr cint; portRate: ptr cint;
+                                         portChannels: ptr cint;
+                                         portFormat: ptr FMOD_SOUND_FORMAT): FMOD_RESULT {.cdecl.}
 
   FMOD_OUTPUT_CLOSEPORT_CALLBACK* = proc (output_state: ptr FMOD_OUTPUT_STATE;
-                                       portId: cint): FMOD_RESULT {.cdecl.}
+                                          portId: cint): FMOD_RESULT {.cdecl.}
 
   FMOD_OUTPUT_READFROMMIXER_FUNC* = proc (output_state: ptr FMOD_OUTPUT_STATE;
-                                       buffer: pointer; length: cuint): FMOD_RESULT
+                                          buffer: pointer; length: cuint): FMOD_RESULT {.cdecl.}
 
   FMOD_OUTPUT_COPYPORT_FUNC* = proc (output_state: ptr FMOD_OUTPUT_STATE;
-                                  portId: cint; buffer: pointer; length: cuint): FMOD_RESULT
+                                     portId: cint; buffer: pointer; length: cuint): FMOD_RESULT {.cdecl.}
 
-  FMOD_OUTPUT_REQUESTRESET_FUNC* = proc (output_state: ptr FMOD_OUTPUT_STATE): FMOD_RESULT
+  FMOD_OUTPUT_REQUESTRESET_FUNC* = proc (output_state: ptr FMOD_OUTPUT_STATE): FMOD_RESULT {.cdecl.}
 
-  FMOD_OUTPUT_ALLOC_FUNC* = proc (size: cuint; align: cuint; file: cstring; line: cint): pointer
+  FMOD_OUTPUT_ALLOC_FUNC* = proc (size: cuint; align: cuint; file: cstring; line: cint): pointer {.cdecl.}
 
-  FMOD_OUTPUT_FREE_FUNC* = proc (`ptr`: pointer; file: cstring; line: cint)
+  FMOD_OUTPUT_FREE_FUNC* = proc (`ptr`: pointer; file: cstring; line: cint) {.cdecl.}
 
   FMOD_OUTPUT_LOG_FUNC* = proc (level: FMOD_DEBUG_FLAGS; file: cstring; line: cint;
-                             function: cstring; string: cstring) {.varargs.}
+                                function: cstring; string: cstring) {.varargs, cdecl.}
 
   FMOD_OUTPUT_DESCRIPTION* = object
     apiversion*: cuint
@@ -2428,363 +2428,363 @@ let
   FMOD_REVERB_MAXINSTANCES* = 4
 
   FMOD_PRESET_OFF* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 1000,
-    EarlyDelay: 7,
-    LateDelay: 11,
-    HFReference: 5000,
-    HFDecayRatio: 100,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 20,
-    EarlyLateMix: 96,
-    WetLevel: -80
+    decayTime: 1000,
+    earlyDelay: 7,
+    lateDelay: 11,
+    hfReference: 5000,
+    hfDecayRatio: 100,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 20,
+    earlyLateMix: 96,
+    wetLevel: -80
   )
 
   FMOD_PRESET_GENERIC* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 1500,
-    EarlyDelay: 7,
-    LateDelay: 11,
-    HFReference: 5000,
-    HFDecayRatio: 83,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 14500,
-    EarlyLateMix: 96,
-    WetLevel: -8.0
+    decayTime: 1500,
+    earlyDelay: 7,
+    lateDelay: 11,
+    hfReference: 5000,
+    hfDecayRatio: 83,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 14500,
+    earlyLateMix: 96,
+    wetLevel: -8.0
   )
 
   FMOD_PRESET_PADDEDCELL* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 170,
-    EarlyDelay: 1,
-    LateDelay: 2,
-    HFReference: 5000,
-    HFDecayRatio: 10,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 160,
-    EarlyLateMix: 84,
-    WetLevel: -7.8
+    decayTime: 170,
+    earlyDelay: 1,
+    lateDelay: 2,
+    hfReference: 5000,
+    hfDecayRatio: 10,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 160,
+    earlyLateMix: 84,
+    wetLevel: -7.8
   )
 
   FMOD_PRESET_ROOM* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 400,
-    EarlyDelay: 2,
-    LateDelay: 3,
-    HFReference: 5000,
-    HFDecayRatio: 83,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 6050,
-    EarlyLateMix: 88,
-    WetLevel: -9.4
+    decayTime: 400,
+    earlyDelay: 2,
+    lateDelay: 3,
+    hfReference: 5000,
+    hfDecayRatio: 83,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 6050,
+    earlyLateMix: 88,
+    wetLevel: -9.4
   )
 
   FMOD_PRESET_BATHROOM* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 1500,
-    EarlyDelay: 7,
-    LateDelay: 11,
-    HFReference: 5000,
-    HFDecayRatio: 54,
-    Diffusion: 100,
-    Density: 60,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 2900,
-    EarlyLateMix: 83,
-    WetLevel: 0.5
+    decayTime: 1500,
+    earlyDelay: 7,
+    lateDelay: 11,
+    hfReference: 5000,
+    hfDecayRatio: 54,
+    diffusion: 100,
+    density: 60,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 2900,
+    earlyLateMix: 83,
+    wetLevel: 0.5
   )
 
   FMOD_PRESET_LIVINGROOM* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 500,
-    EarlyDelay: 3,
-    LateDelay: 4,
-    HFReference: 5000,
-    HFDecayRatio: 10,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 160,
-    EarlyLateMix: 58,
-    WetLevel: -19.0
+    decayTime: 500,
+    earlyDelay: 3,
+    lateDelay: 4,
+    hfReference: 5000,
+    hfDecayRatio: 10,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 160,
+    earlyLateMix: 58,
+    wetLevel: -19.0
   )
 
   FMOD_PRESET_STONEROOM* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 2300,
-    EarlyDelay: 12,
-    LateDelay: 17,
-    HFReference: 5000,
-    HFDecayRatio: 64,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 7800,
-    EarlyLateMix: 71,
-    WetLevel: -8.5
+    decayTime: 2300,
+    earlyDelay: 12,
+    lateDelay: 17,
+    hfReference: 5000,
+    hfDecayRatio: 64,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 7800,
+    earlyLateMix: 71,
+    wetLevel: -8.5
   )
 
   FMOD_PRESET_AUDITORIUM* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 4300,
-    EarlyDelay: 20,
-    LateDelay: 30,
-    HFReference: 5000,
-    HFDecayRatio: 59,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 5850,
-    EarlyLateMix: 64,
-    WetLevel: -11.7
+    decayTime: 4300,
+    earlyDelay: 20,
+    lateDelay: 30,
+    hfReference: 5000,
+    hfDecayRatio: 59,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 5850,
+    earlyLateMix: 64,
+    wetLevel: -11.7
   )
 
   FMOD_PRESET_CONCERTHALL* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 3900,
-    EarlyDelay: 20,
-    LateDelay: 29,
-    HFReference: 5000,
-    HFDecayRatio: 70,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 5650,
-    EarlyLateMix: 80,
-    WetLevel: -9.8
+    decayTime: 3900,
+    earlyDelay: 20,
+    lateDelay: 29,
+    hfReference: 5000,
+    hfDecayRatio: 70,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 5650,
+    earlyLateMix: 80,
+    wetLevel: -9.8
   )
 
   FMOD_PRESET_CAVE* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 2900,
-    EarlyDelay: 15,
-    LateDelay: 22,
-    HFReference: 5000,
-    HFDecayRatio: 100,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 20000,
-    EarlyLateMix: 59,
-    WetLevel: -11.3
+    decayTime: 2900,
+    earlyDelay: 15,
+    lateDelay: 22,
+    hfReference: 5000,
+    hfDecayRatio: 100,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 20000,
+    earlyLateMix: 59,
+    wetLevel: -11.3
   )
 
   FMOD_PRESET_ARENA* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 7200,
-    EarlyDelay: 20,
-    LateDelay: 30,
-    HFReference: 5000,
-    HFDecayRatio: 33,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 4500,
-    EarlyLateMix: 80,
-    WetLevel: -9.6
+    decayTime: 7200,
+    earlyDelay: 20,
+    lateDelay: 30,
+    hfReference: 5000,
+    hfDecayRatio: 33,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 4500,
+    earlyLateMix: 80,
+    wetLevel: -9.6
   )
 
   FMOD_PRESET_HANGAR* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 10000,
-    EarlyDelay: 20,
-    LateDelay: 30,
-    HFReference: 5000,
-    HFDecayRatio: 23,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 3400,
-    EarlyLateMix: 72,
-    WetLevel: -7.4
+    decayTime: 10000,
+    earlyDelay: 20,
+    lateDelay: 30,
+    hfReference: 5000,
+    hfDecayRatio: 23,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 3400,
+    earlyLateMix: 72,
+    wetLevel: -7.4
   )
 
   FMOD_PRESET_CARPETTEDHALLWAY* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 300,
-    EarlyDelay: 2,
-    LateDelay: 30,
-    HFReference: 5000,
-    HFDecayRatio: 10,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 500,
-    EarlyLateMix: 56,
-    WetLevel: -24.0
+    decayTime: 300,
+    earlyDelay: 2,
+    lateDelay: 30,
+    hfReference: 5000,
+    hfDecayRatio: 10,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 500,
+    earlyLateMix: 56,
+    wetLevel: -24.0
   )
 
   FMOD_PRESET_HALLWAY* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 1500,
-    EarlyDelay: 7,
-    LateDelay: 11,
-    HFReference: 5000,
-    HFDecayRatio: 59,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 7800,
-    EarlyLateMix: 87,
-    WetLevel: -5.5
+    decayTime: 1500,
+    earlyDelay: 7,
+    lateDelay: 11,
+    hfReference: 5000,
+    hfDecayRatio: 59,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 7800,
+    earlyLateMix: 87,
+    wetLevel: -5.5
   )
 
   FMOD_PRESET_STONECORRIDOR* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 270,
-    EarlyDelay: 13,
-    LateDelay: 20,
-    HFReference: 5000,
-    HFDecayRatio: 79,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 9000,
-    EarlyLateMix: 86,
-    WetLevel: -6.0
+    decayTime: 270,
+    earlyDelay: 13,
+    lateDelay: 20,
+    hfReference: 5000,
+    hfDecayRatio: 79,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 9000,
+    earlyLateMix: 86,
+    wetLevel: -6.0
   )
 
   FMOD_PRESET_ALLEY* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 1500,
-    EarlyDelay: 7,
-    LateDelay: 11,
-    HFReference: 5000,
-    HFDecayRatio: 86,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 8300,
-    EarlyLateMix: 80,
-    WetLevel: -9.8
+    decayTime: 1500,
+    earlyDelay: 7,
+    lateDelay: 11,
+    hfReference: 5000,
+    hfDecayRatio: 86,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 8300,
+    earlyLateMix: 80,
+    wetLevel: -9.8
   )
 
   FMOD_PRESET_FOREST* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 1500,
-    EarlyDelay: 162,
-    LateDelay: 88,
-    HFReference: 5000,
-    HFDecayRatio: 54,
-    Diffusion: 79,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 760,
-    EarlyLateMix: 94,
-    WetLevel: -12.3
+    decayTime: 1500,
+    earlyDelay: 162,
+    lateDelay: 88,
+    hfReference: 5000,
+    hfDecayRatio: 54,
+    diffusion: 79,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 760,
+    earlyLateMix: 94,
+    wetLevel: -12.3
   )
 
   FMOD_PRESET_CITY* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 1500,
-    EarlyDelay: 7,
-    LateDelay: 11,
-    HFReference: 5000,
-    HFDecayRatio: 67,
-    Diffusion: 50,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 4050,
-    EarlyLateMix: 66,
-    WetLevel: -26.0
+    decayTime: 1500,
+    earlyDelay: 7,
+    lateDelay: 11,
+    hfReference: 5000,
+    hfDecayRatio: 67,
+    diffusion: 50,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 4050,
+    earlyLateMix: 66,
+    wetLevel: -26.0
   )
 
   FMOD_PRESET_MOUNTAINS* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 1500,
-    EarlyDelay: 300,
-    LateDelay: 100,
-    HFReference: 5000,
-    HFDecayRatio: 21,
-    Diffusion: 27,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 1220,
-    EarlyLateMix: 82,
-    WetLevel: -24.0
+    decayTime: 1500,
+    earlyDelay: 300,
+    lateDelay: 100,
+    hfReference: 5000,
+    hfDecayRatio: 21,
+    diffusion: 27,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 1220,
+    earlyLateMix: 82,
+    wetLevel: -24.0
   )
 
   FMOD_PRESET_QUARRY* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 1500,
-    EarlyDelay: 61,
-    LateDelay: 25,
-    HFReference: 5000,
-    HFDecayRatio: 83,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 3400,
-    EarlyLateMix: 100,
-    WetLevel: -5.0
+    decayTime: 1500,
+    earlyDelay: 61,
+    lateDelay: 25,
+    hfReference: 5000,
+    hfDecayRatio: 83,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 3400,
+    earlyLateMix: 100,
+    wetLevel: -5.0
   )
 
   FMOD_PRESET_PLAIN* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 1500,
-    EarlyDelay: 179,
-    LateDelay: 100,
-    HFReference: 5000,
-    HFDecayRatio: 50,
-    Diffusion: 21,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 1670,
-    EarlyLateMix: 65,
-    WetLevel: -28.0
+    decayTime: 1500,
+    earlyDelay: 179,
+    lateDelay: 100,
+    hfReference: 5000,
+    hfDecayRatio: 50,
+    diffusion: 21,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 1670,
+    earlyLateMix: 65,
+    wetLevel: -28.0
   )
 
   FMOD_PRESET_PARKINGLOT* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 1700,
-    EarlyDelay: 8,
-    LateDelay: 12,
-    HFReference: 5000,
-    HFDecayRatio: 100,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 20000,
-    EarlyLateMix: 56,
-    WetLevel: -19.5
+    decayTime: 1700,
+    earlyDelay: 8,
+    lateDelay: 12,
+    hfReference: 5000,
+    hfDecayRatio: 100,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 20000,
+    earlyLateMix: 56,
+    wetLevel: -19.5
   )
 
   FMOD_PRESET_SEWERPIPE* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 2800,
-    EarlyDelay: 14,
-    LateDelay: 21,
-    HFReference: 5000,
-    HFDecayRatio: 14,
-    Diffusion: 80,
-    Density: 60,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 3400,
-    EarlyLateMix: 66,
-    WetLevel: 1.2
+    decayTime: 2800,
+    earlyDelay: 14,
+    lateDelay: 21,
+    hfReference: 5000,
+    hfDecayRatio: 14,
+    diffusion: 80,
+    density: 60,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 3400,
+    earlyLateMix: 66,
+    wetLevel: 1.2
   )
 
   FMOD_PRESET_UNDERWATER* = FMOD_REVERB_PROPERTIES(
-    DecayTime: 1500,
-    EarlyDelay: 7,
-    LateDelay: 11,
-    HFReference: 5000,
-    HFDecayRatio: 10,
-    Diffusion: 100,
-    Density: 100,
-    LowShelfFrequency: 250,
-    LowShelfGain: 0,
-    HighCut: 500,
-    EarlyLateMix: 92,
-    WetLevel: 7.0
+    decayTime: 1500,
+    earlyDelay: 7,
+    lateDelay: 11,
+    hfReference: 5000,
+    hfDecayRatio: 10,
+    diffusion: 100,
+    density: 100,
+    lowShelfFrequency: 250,
+    lowShelfGain: 0,
+    highCut: 500,
+    earlyLateMix: 92,
+    wetLevel: 7.0
   )
 
   FMOD_DRIVER_STATE_CONNECTED*: FMOD_DRIVER_STATE = 0x00000001

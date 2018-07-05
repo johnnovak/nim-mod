@@ -1,4 +1,4 @@
-import parseopt, os, strutils
+import logging, parseopt, os, strutils
 
 import illwill/illwill
 
@@ -42,6 +42,9 @@ proc printHelp() =
 
 
 proc main() =
+  var logger = newConsoleLogger()
+  addHandler(logger)
+
   # Command line arguments handling
   var filename = ""
 
@@ -179,7 +182,7 @@ proc main() =
       setCursorPos(0, 5)
       drawPatternView(module.patterns[currPattern],
                       currRow = currRow, maxRows = gMaxRows,
-                      startTrack = 0, maxTracks = 4)
+                      startTrack = 0, maxTracks = module.numChannels)
       gRedraw = false
 
     sleep(10)
