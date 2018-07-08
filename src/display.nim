@@ -101,7 +101,7 @@ proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
   setColor(cb, gTheme.text)
   cb.write(x1,    y1+2, fmt"Songpos:  ")
   setColor(cb, gTheme.textHi)
-  cb.write(fmt"{ps.currSongPos:02}/{ps.module.songLength:02}")
+  cb.write(fmt"{ps.currSongPos:02}/{ps.module.songLength-1:02}")
 
   setColor(cb, gTheme.text)
   cb.write(x1,    y1+3, fmt"Pattern:  ")

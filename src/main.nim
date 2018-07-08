@@ -139,12 +139,19 @@ proc main() =
 #    of keyLeft,  ord('H'): setPattern(max(currPattern - 1, 0))
 #    of keyRight, ord('L'): setPattern(min(currPattern + 1,
 #                                          module.patterns.high))
-    of keyLeft,  ord('h'):
-      gPlaybackState.nextSongPos = max(0, gPlaybackState.currSongPos - 1)
+    of keyLeft, ord('h'):
+      gPlaybackState.nextSongPos = max(0, gPlaybackState.currSongPos-1)
+
+    of ord('H'):
+      gPlaybackState.nextSongPos = max(0, gPlaybackState.currSongPos-10)
 
     of keyRight, ord('l'):
-      gPlaybackState.nextSongPos = min(module.songLength - 1,
-                                       gPlaybackState.currSongPos + 1)
+      gPlaybackState.nextSongPos = min(module.songLength-1,
+                                       gPlaybackState.currSongPos+1)
+
+    of ord('L'):
+      gPlaybackState.nextSongPos = min(module.songLength-1,
+                                       gPlaybackState.currSongPos+10)
 
     of keyF1: setTheme(0); gRedraw = true
     of keyF2: setTheme(1); gRedraw = true
