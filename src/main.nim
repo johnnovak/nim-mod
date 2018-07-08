@@ -1,8 +1,8 @@
 import logging, parseopt, os, strutils
 
-import illwill/illwill
+import illwill
 
-import audio/fmod/fmoddriver as audio
+import audio/fmoddriver as audio
 import module
 import loader
 import player
@@ -16,6 +16,7 @@ var
   gMaxRows = 32
   gPlaybackState: PlaybackState
   gSampleRate = 44100
+  gDisplayGUI = true
 
 const ROW_JUMP = 8
 
@@ -25,10 +26,11 @@ proc audioCb(samples: AudioBufferPtr, numFrames: Natural) =
 
 
 proc quitProc() {.noconv.} =
-  resetAttributes()
-  consoleDeinit()
-  exitFullscreen()
-  showCursor()
+  if gDisplayGUI:
+    resetAttributes()
+    consoleDeinit()
+    exitFullscreen()
+    showCursor()
   discard audio.closeAudio()
 
 
@@ -67,7 +69,9 @@ proc main() =
   try:
     module = loadModule(filename)
   except:
-    echo "Error loading module: " & getCurrentExceptionMsg()
+    let ex = getCurrentException()
+    echo "Error loading module: " & ex.msg
+    echo getStackTrace(ex)
     quit(1)
 
   initPlaybackState(gPlaybackState, gSampleRate, module)
@@ -81,12 +85,15 @@ proc main() =
     echo audio.getLastError()
     quit(1)
 
-  # Init console
   system.addQuitProc(quitProc)
 
   consoleInit()
-  enterFullscreen()
-  hideCursor()
+
+#  gDisplayGUI = false
+
+  if gDisplayGUI:
+    enterFullscreen()
+    hideCursor()
 
   let (w, h) = terminalSize()
 
@@ -119,24 +126,25 @@ proc main() =
     let key = getKey()
 
     case key:
-    of keyHome, ord('g'):  setRow(0)
-    of keyEnd,  ord('G'):  setRow(ROWS_PER_PATTERN-1)
-    of keyUp,   ord('k'):  setRow(max(currRow - 1, 0))
-    of keyDown, ord('j'):  setRow(min(currRow + 1, ROWS_PER_PATTERN-1))
+      # TODO
+#    of keyHome, ord('g'):  setRow(0)
+#    of keyEnd,  ord('G'):  setRow(ROWS_PER_PATTERN-1)
+#    of keyUp,   ord('k'):  setRow(max(currRow - 1, 0))
+#    of keyDown, ord('j'):  setRow(min(currRow + 1, ROWS_PER_PATTERN-1))
 
-    of keyPageUp,   keyCtrlU: setRow(max(currRow - ROW_JUMP, 0))
-    of keyPageDown, keyCtrlD: setRow(min(currRow + ROW_JUMP,
-                                         ROWS_PER_PATTERN-1))
+#    of keyPageUp,   keyCtrlU: setRow(max(currRow - ROW_JUMP, 0))
+#    of keyPageDown, keyCtrlD: setRow(min(currRow + ROW_JUMP,
+#                                         ROWS_PER_PATTERN-1))
 
 #    of keyLeft,  ord('H'): setPattern(max(currPattern - 1, 0))
 #    of keyRight, ord('L'): setPattern(min(currPattern + 1,
 #                                          module.patterns.high))
-    of keyLeft,  ord('H'):
-      gPlaybackState.nextSongPos = max(0, gPlaybackState.songPos - 1)
+    of keyLeft,  ord('h'):
+      gPlaybackState.nextSongPos = max(0, gPlaybackState.currSongPos - 1)
 
-    of keyRight, ord('L'):
+    of keyRight, ord('l'):
       gPlaybackState.nextSongPos = min(module.songLength - 1,
-                                       gPlaybackState.songPos + 1)
+                                       gPlaybackState.currSongPos + 1)
 
     of keyF1: setTheme(0); gRedraw = true
     of keyF2: setTheme(1); gRedraw = true
@@ -165,6 +173,7 @@ proc main() =
 
     else: discard
 
+#[
     let patt = module.songPositions[gPlaybackState.songPos]
     if patt != lastPattern:
       currPattern = patt
@@ -175,17 +184,17 @@ proc main() =
       currRow = gPlaybackState.currRow
       lastRow = currRow
       gRedraw = true
+]#
 
-    if gRedraw:
-      setCursorPos(0, 0)
-      drawPlaybackState(gPlaybackState)
-      setCursorPos(0, 5)
-      drawPatternView(module.patterns[currPattern],
-                      currRow = currRow, maxRows = gMaxRows,
-                      startTrack = 0, maxTracks = module.numChannels)
-      gRedraw = false
+    if gDisplayGUI:
+      updateScreen(gPlaybackState)
+#      drawPlaybackState(gPlaybackState)
+#      drawPatternView(module.patterns[currPattern],
+#                      currRow = currRow, maxRows = gMaxRows,
+#                      startTrack = 0, maxTracks = module.numChannels)
+#      gRedraw = false
 
-    sleep(10)
+    sleep(20)
 
 
 main()

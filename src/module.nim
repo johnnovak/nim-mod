@@ -19,13 +19,14 @@ const
 
 type
   Module* = ref object
-    moduleType*:    ModuleType
-    numChannels*:   Natural
-    songName*:      string
-    songLength*:    Natural
-    songPositions*: array[NUM_SONG_POSITIONS, Natural]
-    samples*:       array[1..NUM_SAMPLES, Sample]
-    patterns*:      seq[Pattern]
+    moduleType*:     ModuleType
+    numChannels*:    Natural
+    songName*:       string
+    songLength*:     Natural
+    songRestartPos*: Natural
+    songPositions*:  array[NUM_SONG_POSITIONS, Natural]
+    samples*:        array[1..NUM_SAMPLES, Sample]
+    patterns*:       seq[Pattern]
 
   ModuleType* = enum
     mtFastTracker,
@@ -57,22 +58,13 @@ type
     effect*:    int
 
 
-proc newTrack*(): Track =
-  result = new Track
-
-proc newPattern*(numChannels: Natural): Pattern =
+proc newPattern*(): Pattern =
   result = new Pattern
-  newSeq(result.tracks, numChannels)
-  for trackNum in 0..<numChannels:
-    result.tracks[trackNum] = newTrack()
-
-proc newSample*(): Sample =
-  result = new Sample
+  result.tracks = newSeq[Track]()
 
 proc newModule*(): Module =
   result = new Module
   result.patterns = newSeq[Pattern]()
-
 
 proc nibbleToChar*(n: int): char =
   assert n >= 0 and n <= 15
@@ -112,6 +104,17 @@ proc effectToStr*(effect: int): string =
   result = nibbleToChar(cmd) &
            nibbleToChar(x) &
            nibbleToChar(y)
+
+
+proc toString*(mt: ModuleType): string =
+  case mt
+  of mtFastTracker:  result = "FastTracker"
+  of mtOctaMED:      result = "OctaMED"
+  of mtOktalyzer:    result = "Oktalyzer"
+  of mtProTracker:   result = "ProTracker"
+  of mtSoundTracker: result = "SoundTracker"
+  of mtStarTrekker:  result = "StarTrekker"
+  of mtTakeTracker:  result = "TakeTracker"
 
 
 proc `$`*(c: Cell): string =

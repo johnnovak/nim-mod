@@ -53,7 +53,9 @@ proc determineModuleType(tag: int): (ModuleType, int) =
 
   elif (tag and 0xffff) == (mkTag("xxCH") and 0xffff):
     let chans = firstTwoDigitsToInt(tag)
-    if not (chans >= 10 and chans <= 32 and chans mod 2 == 0):
+    # Strictly speaking, the FT2 limit is 32 channels, but with OpenMPT you
+    # can use up to 99 channels
+    if not (chans >= 10 and chans <= 99 and chans mod 2 == 0):
       raise newException(ModuleLoadError,
                          fmt"Invalid FastTracker module tag: '{tag}'")
     result = (mtFastTracker, chans)
@@ -75,7 +77,7 @@ proc determineModuleType(tag: int): (ModuleType, int) =
 
 
 proc loadSampleInfo(buf: var seq[uint8], pos: var int): Sample =
-  var samp = newSample()
+  var samp = new Sample
 
   var name = cast[cstring](alloc0(SAMPLE_NAME_LEN + 1))
   copyMem(name, buf[pos].addr, SAMPLE_NAME_LEN)
@@ -131,7 +133,10 @@ proc read(f: File, dest: pointer, len: Natural) =
 
 
 proc loadPattern(f: File, numChannels: int): Pattern =
-  var patt = newPattern(numChannels)
+  var patt = newPattern()
+  for i in 0..<numChannels:
+    patt.tracks.add(new Track)
+
   var buf: array[BYTES_PER_CELL, uint8]
 
   for rowNum in 0..<ROWS_PER_PATTERN:
@@ -150,6 +155,15 @@ proc loadPattern(f: File, numChannels: int): Pattern =
 
       patt.tracks[track].rows[rowNum] = cell
 
+  result = patt
+
+
+proc mergePatterns(p1, p2: Pattern): Pattern =
+  var patt = newPattern()
+  for t in p1.tracks:
+    patt.tracks.add(t)
+  for t in p2.tracks:
+    patt.tracks.add(t)
   result = patt
 
 
@@ -191,8 +205,8 @@ proc loadModule*(f: File): Module =
   debug(fmt"Song length: {module.songLength}")
   inc(pos)
 
-  # TODO Magic constant or song restart point (depending on module type),
-  # skip it for now...
+  # Read song restart position
+  module.songRestartPos = int(buf[pos])
   inc(pos)
 
   # Read song positions
@@ -211,9 +225,24 @@ proc loadModule*(f: File): Module =
   # Read pattern data
   debug(fmt"Reading pattern data...")
 
-  for pattNum in 0..<numPatterns:
-    let patt = loadPattern(f, module.numChannels)
-    module.patterns.add(patt)
+  # 8-channel StarTrekker modules use two consecutive 4-channel patterns
+  # to represent a single 8-channel pattern
+  if module.moduleType == mtStarTrekker and module.numChannels == 8:
+    if numPatterns mod 2 != 0:
+      raise newException(ModuleLoadError,
+        "Invalid 8-channel StarTrekker module: " &
+        fmt"number of patterns is not even: {numPatterns}"
+      )
+    for pattNum in 0..<numPatterns:
+      let
+        p1 = loadPattern(f, module.numChannels)
+        p2 = loadPattern(f, module.numChannels)
+        patt = mergePatterns(p1, p2)
+      module.patterns.add(patt)
+  else:
+    for pattNum in 0..<numPatterns:
+      let patt = loadPattern(f, module.numChannels)
+      module.patterns.add(patt)
 
   # Read sample data
   debug(fmt"Reading sample data...")

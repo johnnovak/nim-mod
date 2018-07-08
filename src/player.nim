@@ -1,4 +1,4 @@
-import math
+import locks, math
 
 import audio/common
 import module
@@ -36,7 +36,7 @@ type
     sampleRate:          Natural
     tempo*:              Natural
     ticksPerRow*:        Natural
-    songPos*:            Natural
+    currSongPos*:        Natural
     currRow*:            int
     currTick:            Natural
     tickFramesRemaining: Natural
@@ -44,7 +44,10 @@ type
     channelState*:       seq[ChannelState]
     jumpRow:             int
     jumpSongPos:         int
+    loopStartRow:        Natural
+    loopCount:           Natural
     nextSongPos*:        int  # TODO this should be done in a better way
+#    lock:                Lock TODO not needed?
 
   Channel = ref object
     currSample:     Sample
@@ -69,12 +72,42 @@ type
   MixBuffer = array[1024, float32]
 
 
+proc resetChannel(ch: var Channel) =
+  ch.currSample = nil
+  ch.swapSample = nil
+  ch.samplePos = 0
+  ch.period = NO_VALUE
+  ch.pan = 0
+  ch.volume = 0
+  ch.volumeScalar = 0
+  ch.sampleStep = 0
+  ch.portaToNote = NOTE_NONE
+  ch.portaSpeed = 0
+  ch.vibratoPos = 0
+  ch.vibratoSign = 1
+  ch.vibratoSpeed = 0
+  ch.vibratoDepth = 0
+  ch.offset = 0
+
 proc newChannel(): Channel =
   var ch = new Channel
-  ch.period = NO_VALUE
-  ch.portaToNote = NOTE_NONE
-  ch.vibratoSign = 1
+  ch.resetChannel()
   result = ch
+
+proc resetPlaybackState(ps: var PlaybackState) =
+  ps.currSongPos = 0
+
+  # These initial values ensure that the very first row & tick of the playback
+  # are handled correctly
+  ps.currRow = -1
+  ps.currTick = ps.ticksPerRow - 1
+  ps.tickFramesRemaining = 0
+
+  ps.jumpRow = NO_VALUE
+  ps.jumpSongPos = NO_VALUE
+  ps.loopStartRow = 0
+  ps.loopCount = 0
+  ps.nextSongPos = NO_VALUE
 
 proc initPlaybackState*(ps: var PlaybackState,
                         sampleRate: int, module: Module) =
@@ -82,11 +115,8 @@ proc initPlaybackState*(ps: var PlaybackState,
   ps.sampleRate = sampleRate
   ps.tempo = DEFAULT_TEMPO
   ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
-  ps.currRow = NO_VALUE
-  ps.currTick = DEFAULT_TICKS_PER_ROW - 1
-  ps.jumpRow = NO_VALUE
-  ps.jumpSongPos = NO_VALUE
-  ps.nextSongPos = NO_VALUE # TODO clean this up
+
+  ps.resetPlaybackState()
 
   ps.channels = newSeq[Channel]()
   ps.channelState = newSeq[ChannelState]()
@@ -97,7 +127,6 @@ proc initPlaybackState*(ps: var PlaybackState,
   # TODO making pan separation configurable
   for i, ch in ps.channels.pairs:
     ch.pan = if i mod 2 == 0: 0x00 else: 0x80
-
 
 proc framesPerTick(ps: PlaybackState): Natural =
   let
@@ -316,8 +345,11 @@ proc doSetSampleOffset(ps: PlaybackState, ch: Channel, offset: int,
 proc doVolumeSlide(ps: PlaybackState, ch: Channel, upSpeed, downSpeed: int) =
   volumeSlide(ps, ch, upSpeed, downSpeed)
 
-proc doPositionJump(ps: PlaybackState, ch: Channel, songPos: int) =
-  discard
+proc doPositionJump(ps: var PlaybackState, ch: Channel, songPos: int) =
+  ps.jumpRow = 0
+  ps.jumpSongPos = songPos
+  if ps.currSongPos >= ps.module.songLength:
+    ps.currSongPos = 0
 
 proc doSetVolume(ps: PlaybackState, ch: Channel, volume: int) =
   if ps.currTick == 0:
@@ -325,8 +357,8 @@ proc doSetVolume(ps: PlaybackState, ch: Channel, volume: int) =
 
 proc doPatternBreak(ps: var PlaybackState, ch: Channel, breakPos: int) =
   if ps.currTick == 0:
-    if ps.songPos < ps.module.songLength-1:
-      ps.jumpSongPos = ps.songPos + 1
+    if ps.currSongPos < ps.module.songLength-1:
+      ps.jumpSongPos = ps.currSongPos + 1
     else:
       ps.jumpSongPos = 0
     ps.jumpRow = min(breakPos, ROWS_PER_PATTERN-1)
@@ -356,7 +388,18 @@ proc doSetFinetune(ps: PlaybackState, ch: Channel, value: int) =
       ch.currSample.finetune = value  # XXX is this correct?
 
 proc doPatternLoop(ps: var PlaybackState, ch: Channel, numRepeats: int) =
-  discard
+  if ps.currTick == 0:
+    if numRepeats == 0:
+      ps.loopStartRow = ps.currRow
+    else:
+      if ps.loopCount < numRepeats:
+        ps.jumpSongPos = ps.currSongPos
+        ps.jumpRow = ps.loopStartRow
+        inc(ps.loopCount)
+      else:
+        ps.loopStartRow = 0
+        ps.loopCount = 0
+
 
 proc doSetTremoloWaveform(ps: PlaybackState, ch: Channel, value: int) =
   discard
@@ -405,7 +448,7 @@ proc doSetSpeed(ps: var PlaybackState, ch: Channel, value: int) =
       ps.tempo = value
 
 proc doTick(ps: var PlaybackState) =
-  let patt = ps.module.patterns[ps.module.songPositions[ps.songPos]]
+  let patt = ps.module.patterns[ps.module.songPositions[ps.currSongPos]]
 
   for chanIdx in 0..ps.channels.high:
     let cell = patt.tracks[chanIdx].rows[ps.currRow]
@@ -441,8 +484,9 @@ proc doTick(ps: var PlaybackState) =
            note != NOTE_NONE:
 
           sampleSwap(ch)
-          ch.period = periodTable[finetunedNote(ch.currSample, note)]
-          ch.samplePos = 0
+          if ch.currSample != nil:
+            ch.period = periodTable[finetunedNote(ch.currSample, note)]
+            ch.samplePos = 0
 
     setSampleStep(ch, ps.sampleRate)
 
@@ -451,11 +495,11 @@ proc doTick(ps: var PlaybackState) =
     of 0x1: doSlideUp(ps, ch, xy)
     of 0x2: doSlideDown(ps, ch, xy)
     of 0x3: doTonePortamento(ps, ch, xy, note)
-    of 0x4: doVibrato(ps, ch, x, y, note)
+    of 0x4: doVibrato(ps, ch, x, y, note) # TODO waveforms
     of 0x5: doTonePortamentoAndVolumeSlide(ps, ch, x, y, note)
     of 0x6: doVibratoAndVolumeSlide(ps, ch, x, y)
-    of 0x7: doTremolo(ps, ch, x, y)
-    of 0x8: discard  # SetPanning
+    of 0x7: doTremolo(ps, ch, x, y) # TODO
+    of 0x8: discard  # TODO set Panning
     of 0x9: doSetSampleOffset(ps, ch, xy, note)
     of 0xa: doVolumeSlide(ps, ch, x, y)
     of 0xb: doPositionJump(ps, ch, xy)
@@ -464,23 +508,24 @@ proc doTick(ps: var PlaybackState) =
 
     of 0xe:
       case x:
-      of 0x0: doSetFilter(ps, ch, y)
-      # extended effects
+      of 0x0: doSetFilter(ps, ch, y) # TODO
+
+      # Extended effects
       of 0x1: doFineSlideUp(ps, ch, y)
       of 0x2: doFineSlideDown(ps, ch, y)
-      of 0x3: doGlissandoControl(ps, ch, y)
-      of 0x4: doSetVibratoWaveform(ps, ch, y)
+      of 0x3: doGlissandoControl(ps, ch, y) # TODO
+      of 0x4: doSetVibratoWaveform(ps, ch, y) # TODO
       of 0x5: doSetFinetune(ps, ch, y)
       of 0x6: doPatternLoop(ps, ch, y)
-      of 0x7: doSetTremoloWaveform(ps, ch, y)
-      of 0x8: discard  # SetPanning (coarse)
+      of 0x7: doSetTremoloWaveform(ps, ch, y) # TODO
+      of 0x8: discard  # TODO SetPanning (coarse)
       of 0x9: doRetrigNote(ps, ch, y, note)
       of 0xa: doFineVolumeSlideUp(ps, ch, y)
       of 0xb: doFineVolumeSlideDown(ps, ch, y)
       of 0xc: doNoteCut(ps, ch, y)
       of 0xd: doNoteDelay(ps, ch, y, note)
-      of 0xe: doPatternDelay(ps, ch, y)
-      of 0xf: doInvertLoop(ps, ch, y)
+      of 0xe: doPatternDelay(ps, ch, y) # TODO
+      of 0xf: doInvertLoop(ps, ch, y) # TODO
       else: assert false
 
     of 0xf: doSetSpeed(ps, ch, xy)
@@ -490,34 +535,32 @@ proc doTick(ps: var PlaybackState) =
 proc advancePlayPosition(ps: var PlaybackState) =
   # TODO changing play position should be done properly
   if ps.nextSongPos >= 0:
-    ps.songPos = ps.nextSongPos
-    ps.currRow = 0
+    var nextSongPos = ps.nextSongPos
+    ps.resetPlaybackState()
+    ps.currSongPos = nextSongPos
+
+    for i in 0..ps.channels.high:
+      ps.channels[i].resetChannel()
+
+  inc(ps.currTick, 1)
+
+  if ps.currTick > ps.ticksPerRow-1:
     ps.currTick = 0
-    ps.nextSongPos = NO_VALUE
 
-    # TODO this was probably wrong
-#    for ch in ps.channels:
-#      setVolume(ch, 0)
-  else:
-    ps.currTick += 1
+    if ps.jumpRow == NO_VALUE:
+      inc(ps.currRow, 1)
 
-    if ps.currTick > ps.ticksPerRow-1:
-      ps.currTick = 0
-
-      if ps.jumpRow == NO_VALUE:
-        ps.currRow += 1
-
-        if ps.currRow > ROWS_PER_PATTERN-1:
-          ps.currRow = 0
-          ps.songPos += 1
-          # TODO check song length
-      else:
-        ps.songPos = ps.jumpSongPos
-        ps.currRow = ps.jumpRow
-        ps.jumpSongPos = NO_VALUE
-        ps.jumpRow = NO_VALUE
-
-    doTick(ps)
+      if ps.currRow > ROWS_PER_PATTERN-1:
+        inc(ps.currSongPos, 1)
+        # TODO check song length
+        ps.currRow = 0
+        ps.loopStartRow = 0
+        ps.loopCount = 0
+    else:
+      ps.currSongPos = ps.jumpSongPos
+      ps.currRow = ps.jumpRow
+      ps.jumpSongPos = NO_VALUE
+      ps.jumpRow = NO_VALUE
 
 
 proc renderInternal(ps: var PlaybackState, mixBuffer: var MixBuffer,
@@ -531,6 +574,7 @@ proc renderInternal(ps: var PlaybackState, mixBuffer: var MixBuffer,
     if ps.tickFramesRemaining == 0:
       advancePlayPosition(ps)
       ps.tickFramesRemaining = framesPerTick(ps)
+      doTick(ps)
 
     var frameCount = min(numFrames - framePos, ps.tickFramesRemaining)
 
@@ -555,6 +599,7 @@ proc render*(ps: var PlaybackState, samples: AudioBufferPtr,
 
   while framesLeft > 0:
     let frames = min(numFramesMixBuffer, framesLeft)
+
     renderInternal(ps, gMixBuffer, frames)
 
     for i in 0..<frames * 2:

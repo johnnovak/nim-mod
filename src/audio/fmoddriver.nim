@@ -1,7 +1,8 @@
 import math, strformat
+
 import fmod
 
-import ../common
+import common
 export common
 
 var
