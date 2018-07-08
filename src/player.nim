@@ -91,22 +91,26 @@ type
 
 
 proc resetChannel(ch: var Channel) =
-  # TODO reorder
   ch.currSample = nil
-  ch.swapSample = nil
-  ch.samplePos = 0
   ch.period = NO_VALUE
   ch.pan = 0
   ch.volume = 0
-  ch.volumeScalar = 0
-  ch.sampleStep = 0
+
   ch.portaToNote = NOTE_NONE
   ch.portaSpeed = 0
-  ch.vibratoPos = 0
-  ch.vibratoSign = 1
   ch.vibratoSpeed = 0
   ch.vibratoDepth = 0
   ch.offset = 0
+
+  ch.samplePos = 0
+  ch.volumeScalar = 0
+  ch.sampleStep = 0
+
+  ch.vibratoPos = 0
+  ch.vibratoSign = 1
+
+  ch.swapSample = nil
+
 
 proc newChannel(): Channel =
   var ch = new Channel
@@ -118,27 +122,24 @@ proc resetPlaybackState(ps: var PlaybackState) =
 
   # These initial values ensure that the very first row & tick of the playback
   # are handled correctly
-  # TODO reorder
   ps.currRow = -1
   ps.currTick = ps.ticksPerRow - 1
-  ps.tickFramesRemaining = 0
 
   ps.jumpRow = NO_VALUE
   ps.jumpSongPos = NO_VALUE
   ps.loopStartRow = 0
   ps.loopCount = 0
   ps.patternDelayCount = NO_VALUE
+
+  ps.tickFramesRemaining = 0
+
   ps.nextSongPos = NO_VALUE
+
 
 proc initPlaybackState*(ps: var PlaybackState,
                         sampleRate: int, module: Module) =
-  # TODO reorder
   ps.module = module
   ps.sampleRate = sampleRate
-  ps.tempo = DEFAULT_TEMPO
-  ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
-
-  ps.resetPlaybackState()
 
   ps.channels = newSeq[Channel]()
   ps.channelState = newSeq[ChannelState]()
@@ -146,9 +147,15 @@ proc initPlaybackState*(ps: var PlaybackState,
     ps.channels.add(newChannel())
     ps.channelState.add(csPlaying)
 
+  ps.tempo = DEFAULT_TEMPO
+  ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
+
+  ps.resetPlaybackState()
+
   # TODO making pan separation configurable
   for i, ch in ps.channels.pairs:
     ch.pan = if i mod 2 == 0: 0x00 else: 0x80
+
 
 proc framesPerTick(ps: PlaybackState): Natural =
   let
@@ -567,6 +574,9 @@ proc advancePlayPosition(ps: var PlaybackState) =
 
   inc(ps.currTick, 1)
 
+  if ps.ticksPerRow == 0:
+    return
+
   if ps.currTick > ps.ticksPerRow-1:
     if ps.patternDelayCount > 0:
       ps.currTick = 0
@@ -581,7 +591,11 @@ proc advancePlayPosition(ps: var PlaybackState) =
 
         if ps.currRow > ROWS_PER_PATTERN-1:
           inc(ps.currSongPos, 1)
-          # TODO check song length
+          if ps.currSongPos > ps.module.songLength:
+            ps.currSongPos = ps.module.songRestartPos
+            if ps.currSongPos > ps.module.songLength:
+              ps.currSongPos = 0
+
           ps.currRow = 0
           ps.loopStartRow = 0
           ps.loopCount = 0

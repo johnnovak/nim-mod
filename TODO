@@ -1,11 +1,8 @@
 GENERAL
 
-* Cleanup illwill
 * Pause/restart playback
 * Help screen
 * Sample list view
-* Cleanup everything :)
-* Error handling in the MOD loader
 
 PLAYBACK
 
@@ -14,5 +11,6 @@ PLAYBACK
 * CANALGREEN
 * CONDOM CORRUPTION
 * KILLING FLOOR
-* implement position jump & pattern delay fx
-* BUG: living insanity - songpos 23
+* BUG: living insanity - pos 23
+* BUG: pattern break - condom corruption, play from pos 27
+* BUG: changing songpos after F00 causes crash 
