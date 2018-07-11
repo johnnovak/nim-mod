@@ -1,16 +1,48 @@
-GENERAL
+UI
 
-* Pause/restart playback
-* Help screen
-* Sample list view
+* BUG: crash when there's not enough vertical space to display at least
+  a single pattern row
+
+* add help screen
+* add sample list view
+
 
 PLAYBACK
 
+* add support for extended octaves
+
 * STRWORLD bugs
 * REDHAIR bugs
-* CANALGREEN
-* CONDOM CORRUPTION
-* KILLING FLOOR
 * BUG: living insanity - pos 23
-* BUG: pattern break - condom corruption, play from pos 27
-* BUG: changing songpos after F00 causes crash 
+* BUG: changing songpos after F00 causes crash (condom corruption end)
+* BUG: knulla kuk - bridge before fast part, last slow pattern wrong
+* BUG? man's mind vocal delay melody
+* BUG? 70s reprise sounds out of tune
+* CRASH: global trash around the end
+
+* add pause / start
+* add channel muting & dimming (+ solo)
+* add volume control
+* add auto-volume reduction
+* add no interpolation / linear interpolation toggle
+* add pan separation control (+ invert stereo, stereo/mono toggle)
+
+* implement volume ramping, need to decode the next tick in advance
+
+
+OTHER
+
+* add WAV writer
+* add command line params
+  * enable logging
+  * write log to file
+  * disable UI
+  * UI refresh interval (ms)
+  * set sample rate
+  * set audio buffer size
+  * set playback params (all that can be set from the UI)
+  * FMOD force driver (?)
+
+* add config
+  * all command line options
+  * theme config

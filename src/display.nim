@@ -41,7 +41,7 @@ template setColor(cb: var ConsoleBuffer, t: TextColor) =
   if t.hi:
     cb.setStyle({styleBright})
   else:
-    cb.setStyle({styleDim})
+    cb.setStyle({})
 
 
 proc drawCell(cb: var ConsoleBuffer, x, y: Natural, cell: Cell) =
@@ -226,7 +226,7 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
     if gTheme.cursor.hi:
       cb.setStyle(x, cursorY, {styleBright})
     else:
-      cb.setStyle(x, cursorY, {styleDim})
+      cb.setStyle(x, cursorY, {})
 
 
 proc updateScreen*(ps: PlaybackState) =
