@@ -46,3 +46,29 @@ OTHER
 * add config
   * all command line options
   * theme config
+
+
+
+Notes about the test modules
+----------------------------
+
+legend_of_faerghail - this is the only SoundTracker module (15 samples), also
+turns on the filter for the whole duration of the song
+
+killing road - play pattern backwards trick (pattern break & position jump
+commands on the same row)
+
+condom corruption - correct handling of pattern break and pattern delay
+in the same row (middle breakdown)
+
+canalgreen - correct handling of pattern delay & pattern loop commands in the
+intro (for pattern delays, 'first tick' should mean the real first tick AND
+every Nth tick where N is all integer multiples of the ticksPerRow (speed);
+effects that do not process on the 'first tick' need to take this into
+consideration)
+
+living insanity - lots of delay note and retrigger note commands
+
+kaviar - the intro turns the filter on
+
+
