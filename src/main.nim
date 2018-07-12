@@ -199,7 +199,7 @@ proc main() =
   # Load module
   var module: Module
   try:
-    module = loadModule(infile)
+    module = readModule(infile)
   except:
     let ex = getCurrentException()
     echo "Error loading module: " & ex.msg
@@ -221,7 +221,7 @@ proc main() =
 
   consoleInit()
 
-  gDisplayGUI = false
+#  gDisplayGUI = false
 
   if gDisplayGUI:
     enterFullscreen()

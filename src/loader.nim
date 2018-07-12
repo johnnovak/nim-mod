@@ -8,15 +8,15 @@ const
                           # EXCEPT for old 15-sample SoundTracker modules
   BYTES_PER_CELL = 4
 
-type ModuleLoadError* = object of Exception
+type ModuleReadError* = object of Exception
 
 
 proc mkTag(tag: string): int =
-  assert tag.len == 4
-  result =  cast[int](tag[0]) shl 24 or
-            cast[int](tag[1]) shl 16 or
-            cast[int](tag[2]) shl  8 or
-            cast[int](tag[3])
+  if tag.len == 4:
+    result = cast[int](tag[0]) shl 24 or
+             cast[int](tag[1]) shl 16 or
+             cast[int](tag[2]) shl  8 or
+             cast[int](tag[3])
 
 proc digitToInt(c: char): int = c.int - '0'.int
 
@@ -56,7 +56,7 @@ proc determineModuleType(tag: int): (ModuleType, int) =
     # Strictly speaking, the FT2 limit is 32 channels, but with OpenMPT you
     # can use up to 99 channels
     if not (chans >= 10 and chans <= 99 and chans mod 2 == 0):
-      raise newException(ModuleLoadError,
+      raise newException(ModuleReadError,
                          fmt"Invalid FastTracker module tag: '{tag}'")
     result = (mtFastTracker, chans)
 
@@ -76,7 +76,7 @@ proc determineModuleType(tag: int): (ModuleType, int) =
     result = (mtSoundTracker, 4)
 
 
-proc loadSampleInfo(buf: var seq[uint8], pos: var int): Sample =
+proc readSampleInfo(buf: var seq[uint8], pos: var Natural): Sample =
   var samp = new Sample
 
   var name = cast[cstring](alloc0(SAMPLE_NAME_LEN + 1))
@@ -105,7 +105,7 @@ proc loadSampleInfo(buf: var seq[uint8], pos: var int): Sample =
   result = samp
 
 
-proc periodToNote(period: int): int =
+proc periodToNote(period: Natural): int =
   # Find closest note in the period table as in some modules the periods can
   # be a little off.
   if period == 0:
@@ -129,33 +129,42 @@ proc periodToNote(period: int): int =
 proc read(f: File, dest: pointer, len: Natural) =
   let numBytesRead = f.readBuffer(dest, len)
   if numBytesRead != len:
-    raise newException(ModuleLoadError, "Unexpected end of file")
+    debug(fmt"Error: wanted to read {len} bytes " &
+          fmt"but could read only {numBytesRead}")
+    raise newException(ModuleReadError, "Unexpected end of file")
 
 
-proc loadPattern(f: File, numChannels: int): Pattern =
+proc readPattern(buf: openarray[uint8], numChannels: Natural): Pattern =
   var patt = newPattern()
   for i in 0..<numChannels:
     patt.tracks.add(new Track)
 
-  var buf: array[BYTES_PER_CELL, uint8]
-
+  var pos = 0
   for rowNum in 0..<ROWS_PER_PATTERN:
     for track in 0..<numChannels:
-      read(f, buf[0].addr, BYTES_PER_CELL)
-
       var cell: Cell
-      cell.note = periodToNote(((buf[0] and 0x0f).int shl 8) or
-                                 buf[1].int)
+      cell.note = periodToNote(((buf[pos+0] and 0x0f).int shl 8) or
+                                 buf[pos+1].int)
 
-      cell.sampleNum =  (buf[0] and 0xf0).int or
-                       ((buf[2] and 0xf0).int shr 4)
+      cell.sampleNum =  (buf[pos+0] and 0xf0).int or
+                       ((buf[pos+2] and 0xf0).int shr 4)
 
-      cell.effect = ((buf[2] and 0x0f).int shl 8) or
-                      buf[3].int
+      cell.effect = ((buf[pos+2] and 0x0f).int shl 8) or
+                      buf[pos+3].int
 
       patt.tracks[track].rows[rowNum] = cell
 
+      inc(pos, BYTES_PER_CELL)
+
   result = patt
+
+
+proc readPattern(f: File, numChannels: Natural): Pattern =
+  let bytesInPattern = BYTES_PER_CELL * ROWS_PER_PATTERN * numChannels
+  var buf: seq[uint8]
+  newSeq(buf, bytesInPattern)
+  read(f, buf[0].addr, bytesInPattern)
+  result = readPattern(buf, numChannels)
 
 
 proc mergePatterns(p1, p2: Pattern): Pattern =
@@ -167,20 +176,19 @@ proc mergePatterns(p1, p2: Pattern): Pattern =
   result = patt
 
 
-proc loadModule*(f: File): Module =
+proc readModule*(f: File): Module =
   var module = newModule()
 
   # We want to check the tag first, but instead of seeking we read ahead so we
-  # can load from streams as well.
+  # can read from streams as well.
   var buf = newSeq[uint8](TAG_OFFSET + TAG_LEN)
-  var pos = 0
+  var pos: Natural = 0
 
   read(f, buf[0].addr, buf.len)
 
   # Try to determine module type from the tag
   var tagBuf: array[TAG_LEN + 1, uint8]
   copyMem(tagBuf.addr, buf[TAG_OFFSET].addr, TAG_LEN)
-  tagBuf[TAG_LEN] = 0
   let tagString = $cast[cstring](tagBuf[0].addr)
   debug(fmt"Module tag: {tagString}")
 
@@ -197,16 +205,26 @@ proc loadModule*(f: File): Module =
   inc(pos, SONG_TITLE_LEN)
 
   # Read sample info
-  for i in 1..NUM_SAMPLES:
-    module.samples[i] = loadSampleInfo(buf, pos)
+  let numSamples = if module.moduleType == mtSoundTracker:
+    NUM_SAMPLES_SOUNDTRACKER
+  else:
+    NUM_SAMPLES
+
+  debug(fmt"Number of samples: {numSamples}")
+
+  debug(fmt"Reading sample info...")
+  for i in 1..numSamples:
+    module.samples[i] = readSampleInfo(buf, pos)
+    debug(fmt"  Sample {i}: {module.samples[i]}")
 
   # Read song length
-  module.songLength = int(buf[pos])
+  module.songLength = buf[pos].int
   debug(fmt"Song length: {module.songLength}")
   inc(pos)
 
   # Read song restart position
-  module.songRestartPos = int(buf[pos])
+  module.songRestartPos = buf[pos].int
+  debug(fmt"Song restart position: {module.songRestartPos}")
   inc(pos)
 
   # Read song positions
@@ -225,32 +243,64 @@ proc loadModule*(f: File): Module =
   # Read pattern data
   debug(fmt"Reading pattern data...")
 
+  # For non-SoundTracker modules, we have read everything before the pattern
+  # data already (first 1084 bytes), so we can continue reading the pattern
+  # data from the stream. But for SoundTracker modules, the data before the
+  # pattern data is only 600 bytes long, so the first pattern needs to be read
+  # partially from the buffer (a pattern is always 1024 bytes long).
+  if module.moduleType == mtSoundTracker:
+    # Read first pattern
+    debug(fmt"  Reading pattern 1")
+    let bytesInPattern = BYTES_PER_CELL * ROWS_PER_PATTERN *
+                         module.numChannels
+    var pattBuf: seq[uint8]
+    newSeq(pattBuf, bytesInPattern)
+
+    # pos is at the next byte to be read
+    var remainingBytesInBuf = buf.len - pos
+    copyMem(pattBuf[0].addr, buf[pos].addr, remainingBytesInBuf)
+
+    var bytesToRead = bytesInPattern - remainingBytesInBuf
+    read(f, pattBuf[remainingBytesInBuf].addr, bytesToRead)
+
+    var patt = readPattern(pattBuf, module.numChannels)
+    module.patterns.add(patt)
+
+    # Read the remaining patterns
+    for pattNum in 1..<numPatterns:
+      debug(fmt"  Reading pattern {pattNum}")
+      let patt = readPattern(f, module.numChannels)
+      module.patterns.add(patt)
+
   # 8-channel StarTrekker modules use two consecutive 4-channel patterns
   # to represent a single 8-channel pattern
-  if module.moduleType == mtStarTrekker and module.numChannels == 8:
+  elif module.moduleType == mtStarTrekker and module.numChannels == 8:
     if numPatterns mod 2 != 0:
-      raise newException(ModuleLoadError,
+      raise newException(ModuleReadError,
         "Invalid 8-channel StarTrekker module: " &
         fmt"number of patterns is not even: {numPatterns}"
       )
     for pattNum in 0..<numPatterns:
+      debug(fmt"  Reading pattern data {pattNum} (FLT8)")
       let
-        p1 = loadPattern(f, module.numChannels)
-        p2 = loadPattern(f, module.numChannels)
+        p1 = readPattern(f, module.numChannels)
+        p2 = readPattern(f, module.numChannels)
         patt = mergePatterns(p1, p2)
       module.patterns.add(patt)
   else:
     for pattNum in 0..<numPatterns:
-      let patt = loadPattern(f, module.numChannels)
+      debug(fmt"  Reading pattern {pattNum}")
+      let patt = readPattern(f, module.numChannels)
       module.patterns.add(patt)
 
   # Read sample data
   debug(fmt"Reading sample data...")
 
-  for sampNum in 1..NUM_SAMPLES:
+  for sampNum in 1..numSamples:
     let sampLen = module.samples[sampNum].length
     if sampLen > 0:
-      # Load signed 8-bit sample data
+      debug(fmt"  Reading sample {sampNum} ({sampLen} bytes)")
+      # Read signed 8-bit sample data
       var byteData: seq[int8]
       newSeq(byteData, sampLen)
       read(f, byteData[0].addr, sampLen)
@@ -272,14 +322,14 @@ proc loadModule*(f: File): Module =
   result = module
 
 
-proc loadModule*(fname: string): Module =
-  debug(fmt"Loading module '{fname}'")
+proc readModule*(fname: string): Module =
+  debug(fmt"Reading module '{fname}'")
 
   var f: File
   if not open(f, fname, fmRead):
     raise newException(IOError, fmt"Cannot open file: '{fname}'")
 
-  result = loadModule(f)
+  result = readModule(f)
   f.close()
 
 

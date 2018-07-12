@@ -1,13 +1,14 @@
-import strutils
+import strformat, strutils
 
 include periodtable
 
 const
-  SONG_TITLE_LEN*     = 20
-  SAMPLE_NAME_LEN*    = 22
-  NUM_SAMPLES *       = 31
-  NUM_SONG_POSITIONS* = 128
-  ROWS_PER_PATTERN*   = 64
+  SONG_TITLE_LEN*            = 20
+  SAMPLE_NAME_LEN*           = 22
+  NUM_SAMPLES*               = 31
+  NUM_SAMPLES_SOUNDTRACKER*  = 15
+  NUM_SONG_POSITIONS*        = 128
+  ROWS_PER_PATTERN*          = 64
 
   NUM_NOTES*     = 36
   NUM_SEMITONES* = 12
@@ -137,21 +138,18 @@ proc `$`*(p: Pattern): string =
 
 
 proc `$`*(s: Sample): string =
-  result =   "name:         " & $s.name &
-           "\nlength:       " & $s.length &
-           "\nfinetune:     " & $s.finetune &
-           "\nvolume:       " & $s.volume &
-           "\nrepeatOffset: " & $s.repeatOffset &
-           "\nrepeatLength: " & $s.repeatLength
+  result = fmt"name: '{s.name}'," &
+           fmt"length: {s.length}, " &
+           fmt"finetune: {s.finetune}, " &
+           fmt"volume: {s.volume}, " &
+           fmt"repeatOffset: {s.repeatOffset}, " &
+           fmt"repeatLength: {s.repeatLength}"
 
 
 proc `$`*(m: Module): string =
-  result =   "moduleType:  " & $m.moduleType &
-           "\nnumChannels: " & $m.numChannels &
-           "\nsongName:    " & $m.songName &
-           "\nsongLength:  " & $m.songLength &
-           "\nsongPositions:"
-
-  for pos, pattNum in m.songPositions.pairs:
-    result &= "\n  " & align($pos, 3) & " -> " & align($pattNum, 3)
+  result = fmt"moduleType: {m.moduleType}" &
+           fmt"numChannels: {m.numChannels}" &
+           fmt"songName: {m.songName}" &
+           fmt"songLength: {m.songLength}" &
+           fmt"songPositions: {m.songPositions.len} entries"
 
