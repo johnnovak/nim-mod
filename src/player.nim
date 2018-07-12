@@ -1,6 +1,7 @@
 import math
 
 import audio/common
+import config
 import module
 
 # Reference: Protracker V1.1B Playroutine
@@ -32,16 +33,17 @@ const vibratoTable = [
 
 type
   PlaybackState* = object
+    config*:             Config
     module*:             Module
-    sampleRate:          Natural
+
     channels:            seq[Channel]
     channelState*:       seq[ChannelState]
 
     # Song state
-    tempo*:              Natural
-    ticksPerRow*:        Natural
-    currSongPos*:        Natural
-    currRow*:            int
+    tempo*:              Natural # TODO readonly
+    ticksPerRow*:        Natural # TODO readonly
+    currSongPos*:        Natural # TODO readonly
+    currRow*:            int # TODO readonly
     currTick:            Natural
 
     # For implementing pattern-level effects
@@ -136,10 +138,10 @@ proc resetPlaybackState(ps: var PlaybackState) =
   ps.nextSongPos = NO_VALUE
 
 
-proc initPlaybackState*(ps: var PlaybackState,
-                        sampleRate: int, module: Module) =
+proc initPlaybackState*(config: Config, module: Module): PlaybackState =
+  var ps: PlaybackState
+  ps.config = config
   ps.module = module
-  ps.sampleRate = sampleRate
 
   ps.channels = newSeq[Channel]()
   ps.channelState = newSeq[ChannelState]()
@@ -151,6 +153,7 @@ proc initPlaybackState*(ps: var PlaybackState,
   ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
 
   ps.resetPlaybackState()
+  result = ps
 
   # TODO making pan separation configurable
   for i, ch in ps.channels.pairs:
@@ -164,7 +167,7 @@ proc framesPerTick(ps: PlaybackState): Natural =
     # See: "FAQ: BPM/SPD/Rows/Ticks etc"
     # https://modarchive.org/forums/index.php?topic=2709.0
     millisPerTick  = 2500 / ps.tempo
-    framesPerMilli = ps.sampleRate / 1000
+    framesPerMilli = ps.config.sampleRate / 1000
 
   result = (millisPerTick * framesPerMilli).int
 
@@ -268,18 +271,18 @@ proc doArpeggio(ps: PlaybackState, ch: Channel, note1, note2: int) =
             findClosestNote(ch.currSample.finetune, ch.period) + note2]
 
       else: assert false
-      setSampleStep(ch, period, ps.sampleRate)
+      setSampleStep(ch, period, ps.config.sampleRate)
 
 
 proc doSlideUp(ps: PlaybackState, ch: Channel, speed: int) =
   if ps.currTick > 0:
     ch.period = max(ch.period - speed, MIN_PERIOD)
-    setSampleStep(ch, ps.sampleRate)
+    setSampleStep(ch, ps.config.sampleRate)
 
 proc doSlideDown(ps: PlaybackState, ch: Channel, speed: int) =
   if ps.currTick > 0:
     ch.period = min(ch.period + speed, MAX_PERIOD)
-    setSampleStep(ch, ps.sampleRate)
+    setSampleStep(ch, ps.config.sampleRate)
 
 
 proc tonePortamento(ps: PlaybackState, ch: Channel) =
@@ -287,11 +290,11 @@ proc tonePortamento(ps: PlaybackState, ch: Channel) =
     let toPeriod = periodTable[finetunedNote(ch.currSample, ch.portaToNote)]
     if ch.period < toPeriod:
       ch.period = min(ch.period + ch.portaSpeed, toPeriod)
-      setSampleStep(ch, ps.sampleRate)
+      setSampleStep(ch, ps.config.sampleRate)
 
     elif ch.period > toPeriod:
       ch.period = max(ch.period - ch.portaSpeed, toPeriod)
-      setSampleStep(ch, ps.sampleRate)
+      setSampleStep(ch, ps.config.sampleRate)
 
     if ch.period == toPeriod:
       ch.portaToNote = NOTE_NONE
@@ -315,7 +318,7 @@ proc vibrato(ps: PlaybackState, ch: Channel) =
 
   let vibratoPeriod = ch.vibratoSign * ((vibratoTable[ch.vibratoPos] *
                                          ch.vibratoDepth) div 128)
-  setSampleStep(ch, ch.period + vibratoPeriod, ps.sampleRate)
+  setSampleStep(ch, ch.period + vibratoPeriod, ps.config.sampleRate)
 
 proc doVibrato(ps: PlaybackState, ch: Channel, speed, depth: int, note: int) =
   if ps.currTick == 0:
@@ -411,12 +414,12 @@ proc doSetFilter(ps: PlaybackState, ch: Channel, state: int) =
 proc doFineSlideUp(ps: PlaybackState, ch: Channel, value: int) =
   if ps.currTick == 0:
     ch.period = max(ch.period - value, MIN_PERIOD)
-    setSampleStep(ch, ps.sampleRate)
+    setSampleStep(ch, ps.config.sampleRate)
 
 proc doFineSlideDown(ps: PlaybackState, ch: Channel, value: int) =
   if ps.currTick == 0:
     ch.period = min(ch.period + value, MAX_PERIOD)
-    setSampleStep(ch, ps.sampleRate)
+    setSampleStep(ch, ps.config.sampleRate)
 
 proc doGlissandoControl(ps: PlaybackState, ch: Channel, state: int) =
   discard
@@ -475,7 +478,7 @@ proc doNoteDelay(ps: PlaybackState, ch: Channel, ticks, note: int) =
       if ch.currSample != nil:
         ch.period = periodTable[finetunedNote(ch.currSample, note)]
         ch.samplePos = 0
-        setSampleStep(ch, ps.sampleRate)
+        setSampleStep(ch, ps.config.sampleRate)
 
 
 proc doPatternDelay(ps: var PlaybackState, ch: Channel, rows: int) =
@@ -536,7 +539,7 @@ proc doTick(ps: var PlaybackState) =
             ch.period = periodTable[finetunedNote(ch.currSample, note)]
             ch.samplePos = 0
 
-    setSampleStep(ch, ps.sampleRate)
+    setSampleStep(ch, ps.config.sampleRate)
 
     case cmd:
     of 0x0: doArpeggio(ps, ch, x, y)
