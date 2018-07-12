@@ -203,7 +203,7 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
 
   for i in trackLo..trackHi:
     setColor(cb, gTheme.text)
-    cb.write(x, y1+1, fmt"Channel {i:2}")
+    cb.write(x, y1+1, fmt"Channel {i+1:2}")
     drawTrack(cb, x, y, patt.tracks[i], rowLo, rowHi)
 
     inc(x, PATTERN_TRACK_WIDTH + 1)
