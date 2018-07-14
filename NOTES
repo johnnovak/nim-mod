@@ -1,0 +1,20 @@
+os x
+
+20 ms sleep
+f03-4 module / 125 bpm
+
+no diff display
+    terminal 100% cpu
+    player 24% cpu
+
+diff display
+    terminal 50% cpu
+    player 12% cpu
+
+display off
+    player 5% cpu
+
+
+
+
+
