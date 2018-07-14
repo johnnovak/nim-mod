@@ -129,7 +129,7 @@ proc periodToNote(period: Natural): int =
 proc read(f: File, dest: pointer, len: Natural) =
   let numBytesRead = f.readBuffer(dest, len)
   if numBytesRead != len:
-    debug(fmt"Error: wanted to read {len} bytes " &
+    error(fmt"Error: wanted to read {len} bytes " &
           fmt"but could read only {numBytesRead}")
     raise newException(ModuleReadError, "Unexpected end of file")
 
@@ -194,14 +194,14 @@ proc readModule*(f: File): Module =
 
   let tag = mkTag(tagString)
   (module.moduleType, module.numChannels) = determineModuleType(tag)
-  debug(fmt"Detected module type: {module.moduleType}, " &
-        fmt"{module.numChannels} channels")
+  info(fmt"Detected module type: {module.moduleType}, " &
+       fmt"{module.numChannels} channels")
 
   # Read song name
   var songName = cast[cstring](alloc0(SONG_TITLE_LEN + 1))
   copyMem(songName, buf[pos].addr, SONG_TITLE_LEN)
   module.songName = $songName
-  debug(fmt"Songname: {songname}")
+  info(fmt"Songname: {songname}")
   inc(pos, SONG_TITLE_LEN)
 
   # Read sample info
@@ -210,7 +210,7 @@ proc readModule*(f: File): Module =
   else:
     NUM_SAMPLES
 
-  debug(fmt"Number of samples: {numSamples}")
+  info(fmt"Number of samples: {numSamples}")
 
   debug(fmt"Reading sample info...")
   for i in 1..numSamples:
@@ -219,12 +219,12 @@ proc readModule*(f: File): Module =
 
   # Read song length
   module.songLength = buf[pos].int
-  debug(fmt"Song length: {module.songLength}")
+  info(fmt"Song length: {module.songLength}")
   inc(pos)
 
   # Read song restart position
   module.songRestartPos = buf[pos].int
-  debug(fmt"Song restart position: {module.songRestartPos}")
+  info(fmt"Song restart position: {module.songRestartPos}")
   inc(pos)
 
   # Read song positions
@@ -238,7 +238,7 @@ proc readModule*(f: File): Module =
   for sp in module.songPositions:
     numPatterns = max(sp.int, numPatterns)
   inc(numPatterns)
-  debug(fmt"Number of patterns: {numPatterns}")
+  info(fmt"Number of patterns: {numPatterns}")
 
   # Read pattern data
   debug(fmt"Reading pattern data...")
@@ -318,12 +318,12 @@ proc readModule*(f: File): Module =
 
       module.samples[sampNum].data = floatData
 
-  debug(fmt"Module loaded successfully")
+  info(fmt"Module loaded successfully")
   result = module
 
 
 proc readModule*(fname: string): Module =
-  debug(fmt"Reading module '{fname}'")
+  info(fmt"Reading module '{fname}'")
 
   var f: File
   if not open(f, fname, fmRead):
