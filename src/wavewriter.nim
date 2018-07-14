@@ -16,26 +16,26 @@ const
   WAVE_FORMAT_IEEE_FLOAT = 3
 
 
-proc write(f: File, dest: pointer, len: Natural) =
+proc writeBuf(f: File, dest: pointer, len: Natural) =
   let numBytesWritten = f.writeBuffer(dest, len)
   if numBytesWritten != len:
     raise newException(WaveWriterError, "Error writing WAVE file")
 
 proc writeChunkId(f: File, id: string) =
   var buf = id
-  write(f, buf[0].addr, 4)
+  f.writeBuf(buf[0].addr, 4)
 
-proc writeInt16LE(f: File, n: int) =
+proc writeUInt16LE(f: File, n: uint16) =
   var i = n.int16
   var buf: array[2, uint8]
   littleEndian16(buf[0].addr, i.addr)
-  write(f, buf, 2)
+  f.writeBuf(buf[0].addr, 2)
 
-proc writeInt32LE(f: File, n: int) =
+proc writeUInt32LE(f: File, n: uint32) =
   var i = n.int32
   var buf: array[4, uint8]
   littleEndian32(buf[0].addr, i.addr)
-  write(f, buf, 4)
+  f.writeBuf(buf[0].addr, 4)
 
 
 proc writeHeaders*(f: File, sampleRate: Natural, sampleFormat: SampleFormat,
@@ -50,7 +50,7 @@ proc writeHeaders*(f: File, sampleRate: Natural, sampleFormat: SampleFormat,
                   CHUNK_HEADER_SIZE + numDataBytes
 
   f.writeChunkId("RIFF")
-  f.writeInt32LE(chunkSize)
+  f.writeUInt32LE(chunkSize.uint32)
   f.writeChunkId("WAVE")
 
   # Format chunk
@@ -66,13 +66,13 @@ proc writeHeaders*(f: File, sampleRate: Natural, sampleFormat: SampleFormat,
   var avgBytesPerSec = sampleRate.uint16 * blockAlign
 
   f.writeChunkId("fmt ")
-  f.writeInt16LE(FORMAT_CHUNK_SIZE)
-  f.writeInt16LE(formatTag)
-  f.writeInt16LE(numChannels)
-  f.writeInt32LE(sampleRate)
-  f.writeInt32LE(avgBytesPerSec)
-  f.writeInt16LE(blockAlign)
-  f.writeInt16LE(bitsPerSample)
+  f.writeUInt16LE(FORMAT_CHUNK_SIZE)
+  f.writeUInt16LE(formatTag)
+  f.writeUInt16LE(numChannels.uint16)
+  f.writeUInt32LE(sampleRate.uint32)
+  f.writeUInt32LE(avgBytesPerSec)
+  f.writeUInt16LE(blockAlign)
+  f.writeUInt16LE(bitsPerSample)
 
 var gWriteBuf: seq[uint8]
 
@@ -82,19 +82,56 @@ proc writeDataStart*(format: SampleFormat, bufSizeInSamples: Natural = 4096) =
   of sf24Bit:      newSeq(gWriteBuf, bufSizeInSamples * 3)
   of sf32BitFloat: newSeq(gWriteBuf, bufSizeInSamples * 4)
 
-proc writeData16Bit*(f: File, data: openArray[int16], numSamples: Natural) =
-  var dataPos = 0
+proc writeData16Bit*(f: File, data: var openArray[int16], len: Natural) =
+  const bytesPerSample = 2
   var bufPos = 0
+  let bufLen = gWriteBuf.len - (gWriteBuf.len mod bytesPerSample)
+
+  for i in 0..<len:
+    littleEndian16(gWriteBuf[bufPos].addr, data[i].addr)
+    inc(bufPos, bytesPerSample)
+
+    if bufPos >= bufLen:
+      f.writeBuf(gWriteBuf[0].addr, bufLen)
+      bufPos = 0
+
+  if bufPos > 0:
+    f.writeBuf(gWriteBuf[0].addr, bufPos - bytesPerSample)
 
 
-  littleEndian16(gWriteBuf[bufPos].addr, data[dataPos].addr)
-  inc(dataPos)
-  inc(bufPos, 2)
-  if bufPos >= gWriteBuf.len
-    f.write(
+proc writeData24Bit*(f: File, data: var openArray[int32], len: Natural) =
+  const bytesPerSample = 3
+  var bufPos = 0
+  let bufLen = gWriteBuf.len - (gWriteBuf.len mod bytesPerSample)
+  var int32Buf: array[4, uint8]
+
+  for i in 0..<len:
+    littleEndian32(int32Buf[0].addr, data[i].addr)
+    copyMem(gWriteBuf[bufPos].addr, int32Buf[0].addr, bytesPerSample)
+    inc(bufPos, bytesPerSample)
+
+    if bufPos >= bufLen:
+      f.writeBuf(gWriteBuf[0].addr, bufLen)
+      bufPos = 0
+
+  if bufPos > 0:
+    f.writeBuf(gWriteBuf[0].addr, bufPos - bytesPerSample)
 
 
-proc writeData24Bit*(f: File, data: openArray[int32], numSamples: Natural) =
+proc writeData32BitFloat*(f: File, data: var openArray[float32],
+                          len: Natural) = 
+  const bytesPerSample = 4
+  var bufPos = 0
+  let bufLen = gWriteBuf.len - (gWriteBuf.len mod bytesPerSample)
 
-proc writeData32BitFloat*(f: File, data: openArray[float32],
-                          numSamples: Natural) = 
+  for i in 0..<len:
+    littleEndian32(gWriteBuf[bufPos].addr, data[i].addr)
+    inc(bufPos, bytesPerSample)
+
+    if bufPos >= bufLen:
+      f.writeBuf(gWriteBuf[0].addr, bufLen)
+      bufPos = 0
+
+  if bufPos > 0:
+    f.writeBuf(gWriteBuf[0].addr, bufPos - bytesPerSample)
+
