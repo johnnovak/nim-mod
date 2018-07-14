@@ -1,14 +1,18 @@
-os x
+CONSOLE DISPLAY OPTIMISATION
+============================
+
+OS X
+----
 
 20 ms sleep
-f03-4 module / 125 bpm
+2-4 speed / 125 bpm module (crossroads)
 
 no diff display
-    terminal 100% cpu
+    terminal 100+% cpu
     player 24% cpu
 
 diff display
-    terminal 50% cpu
+    terminal 60-70% cpu
     player 12% cpu
 
 display off
@@ -16,5 +20,19 @@ display off
 
 
 
+WINDOWS
+-------
 
+much smoother framerate with optimisations
+
+no diff display
+    cpu total: 8-12%
+    player: 3-4%
+
+diff display
+    cpu total: 3-7%
+    player: 2-3%
+
+display off
+    player: 0-1%
 
