@@ -18,8 +18,7 @@ const
   AMIGA_BASE_FREQ_PAL  = 7093789.2
   AMIGA_BASE_FREQ_NTSC = 7159090.5
 
-  AMPLIFICATION     = 128
-  STEREO_SEPARATION = 0.3
+  AMPLIFICATION = 128
 
   NO_VALUE = -1
 
@@ -64,7 +63,7 @@ type
     # Channel state
     currSample:     Sample
     period:         int #
-    pan:            int
+    pan:            float32
     volume:         int
 
     # Per-channel effect memory
@@ -75,9 +74,9 @@ type
     offset:         int
 
     # Used by the audio renderer
-    samplePos:      float
-    volumeScalar:   float
-    sampleStep:     float
+    samplePos:      float32
+    volumeScalar:   float32
+    sampleStep:     float32
 
     # Vibrate state
     vibratoPos:     int
@@ -95,7 +94,7 @@ type
 proc resetChannel(ch: var Channel) =
   ch.currSample = nil
   ch.period = NO_VALUE
-  ch.pan = 0
+  # panning doesn't get reset
   ch.volume = 0
 
   ch.portaToNote = NOTE_NONE
@@ -146,7 +145,14 @@ proc initPlaybackState*(config: Config, module: Module): PlaybackState =
   ps.channels = newSeq[Channel]()
   ps.channelState = newSeq[ChannelState]()
   for ch in 0..<module.numChannels:
-    ps.channels.add(newChannel())
+    var chan = newChannel()
+    var modCh = ch mod 4
+    if modCh == 0 or modch == 3:
+      chan.pan = -1.0
+    else:
+      chan.pan =  1.0
+
+    ps.channels.add(chan)
     ps.channelState.add(csPlaying)
 
   ps.tempo = DEFAULT_TEMPO
@@ -154,10 +160,6 @@ proc initPlaybackState*(config: Config, module: Module): PlaybackState =
 
   ps.resetPlaybackState()
   result = ps
-
-  # TODO making pan separation configurable
-  for i, ch in ps.channels.pairs:
-    ch.pan = if i mod 2 == 0: 0x00 else: 0x80
 
 
 proc framesPerTick(ps: PlaybackState): Natural =
@@ -180,7 +182,11 @@ proc sampleSwap(ch: Channel) =
 proc isLooped(s: Sample): bool =
   return s.repeatLength >= REPEAT_LENGTH_MIN
 
-proc render(ch: Channel, mixBuffer: var MixBuffer, frameOffset, numFrames: Natural) =
+proc linearPanLeft (p: float32): float32 = -0.5 * p + 0.5
+proc linearPanRight(p: float32): float32 =  0.5 * p + 0.5
+
+proc render(ch: Channel, ps: PlaybackState,
+            mixBuffer: var MixBuffer, frameOffset, numFrames: Natural) =
   for i in 0..<numFrames:
     var s: float32
     if ch.currSample == nil:
@@ -206,27 +212,27 @@ proc render(ch: Channel, mixBuffer: var MixBuffer, frameOffset, numFrames: Natur
 
         if ch.currSample.isLooped():
           if ch.samplePos >= (ch.currSample.repeatOffset +
-                              ch.currSample.repeatLength).float:
+                              ch.currSample.repeatLength).float32:
             sampleSwap(ch)
-            ch.samplePos = ch.currSample.repeatOffset.float
+            ch.samplePos = ch.currSample.repeatOffset.float32
         else:
-          if ch.samplePos >= (ch.currSample.length).float and
+          if ch.samplePos >= (ch.currSample.length).float32 and
              ch.swapSample != nil and ch.swapSample.isLooped():
 
             sampleSwap(ch)
-            ch.samplePos = ch.currSample.repeatOffset.float
+            ch.samplePos = ch.currSample.repeatOffset.float32
 
-    # TODO clean up panning
-    if ch.pan == 0:
-      mixBuffer[(frameOffset + i)*2 + 0] += s * (1.0 - STEREO_SEPARATION)
-      mixBuffer[(frameOffset + i)*2 + 1] += s *        STEREO_SEPARATION
-    else:
-      mixBuffer[(frameOffset + i)*2 + 0] += s *        STEREO_SEPARATION
-      mixBuffer[(frameOffset + i)*2 + 1] += s * (1.0 - STEREO_SEPARATION)
+    var
+      stereoSep = ps.config.stereoSeparation
+      panLeft = linearPanLeft(ch.pan * stereoSep)
+      panRight = linearPanRight(ch.pan* stereoSep)
+
+    mixBuffer[(frameOffset + i)*2 + 0] += s * panLeft
+    mixBuffer[(frameOffset + i)*2 + 1] += s * panRight
 
 
-proc periodToFreq(period: int): float =
-  result = AMIGA_BASE_FREQ_PAL / (period * 2).float
+proc periodToFreq(period: int): float32 =
+  result = AMIGA_BASE_FREQ_PAL / (period * 2).float32
 
 proc findClosestNote(finetune, period: int): int =
   result = -1
@@ -240,10 +246,10 @@ proc finetunedNote(s: Sample, note: int): int =
   result = s.finetune * FINETUNE_PAD + note
 
 proc setSampleStep(ch: Channel, sampleRate: int) =
-  ch.sampleStep = periodToFreq(ch.period) / sampleRate.float
+  ch.sampleStep = periodToFreq(ch.period) / sampleRate.float32
 
 proc setSampleStep(ch: Channel, period, sampleRate: int) =
-  ch.sampleStep = periodToFreq(period) / sampleRate.float
+  ch.sampleStep = periodToFreq(period) / sampleRate.float32
 
 proc setVolume(ch: Channel, vol: int) =
   ch.volume = vol
@@ -366,7 +372,7 @@ proc doSetSampleOffset(ps: PlaybackState, ch: Channel, offset: int,
         offs = ch.offset
 
       if offs <= ch.currSample.length:
-        ch.samplePos = offs.float
+        ch.samplePos = offs.float32
       else:
         setVolume(ch, 0)
 
@@ -643,7 +649,7 @@ proc renderInternal(ps: var PlaybackState, mixBuffer: var MixBuffer,
 
     for chNum, ch in pairs(ps.channels):
       if ps.channelState[chNum] == csPlaying:
-        ch.render(mixBuffer, framePos, frameCount)
+        ch.render(ps, mixBuffer, framePos, frameCount)
 
     inc(framePos, frameCount)
     dec(ps.tickFramesRemaining, frameCount)

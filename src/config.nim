@@ -14,6 +14,8 @@ type
     declick*:          bool
     outFilename*:      string
     displayUI*:        bool
+    refreshRateMs*:    Natural
+    verboseOutput*:    bool
 
   OutputType* = enum
     otAudio, otFile
@@ -30,11 +32,13 @@ proc initConfigWithDefaults(): Config =
   result.sampleRate       = 44100
   result.bitDepth         = bd16Bit
   result.ampGain          = -6.0
-  result.stereoSeparation = 70
+  result.stereoSeparation = 0.7
   result.interpolation    = siLinear
   result.declick          = true
   result.outFilename      = nil
   result.displayUI        = true
+  result.refreshRateMs    = 20
+  result.verboseOutput    = false
 
 proc printVersion() =
   echo "nim-mod version " & VERSION
@@ -53,12 +57,12 @@ Options:
   -s, --sampleRate=INTEGER  set the sample rate; default is 44100
   -b, --bitDepth=16|24|32   set the output bit depth; default is 16
   -a, --ampGain=FLOAT       set the amplifier gain in dB; default is 0.0
-  -p, --stereoSeparation=INTEGER
+  -p, --stereoSeparation=FLOAT
                             set the stereo separation, must be between
-                            -100 and 100; default is 70
-                                   0 = mono
-                                 100 = stereo (no crosstalk)
-                                -100 = reverse stereo (no crosstalk)
+                            -1.0 and 1.0; default is 0.7
+                                 0.0 = mono
+                                 1.0 = stereo (no crosstalk)
+                                -1.0 = reverse stereo (no crosstalk)
   -i, --interpolation=MODE  set the sample interpolation mode; default is 'sinc'
                               off    = fastest, no interpolation
                               linear = fast, low quality
@@ -66,8 +70,10 @@ Options:
   -d, --declick=on|off      turns declicking on or off, on by default
   -o, --outFilename         set the output filename for the file writer
   -u, --userInterface=on|off  turns the UI on or off; on by default
+  -r, --refreshRate=INTEGER set the UI refresh rate in ms; 20 ms by default
   -h, --help                show this help
   -v, --version             show detailed version information
+  -V, --verbose             verbose output, for debugging; off by default
 
 """
 
@@ -111,12 +117,10 @@ proc parseCommandLine*(): Config =
         if val == "": missingOptValue(opt)
         var sr: int
         if parseInt(val, sr) == 0:
-          invalidOptValue(opt, val,
-            "sample rate must be a positive integer")
+          invalidOptValue(opt, val, "sample rate must be a positive integer")
         if sr > 0: config.sampleRate = sr
         else:
-          invalidOptValue(opt, val,
-            "sample rate must be a positive integer")
+          invalidOptValue(opt, val, "sample rate must be a positive integer")
 
       of "bitDepth", "b":
         case val
@@ -141,11 +145,12 @@ proc parseCommandLine*(): Config =
 
       of "stereoSeparation", "p":
         if val == "": missingOptValue(opt)
-        var sep: int
-        if parseInt(val, sep) == 0:
+        var sep: float
+        if parseFloat(val, sep) == 0:
           invalidOptValue(opt, val, "invalid stereo separation value")
-        if sep < -100 or sep > 100:
+        if sep < -1.0 or sep > 1.0:
           invalidOptValue(opt, val, "stereo separation must be between -100 and 100")
+        config.stereoSeparation = sep
 
       of "interpolation", "i":
         case val:
@@ -165,6 +170,9 @@ proc parseCommandLine*(): Config =
         else:
           invalidOptValue(opt, val, "valid values are 'on' and 'off'")
 
+      of "outFilename", "f":
+        config.outFilename = val
+
       of "userInterface", "u":
         case val:
         of "": missingOptValue(opt)
@@ -173,17 +181,31 @@ proc parseCommandLine*(): Config =
         else:
           invalidOptValue(opt, val, "valid values are 'on' and 'off'")
 
-      of "outFilename", "f":
-        config.outFilename = val
+      of "refreshRate", "r":
+        if val == "": missingOptValue(opt)
+        var rate: int
+        if parseInt(val, rate) == 0:
+          invalidOptValue(opt, val, "refresh rate must be a positive integer")
+        if rate > 0: config.refreshRateMs = rate
+        else:
+          invalidOptValue(opt, val, "refresh rate must be a positive integer")
 
       of "help",    "h": printHelp();    quit(0)
       of "version", "v": printVersion(); quit(0)
+
+      of "verbose", "V":
+        case val:
+        of "": missingOptValue(opt)
+        of "on":  config.verboseOutput = true
+        of "off": config.verboseOutput = false
+        else:
+          invalidOptValue(opt, val, "valid values are 'on' and 'off'")
 
       else: invalidOption(opt)
 
     of cmdEnd: assert(false)
 
-  if config.inputFile == "":
+  if config.inputFile == nil:
     echo "Error: input file must be specified"
     quit(0)
 

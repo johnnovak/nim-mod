@@ -9,19 +9,15 @@ import loader
 import player
 import display
 
-
 var
-  gPlaybackState: PlaybackState
-  gDisplayUI: bool
-
+  playbackState: PlaybackState
+  displayUI: bool
 
 proc audioCb(samples: AudioBufferPtr, numFrames: Natural) =
-  render(gPlaybackState, samples, numFrames)
-
+  render(playbackState, samples, numFrames)
 
 proc quitProc() {.noconv.} =
-  if gDisplayUI:
-    resetAttributes()
+  if displayUI:
     consoleDeinit()
     exitFullscreen()
     showCursor()
@@ -31,8 +27,12 @@ proc quitProc() {.noconv.} =
 proc main() =
   var logger = newConsoleLogger()
   addHandler(logger)
+  setLogFilter(lvlNotice)
 
   var config = parseCommandLine()
+
+  if config.verboseOutput:
+    setLogFilter(lvlDebug)
 
   # Load module
   var module: Module
@@ -44,7 +44,7 @@ proc main() =
     echo getStackTrace(ex)
     quit(1)
 
-  gPlaybackState = initPlaybackState(config, module)
+  playbackState = initPlaybackState(config, module)
 
   # Init audio stuff
   if not audio.initAudio(audioCb):
@@ -60,7 +60,7 @@ proc main() =
   consoleInit()
 
   if config.displayUI:
-    gDisplayUI = true
+    displayUI = true
     enterFullscreen()
     hideCursor()
 
@@ -81,29 +81,29 @@ proc main() =
     currPattern = patt
 
   proc toggleMuteChannel(chNum: Natural) =
-    if chNum <= gPlaybackState.channelState.high:
-      if gPlaybackState.channelState[chNum] == csMuted:
-        gPlaybackState.channelState[chNum] = csPlaying
+    if chNum <= playbackState.channelState.high:
+      if playbackState.channelState[chNum] == csMuted:
+        playbackState.channelState[chNum] = csPlaying
       else:
-        gPlaybackState.channelState[chNum] = csMuted
+        playbackState.channelState[chNum] = csMuted
 
   while true:
     let key = getKey()
 
     case key:
     of keyLeft, ord('h'):
-      gPlaybackState.nextSongPos = max(0, gPlaybackState.currSongPos-1)
+      playbackState.nextSongPos = max(0, playbackState.currSongPos-1)
 
     of ord('H'):
-      gPlaybackState.nextSongPos = max(0, gPlaybackState.currSongPos-10)
+      playbackState.nextSongPos = max(0, playbackState.currSongPos-10)
 
     of keyRight, ord('l'):
-      gPlaybackState.nextSongPos = min(module.songLength-1,
-                                       gPlaybackState.currSongPos+1)
+      playbackState.nextSongPos = min(module.songLength-1,
+                                      playbackState.currSongPos+1)
 
     of ord('L'):
-      gPlaybackState.nextSongPos = min(module.songLength-1,
-                                       gPlaybackState.currSongPos+10)
+      playbackState.nextSongPos = min(module.songLength-1,
+                                      playbackState.currSongPos+10)
 
     of keyF1: setTheme(0)
     of keyF2: setTheme(1)
@@ -118,7 +118,6 @@ proc main() =
 
     of ord('r'):
       # TODO do this in a more optimal way
-      resetAttributes()
       consoleDeinit()
       exitFullscreen()
       showCursor()
@@ -133,9 +132,9 @@ proc main() =
     else: discard
 
     if config.displayUI:
-      updateScreen(gPlaybackState)
+      updateScreen(playbackState)
 
-    sleep(20)
+    sleep(config.refreshRateMs)
 
 
 main()
