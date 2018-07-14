@@ -43,7 +43,9 @@ type
     ticksPerRow*:        Natural # TODO readonly
     currSongPos*:        Natural # TODO readonly
     currRow*:            int # TODO readonly
-    currTick:            Natural
+    currTick:            Natural # this gets reset to zero by pattern delay
+                                 # on every new "delayed" row
+    ellapsedTicks:       Natural # actual ellapsed ticks per row
 
     # For implementing pattern-level effects
     jumpRow:             int
@@ -127,6 +129,7 @@ proc resetPlaybackState(ps: var PlaybackState) =
   # are handled correctly
   ps.currRow = -1
   ps.currTick = ps.ticksPerRow - 1
+  ps.ellapsedTicks = 0
 
   ps.jumpRow = NO_VALUE
   ps.jumpSongPos = NO_VALUE
@@ -264,10 +267,10 @@ proc setVolume(ch: Channel, vol: int) =
 # Effects
 
 proc isFirstTick(ps: PlaybackState): bool =
-  result = ps.currTick == 0 and ps.patternDelayCount == NO_VALUE
+  result = ps.ellapsedTicks == 0
 
 proc doArpeggio(ps: PlaybackState, ch: Channel, note1, note2: int) =
-  if ps.currTick > 0:
+  if not isFirstTick(ps):
     if ch.currSample != nil and ch.volume > 0:
       var period = ch.period
       case ps.currTick mod 3:
@@ -420,12 +423,12 @@ proc doSetFilter(ps: PlaybackState, ch: Channel, state: int) =
   discard
 
 proc doFineSlideUp(ps: PlaybackState, ch: Channel, value: int) =
-  if isFirstTick(ps):
+  if ps.currTick == 0:
     ch.period = max(ch.period - value, MIN_PERIOD)
     setSampleStep(ch, ps.config.sampleRate)
 
 proc doFineSlideDown(ps: PlaybackState, ch: Channel, value: int) =
-  if isFirstTick(ps):
+  if ps.currTick == 0:
     ch.period = min(ch.period + value, MAX_PERIOD)
     setSampleStep(ch, ps.config.sampleRate)
 
@@ -464,11 +467,11 @@ proc doRetrigNote(ps: PlaybackState, ch: Channel, ticks, note: int) =
       ch.samplePos = 0
 
 proc doFineVolumeSlideUp(ps: PlaybackState, ch: Channel, value: int) =
-  if isFirstTick(ps):
+  if ps.currTick == 0:
     setVolume(ch, min(ch.volume + value, MAX_VOLUME))
 
 proc doFineVolumeSlideDown(ps: PlaybackState, ch: Channel, value: int) =
-  if isFirstTick(ps):
+  if ps.currTick == 0:
     setVolume(ch, max(ch.volume - value, 0))
 
 proc doNoteCut(ps: PlaybackState, ch: Channel, ticks: int) =
@@ -603,7 +606,8 @@ proc advancePlayPosition(ps: var PlaybackState) =
     for i in 0..ps.channels.high:
       ps.channels[i].resetChannel()
 
-  inc(ps.currTick, 1)
+  inc(ps.currTick)
+  inc(ps.ellapsedTicks)
 
   if ps.ticksPerRow == 0:
     return
@@ -614,11 +618,11 @@ proc advancePlayPosition(ps: var PlaybackState) =
       dec(ps.patternDelayCount)
     else:
       ps.currTick = 0
+      ps.ellapsedTicks = 0
       ps.patternDelayCount = NO_VALUE
 
       if ps.jumpRow == NO_VALUE:
         inc(ps.currRow, 1)
-
         if ps.currRow > ROWS_PER_PATTERN-1:
           inc(ps.currSongPos, 1)
           if ps.currSongPos >= ps.module.songLength:
