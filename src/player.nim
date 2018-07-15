@@ -361,16 +361,15 @@ proc doSetSampleOffset(ps: PlaybackState, ch: Channel, offset: int,
                        note: int) =
   if isFirstTick(ps):
     if note != NOTE_NONE and ch.currSample != nil:
-      var offs: int
       if offset > 0:
-        offs = offset shl 8
-        ch.offset = offs
-      else:
-        offs = ch.offset
-      if offs <= ch.currSample.length:
-        ch.samplePos = offs.float32
-      else:
-        setVolume(ch, 0)
+        var offs = offset shl 8
+        if offs <= ch.currSample.length:
+          ch.samplePos = offs.float32
+        else:
+          if ch.currSample.isLooped():
+            ch.samplePos = ch.currSample.repeatOffset.float32
+          else:
+            ch.currSample = nil
 
 proc doVolumeSlide(ps: PlaybackState, ch: Channel, upSpeed, downSpeed: int) =
   if not isFirstTick(ps):
@@ -547,6 +546,7 @@ proc doTick(ps: var PlaybackState) =
           if ch.currSample != nil:
             ch.period = periodTable[finetunedNote(ch.currSample, note)]
             ch.samplePos = 0
+        # TODO if there's a note, set curr sample to nil?
 
     setSampleStep(ch, ps.config.sampleRate)
 
