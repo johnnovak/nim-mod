@@ -3,7 +3,7 @@ import strformat, strutils
 import illwill
 
 import module
-from player import PlaybackState
+from player import PlaybackState, ChannelState
 
 
 type TextColor = object
@@ -27,14 +27,11 @@ type Theme = object
 
 include themes
 
-# Global variable to hold the current theme
-var gTheme: Theme
-
-gTheme = themes[0]
+var currTheme = themes[0]
 
 proc setTheme*(n: Natural) =
   if n <= themes.high:
-    gTheme = themes[n]
+    currTheme = themes[n]
 
 template setColor(cb: var ConsoleBuffer, t: TextColor) =
   cb.setForegroundColor(t.fg)
@@ -44,7 +41,7 @@ template setColor(cb: var ConsoleBuffer, t: TextColor) =
     cb.setStyle({})
 
 
-proc drawCell(cb: var ConsoleBuffer, x, y: Natural, cell: Cell) =
+proc drawCell(cb: var ConsoleBuffer, x, y: Natural, cell: Cell, muted: bool) =
   var
     note = noteToStr(cell.note)
     effect = effectToStr(cell.effect.int)
@@ -53,24 +50,30 @@ proc drawCell(cb: var ConsoleBuffer, x, y: Natural, cell: Cell) =
     s2 =  cell.sampleNum and 0x0f
     sampleNum = nibbleToChar(s1.int) & nibbleToChar(s2.int)
 
-  if cell.note == NOTE_NONE:
-    setColor(cb, gTheme.noteNone)
-  else:
-    setColor(cb, gTheme.note)
+  if muted:
+    cb.setColor(currTheme.border)
+
+  if not muted:
+    if cell.note == NOTE_NONE:
+      cb.setColor(currTheme.noteNone)
+    else:
+      cb.setColor(currTheme.note)
 
   cb.write(x, y, note)
 
-  if cell.sampleNum == 0:
-    setColor(cb, gTheme.sampleNone)
-  else:
-    setColor(cb, gTheme.sample)
+  if not muted:
+    if cell.sampleNum == 0:
+      cb.setColor(currTheme.sampleNone)
+    else:
+      cb.setColor(currTheme.sample)
 
   cb.write(x+4, y, sampleNum)
 
-  if cell.effect == 0:
-    setColor(cb, gTheme.effectNone)
-  else:
-    setColor(cb, gTheme.effect)
+  if not muted:
+    if cell.effect == 0:
+      cb.setColor(currTheme.effectNone)
+    else:
+      cb.setColor(currTheme.effect)
 
   cb.write(x+7, y, effect)
 
@@ -95,83 +98,84 @@ proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
   # Left column
   var y = Y1
 
-  setColor(cb, gTheme.text)
+  cb.setColor(currTheme.text)
   cb.write(COL1_X, y, fmt"Songname:")
-  setColor(cb, gTheme.textHi)
+  cb.setColor(currTheme.textHi)
   cb.write(COL1_X_VAL, y, ps.module.songName)
   inc(y)
 
-  setColor(cb, gTheme.text)
+  cb.setColor(currTheme.text)
   cb.write(COL1_X, y, fmt"Type:")
-  setColor(cb, gTheme.textHi)
+  cb.setColor(currTheme.textHi)
   cb.write(COL1_X_VAL, y, fmt"{ps.module.moduleType.toString} {ps.module.numChannels}chn")
   inc(y)
 
-  setColor(cb, gTheme.text)
+  cb.setColor(currTheme.text)
   cb.write(COL1_X, y, fmt"Songpos:")
-  setColor(cb, gTheme.textHi)
+  cb.setColor(currTheme.textHi)
   cb.write(COL1_X_VAL, y, fmt"{ps.currSongPos:02}/{ps.module.songLength-1:02}")
   inc(y)
 
-  setColor(cb, gTheme.text)
+  cb.setColor(currTheme.text)
   cb.write(COL1_X, y, fmt"Pattern:")
-  setColor(cb, gTheme.textHi)
+  cb.setColor(currTheme.textHi)
   cb.write(COL1_X_VAL, y, fmt"{ps.module.songPositions[ps.currSongPos]:02}")
   inc(y)
 
   # Right column
   y = Y1
 
-  setColor(cb, gTheme.text)
+  cb.setColor(currTheme.text)
   cb.write(COL2_X, y, fmt"Volume:")
-  setColor(cb, gTheme.textHi)
+  cb.setColor(currTheme.textHi)
   cb.write(COL2_X_VAL, y, "  -6db")
   inc(y)
 
-  setColor(cb, gTheme.text)
+  cb.setColor(currTheme.text)
   cb.write(COL2_X, y, fmt"Resampler:")
-  setColor(cb, gTheme.textHi)
+  cb.setColor(currTheme.textHi)
   cb.write(COL2_X_VAL, y, "linear")
   inc(y)
 
-  setColor(cb, gTheme.text)
+  cb.setColor(currTheme.text)
   cb.write(COL2_X, y, fmt"De-click:")
-  setColor(cb, gTheme.textHi)
+  cb.setColor(currTheme.textHi)
   cb.write(COL2_X_VAL, y, "   off")
   inc(y)
 
-  setColor(cb, gTheme.text)
+  cb.setColor(currTheme.text)
   cb.write(COL2_X, y, fmt"Stereo sep.:")
-  setColor(cb, gTheme.textHi)
+  cb.setColor(currTheme.textHi)
   cb.write(COL2_X_VAL, y, "   20%")
   inc(y)
 
   # Tempo & speed
 
-  setColor(cb, gTheme.text)
+  cb.setColor(currTheme.text)
   cb.write(COL3_X, Y1+2, fmt"Tempo:")
-  setColor(cb, gTheme.textHi)
+  cb.setColor(currTheme.textHi)
   cb.write(COL3_X+8, Y1+2, fmt"{ps.tempo:3}")
 
-  setColor(cb, gTheme.text)
+  cb.setColor(currTheme.text)
   cb.write(COL3_X, Y1+3, fmt"Speed:")
-  setColor(cb, gTheme.textHi)
+  cb.setColor(currTheme.textHi)
   cb.write(COL3_X+8, Y1+3, fmt"{ps.ticksPerRow:3}")
 
 
 proc drawTrack(cb: var ConsoleBuffer, x, y: Natural, track: Track,
-               rowLo: Natural, rowHi: Natural) =
+               rowLo: Natural, rowHi: Natural, state: ChannelState) =
   assert rowLo < track.rows.len
   assert rowHi < track.rows.len
 
   var currY = y
   for i in rowLo..rowHi:
-    drawCell(cb, x, currY, track.rows[i])
+    cb.drawCell(x, currY, track.rows[i], state != csPlaying)
     inc(currY)
 
 
 proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
-                      currRow, maxRows, startTrack, maxTracks: int) =
+                      currRow, maxRows, startTrack, maxTracks: int,
+                      channelState: seq[ChannelState]) =
   assert currRow < ROWS_PER_PATTERN
 
   let
@@ -209,9 +213,9 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
   var y = firstRowY
   for rowNum in rowLo..rowHi:
     if rowNum mod 4 == 0:
-      setColor(cb, gTheme.rowNumHi)
+      cb.setColor(currTheme.rowNumHi)
     else:
-      setColor(cb, gTheme.rowNum)
+      cb.setColor(currTheme.rowNum)
     cb.write(x, y, fmt"{rowNum:2}")
     inc(y)
 
@@ -222,9 +226,13 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
   y = firstRowY
 
   for i in trackLo..trackHi:
-    setColor(cb, gTheme.text)
+    let chanState = channelState[i]
+    if chanState == csPlaying:
+      cb.setColor(currTheme.text)
+    else:
+      cb.setColor(currTheme.border)
     cb.write(x, y1+1, fmt"Channel {i+1:2}")
-    drawTrack(cb, x, y, patt.tracks[i], rowLo, rowHi)
+    cb.drawTrack(x, y, patt.tracks[i], rowLo, rowHi, chanState)
 
     inc(x, PATTERN_TRACK_WIDTH + 1)
     bb.drawVertLine(x, y1, y2)
@@ -236,15 +244,15 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
   bb.drawHorizLine(x1, x2, y2)
   bb.drawHorizLine(x1, x2, y1 + PATTERN_HEADER_HEIGHT-1)
 
-  setColor(cb, gTheme.border)
+  cb.setColor(currTheme.border)
   cb.write(bb)
 
   let cursorY = y1 + PATTERN_HEADER_HEIGHT + cursorRow
   for x in SCREEN_X_PAD+1..x2-1:
     var c = cb[x, cursorY]
-    c.fg = gTheme.cursor.fg
-    c.bg = gTheme.cursorBg
-    if gTheme.cursor.hi:
+    c.fg = currTheme.cursor.fg
+    c.bg = currTheme.cursorBg
+    if currTheme.cursor.hi:
       c.style = {styleBright}
     else:
       c.style = {}
@@ -266,19 +274,20 @@ proc updateScreen*(ps: PlaybackState) =
 
   let currPattern = ps.module.songPositions[ps.currSongPos]
   drawPatternView(cb, ps.module.patterns[currPattern],
-                  currRow = ps.currRow,
+                  ps.currRow,
                   maxRows = h - PATTERN_Y - PATTERN_HEADER_HEIGHT-4,
-                  startTrack = 0, maxTracks = ps.module.numChannels)
+                  startTrack = 0, maxTracks = ps.module.numChannels,
+                  ps.channelState)
 
-  cb.setColor(gTheme.text)
+  cb.setColor(currTheme.text)
   cb.write(SCREEN_X_PAD+1, h - SCREEN_Y_PAD-1, "Press ")
-  cb.setColor(gTheme.textHi)
+  cb.setColor(currTheme.textHi)
   cb.write("?")
-  cb.setColor(gTheme.text)
+  cb.setColor(currTheme.text)
   cb.write(" for help, ")
-  cb.setColor(gTheme.textHi)
+  cb.setColor(currTheme.textHi)
   cb.write("Q")
-  cb.setColor(gTheme.text)
+  cb.setColor(currTheme.text)
   cb.write(" to quit")
 
   cb.display()
