@@ -201,7 +201,7 @@ proc render(ch: Channel, ps: PlaybackState,
         s = 0
       else:
         # no interpolation
-        #s = ch.currSample.data[ch.samplePos.int].float * ch.volumeScalar
+#        s = ch.currSample.data[ch.samplePos.int].float * ch.volumeScalar
 
         # linear interpolation
         let
@@ -487,9 +487,10 @@ proc doNoteDelay(ps: PlaybackState, ch: Channel, ticks, note: int) =
     if note != NOTE_NONE and ps.currTick == ticks:
       ch.currSample = ch.delaySample
       ch.delaySample = nil
-      ch.period = periodTable[finetunedNote(ch.currSample, note)]
-      ch.samplePos = 0
-      setSampleStep(ch, ps.config.sampleRate)
+      if ch.currSample != nil:
+        ch.period = periodTable[finetunedNote(ch.currSample, note)]
+        ch.samplePos = 0
+        setSampleStep(ch, ps.config.sampleRate)
 
 proc doPatternDelay(ps: var PlaybackState, ch: Channel, rows: int) =
   if isFirstTick(ps):
@@ -543,10 +544,15 @@ proc doTick(ps: var PlaybackState) =
 
       else: # no sampleNum
         var extCmd = cell.effect and 0xff0
-        if note != NOTE_NONE and
-           cmd != 0x3 and cmd != 0x5 and extCmd != 0xED0:
+        if extCmd == 0xED0:
+          if ch.swapSample != nil:
+            ch.delaySample = ch.swapSample
+            ch.swapSample = nil
+          else:
+            ch.delaySample = ch.currSample
+        elif note != NOTE_NONE and
+             cmd != 0x3 and cmd != 0x5:
 
-          # TODO swapSample probably not needed here, only in the render proc?
           swapSample(ch)
           if ch.currSample != nil:
             ch.period = periodTable[finetunedNote(ch.currSample, note)]

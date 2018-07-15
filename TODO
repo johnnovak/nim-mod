@@ -13,11 +13,9 @@ PLAYBACK
 
 * STRWORLD bugs
 * REDHAIR bugs
-* BUG: living insanity - pos 23
 * BUG: changing songpos after F00 causes crash (condom corruption end)
 * BUG: knulla kuk - bridge before fast part, last slow pattern wrong
-* BUG? man's mind vocal delay melody
-* BUG? 70s reprise sounds out of tune
+* BUG: canalgreen - pos 41, chan 1 - sample swapping bug
 * CRASH: global trash around the end
 
 * add pause / start
@@ -58,14 +56,13 @@ turns on the filter for the whole duration of the song
 killing road - play pattern backwards trick (pattern break & position jump
 commands on the same row)
 
+coffee blues - reverse playback & jumps stresstest
+
 condom corruption - correct handling of pattern break and pattern delay
-in the same row (middle breakdown)
+in the same row (middle breakdown), plus effects during pattern delay
 
 canalgreen - correct handling of pattern delay & pattern loop commands in the
-intro (for pattern delays, 'first tick' should mean the real first tick AND
-every Nth tick where N is all integer multiples of the ticksPerRow (speed);
-effects that do not process on the 'first tick' need to take this into
-consideration)
+intro & fx processing during pattern delay. sample swap at the very end.
 
 living insanity - lots of delay note and retrigger note commands
 

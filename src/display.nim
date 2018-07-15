@@ -83,60 +83,80 @@ const
   PATTERN_TRACK_WIDTH   = 10
 
 proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
-  const COL_PAD = 38
-  let
-    x1 = SCREEN_X_PAD + 1
-    y1 = SCREEN_Y_PAD + 0
+  const
+    X1 = SCREEN_X_PAD + 1
+    Y1 = SCREEN_Y_PAD + 0
+    COL1_X = X1
+    COL1_X_VAL = COL1_X + 10
+    COL2_X = X1 + 37
+    COL2_X_VAL = COL2_X + 12
+    COL3_X = X1 + 22
+
+  # Left column
+  var y = Y1
 
   setColor(cb, gTheme.text)
-  cb.write(x1,    y1,   fmt"Songname: ")
+  cb.write(COL1_X, y, fmt"Songname:")
   setColor(cb, gTheme.textHi)
-  cb.write(ps.module.songName)
+  cb.write(COL1_X_VAL, y, ps.module.songName)
+  inc(y)
 
   setColor(cb, gTheme.text)
-  cb.write(x1,    y1+1, fmt"Type:     ")
+  cb.write(COL1_X, y, fmt"Type:")
   setColor(cb, gTheme.textHi)
-  cb.write(fmt"{ps.module.moduleType.toString} {ps.module.numChannels}chn")
+  cb.write(COL1_X_VAL, y, fmt"{ps.module.moduleType.toString} {ps.module.numChannels}chn")
+  inc(y)
 
   setColor(cb, gTheme.text)
-  cb.write(x1,    y1+2, fmt"Songpos:  ")
+  cb.write(COL1_X, y, fmt"Songpos:")
   setColor(cb, gTheme.textHi)
-  cb.write(fmt"{ps.currSongPos:02}/{ps.module.songLength-1:02}")
+  cb.write(COL1_X_VAL, y, fmt"{ps.currSongPos:02}/{ps.module.songLength-1:02}")
+  inc(y)
 
   setColor(cb, gTheme.text)
-  cb.write(x1,    y1+3, fmt"Pattern:  ")
+  cb.write(COL1_X, y, fmt"Pattern:")
   setColor(cb, gTheme.textHi)
-  cb.write(fmt"{ps.module.songPositions[ps.currSongPos]:02}")
+  cb.write(COL1_X_VAL, y, fmt"{ps.module.songPositions[ps.currSongPos]:02}")
+  inc(y)
+
+  # Right column
+  y = Y1
 
   setColor(cb, gTheme.text)
-  cb.write(x1+COL_PAD, y1  , fmt"Volume:    ")
+  cb.write(COL2_X, y, fmt"Volume:")
   setColor(cb, gTheme.textHi)
-  cb.write("  -6db")
+  cb.write(COL2_X_VAL, y, "  -6db")
+  inc(y)
 
   setColor(cb, gTheme.text)
-  cb.write(x1+COL_PAD, y1+1, fmt"Interpol.: ")
+  cb.write(COL2_X, y, fmt"Resampler:")
   setColor(cb, gTheme.textHi)
-  cb.write("linear")
+  cb.write(COL2_X_VAL, y, "linear")
+  inc(y)
 
   setColor(cb, gTheme.text)
-  cb.write(x1+COL_PAD, y1+2, fmt"De-click:  ")
+  cb.write(COL2_X, y, fmt"De-click:")
   setColor(cb, gTheme.textHi)
-  cb.write("   off")
+  cb.write(COL2_X_VAL, y, "   off")
+  inc(y)
 
   setColor(cb, gTheme.text)
-  cb.write(x1+COL_PAD, y1+3, fmt"Stereo sep.: ")
+  cb.write(COL2_X, y, fmt"Stereo sep.:")
   setColor(cb, gTheme.textHi)
-  cb.write(" 20%")
+  cb.write(COL2_X_VAL, y, "   20%")
+  inc(y)
+
+  # Tempo & speed
 
   setColor(cb, gTheme.text)
-  cb.write(x1+22, y1+2, fmt"Tempo:  ")
+  cb.write(COL3_X, Y1+2, fmt"Tempo:")
   setColor(cb, gTheme.textHi)
-  cb.write(fmt"{ps.tempo:3}")
+  cb.write(COL3_X+8, Y1+2, fmt"{ps.tempo:3}")
 
   setColor(cb, gTheme.text)
-  cb.write(x1+22, y1+3, fmt"Speed:  ")
+  cb.write(COL3_X, Y1+3, fmt"Speed:")
   setColor(cb, gTheme.textHi)
-  cb.write(fmt"{ps.ticksPerRow:3}")
+  cb.write(COL3_X+8, Y1+3, fmt"{ps.ticksPerRow:3}")
 
 
 proc drawTrack(cb: var ConsoleBuffer, x, y: Natural, track: Track,
@@ -156,7 +176,7 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
 
   let
     trackLo = startTrack
-    trackHi = trackLo + maxTracks - 1
+    trackHi = trackLo + maxTracks-1
 
   assert trackLo <= patt.tracks.high
   assert trackHi <= patt.tracks.high
@@ -169,7 +189,7 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
     cursorRow = (maxRows-1) div 2
     numEmptyRowsTop = 0
     rowLo = currRow - cursorRow
-    rowHi = min(currRow + (maxRows - cursorRow - 1), rowsInPattern-1)
+    rowHi = min(currRow + (maxRows - cursorRow-1), rowsInPattern-1)
 
   if rowLo < 0:
     numEmptyRowsTop = -rowLo
@@ -214,34 +234,44 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
 
   bb.drawHorizLine(x1, x2, y1)
   bb.drawHorizLine(x1, x2, y2)
-  bb.drawHorizLine(x1, x2, y1 + PATTERN_HEADER_HEIGHT - 1)
+  bb.drawHorizLine(x1, x2, y1 + PATTERN_HEADER_HEIGHT-1)
 
   setColor(cb, gTheme.border)
   cb.write(bb)
 
   let cursorY = y1 + PATTERN_HEADER_HEIGHT + cursorRow
   for x in SCREEN_X_PAD+1..x2-1:
-    cb.setForegroundColor(x, cursorY, gTheme.cursor.fg)
-    cb.setBackgroundColor(x, cursorY, gTheme.cursorBg)
+    var c = cb[x, cursorY]
+    c.fg = gTheme.cursor.fg
+    c.bg = gTheme.cursorBg
     if gTheme.cursor.hi:
-      cb.setStyle(x, cursorY, {styleBright})
+      c.style = {styleBright}
     else:
-      cb.setStyle(x, cursorY, {})
+      c.style = {}
+    cb[x, cursorY] = c
 
+
+var cb: ConsoleBuffer
 
 proc updateScreen*(ps: PlaybackState) =
-  let (w, h) = terminalSize()
-  var cb = newConsoleBuffer(w-1, h)
+  var (w, h) = terminalSize()
+  dec(w)
+
+  if cb == nil or cb.width != w or cb.height != h:
+    cb = newConsoleBuffer(w, h)
+  else:
+    cb.clear()
+
   drawPlaybackState(cb, ps)
 
   let currPattern = ps.module.songPositions[ps.currSongPos]
   drawPatternView(cb, ps.module.patterns[currPattern],
                   currRow = ps.currRow,
-                  maxRows = h - PATTERN_Y - PATTERN_HEADER_HEIGHT - 4,
+                  maxRows = h - PATTERN_Y - PATTERN_HEADER_HEIGHT-4,
                   startTrack = 0, maxTracks = ps.module.numChannels)
 
   cb.setColor(gTheme.text)
-  cb.write(SCREEN_X_PAD + 1, h - SCREEN_Y_PAD - 1, "Press ")
+  cb.write(SCREEN_X_PAD+1, h - SCREEN_Y_PAD-1, "Press ")
   cb.setColor(gTheme.textHi)
   cb.write("?")
   cb.setColor(gTheme.text)
