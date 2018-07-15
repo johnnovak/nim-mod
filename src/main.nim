@@ -109,6 +109,7 @@ proc main() =
     of Key.F3: setTheme(2)
     of Key.F4: setTheme(3)
     of Key.F5: setTheme(4)
+    of Key.F6: setTheme(5)
 
     of Key.One:   toggleMuteChannel(0)
     of Key.Two:   toggleMuteChannel(1)
