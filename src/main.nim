@@ -89,34 +89,35 @@ proc main() =
 
   while true:
     let key = getKey()
-
     case key:
-    of keyLeft, ord('h'):
+    of Key.Left, Key.H:
       playbackState.nextSongPos = max(0, playbackState.currSongPos-1)
 
-    of ord('H'):
+    of Key.ShiftH:
       playbackState.nextSongPos = max(0, playbackState.currSongPos-10)
 
-    of keyRight, ord('l'):
+    of Key.Right, Key.L:
       playbackState.nextSongPos = min(module.songLength-1,
                                       playbackState.currSongPos+1)
 
-    of ord('L'):
+    of Key.ShiftL:
       playbackState.nextSongPos = min(module.songLength-1,
                                       playbackState.currSongPos+10)
 
-    of keyF1: setTheme(0)
-    of keyF2: setTheme(1)
-    of keyF3: setTheme(2)
-    of keyF4: setTheme(3)
-    of keyF5: setTheme(4)
+    of Key.F1: setTheme(0)
+    of Key.F2: setTheme(1)
+    of Key.F3: setTheme(2)
+    of Key.F4: setTheme(3)
+    of Key.F5: setTheme(4)
 
-    of ord('1'): toggleMuteChannel(0)
-    of ord('2'): toggleMuteChannel(1)
-    of ord('3'): toggleMuteChannel(2)
-    of ord('4'): toggleMuteChannel(3)
+    of Key.One:   toggleMuteChannel(0)
+    of Key.Two:   toggleMuteChannel(1)
+    of Key.Three: toggleMuteChannel(2)
+    of Key.Four:  toggleMuteChannel(3)
 
-    of ord('r'):
+    of Key.Q: quit(0)
+
+    of Key.R:
       # TODO do this in a more optimal way
       consoleDeinit()
       exitFullscreen()
@@ -125,9 +126,6 @@ proc main() =
       consoleInit()
       enterFullscreen()
       hideCursor()
-
-    of ord('q'):
-      quit(0)
 
     else: discard
 
