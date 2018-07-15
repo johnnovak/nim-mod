@@ -1,15 +1,17 @@
 # nim-mod
 
 Some people ride ridiculously expensive Harley-Davidsons, collect vintage
-guitars or marry 20 year younger platinum blondes when midlife crisis strikes.
+guitars or marry 20 years younger platinum blondes when midlife crisis strikes.
 
 I write modplayers.
 
 ### Features
 
-* Plays 4-channel **Amiga Protracker** and 2-32 channel **FastTracker II**
-  MOD files (and whatever else it can load)
+* Pretty accurate **Amiga ProTracker 2.3D** compatible playback
+* Supports 4-channel SoundTracker (15 samples), 4-channel ProTracker (31
+  samples) and other 2-99 channel MOD formats (FastTracker II, OctaMED,
+  StarTrekker etc.)
 * Cross-platform (Windows, Linux & OS X)
-* Kickass console UI with fullscreen, theme & Unicode support
-* A myriad of little features that are not so useful but were fun to code
+* Kickass console UI
+* Uses FMOD for audio playback
 

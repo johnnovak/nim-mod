@@ -15,8 +15,6 @@ PLAYBACK
 * REDHAIR bugs
 * BUG: changing songpos after F00 causes crash (condom corruption end)
 * BUG: knulla kuk - bridge before fast part, last slow pattern wrong
-* BUG: canalgreen - pos 41, chan 1 - sample swapping bug
-* CRASH: global trash around the end
 
 * add pause / start
 * add channel muting & dimming (+ solo)

@@ -517,16 +517,18 @@ proc doTick(ps: var PlaybackState) =
         var sample = ps.module.samples[sampleNum]
         if sample.data == nil:  # empty sample
           setVolume(ch, 0)
+
         else: # valid sample
           setVolume(ch, sample.volume)
-
           if note == NOTE_NONE:
             ch.swapSample = sample
           else:
             var extCmd = cell.effect and 0xff0
             if extCmd == 0xED0:
               ch.delaySample = sample
-            elif cmd != 0x3 and cmd != 0x5:
+            elif cmd == 0x3 or cmd == 0x5:
+              ch.swapSample = sample
+            else:
               ch.currSample = sample
               ch.period = periodTable[finetunedNote(ch.currSample, note)]
               ch.samplePos = 0
@@ -539,9 +541,7 @@ proc doTick(ps: var PlaybackState) =
             ch.swapSample = nil
           else:
             ch.delaySample = ch.currSample
-        elif note != NOTE_NONE and
-             cmd != 0x3 and cmd != 0x5:
-
+        elif note != NOTE_NONE and cmd != 0x3 and cmd != 0x5:
           swapSample(ch)
           if ch.currSample != nil:
             ch.period = periodTable[finetunedNote(ch.currSample, note)]
