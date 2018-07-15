@@ -117,6 +117,10 @@ proc toString*(mt: ModuleType): string =
   of mtStarTrekker:  result = "StarTrekker"
   of mtTakeTracker:  result = "TakeTracker"
 
+proc isLooped*(s: Sample): bool =
+  const REPEAT_LENGTH_MIN = 3
+  result = s.repeatLength >= REPEAT_LENGTH_MIN
+
 
 proc `$`*(c: Cell): string =
   let

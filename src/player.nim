@@ -10,7 +10,6 @@ import module
 const
   DEFAULT_TEMPO         = 125
   DEFAULT_TICKS_PER_ROW = 6
-  REPEAT_LENGTH_MIN     = 3
   MAX_VOLUME            = 0x40
   MIN_PERIOD            = periodTable[NOTE_MAX]
   MAX_PERIOD            = periodTable[NOTE_MIN]
@@ -167,28 +166,14 @@ proc initPlaybackState*(config: Config, module: Module): PlaybackState =
   result = ps
 
 
-proc framesPerTick(ps: PlaybackState): Natural =
-  let
-    # 2500 / 125 (default tempo) gives the default 20 ms per tick
-    # that corresponds to 50Hz PAL VBL
-    # See: "FAQ: BPM/SPD/Rows/Ticks etc"
-    # https://modarchive.org/forums/index.php?topic=2709.0
-    millisPerTick  = 2500 / ps.tempo
-    framesPerMilli = ps.config.sampleRate / 1000
-
-  result = (millisPerTick * framesPerMilli).int
-
-
 proc swapSample(ch: Channel) =
   if ch.swapSample != nil:
     ch.currSample = ch.swapSample
     ch.swapSample = nil
 
-proc isLooped(s: Sample): bool =
-  return s.repeatLength >= REPEAT_LENGTH_MIN
-
 proc linearPanLeft (p: float32): float32 = -0.5 * p + 0.5
 proc linearPanRight(p: float32): float32 =  0.5 * p + 0.5
+
 
 proc render(ch: Channel, ps: PlaybackState,
             mixBuffer: var MixBuffer, frameOffset, numFrames: Natural) =
@@ -236,19 +221,11 @@ proc render(ch: Channel, ps: PlaybackState,
     mixBuffer[(frameOffset + i)*2 + 1] += s * panRight
 
 
-proc periodToFreq(period: int): float32 =
-  result = AMIGA_BASE_FREQ_PAL / (period * 2).float32
-
-proc findClosestNote(finetune, period: int): int =
-  result = -1
-  for n in NOTE_MIN..<NOTE_MAX:
-    if period >= periodTable[finetune + n]:
-      result = n
-      break
-  assert result > -1
-
 proc finetunedNote(s: Sample, note: int): int =
   result = s.finetune * FINETUNE_PAD + note
+
+proc periodToFreq(period: int): float32 =
+  result = AMIGA_BASE_FREQ_PAL / (period * 2).float32
 
 proc setSampleStep(ch: Channel, sampleRate: int) =
   ch.sampleStep = periodToFreq(ch.period) / sampleRate.float32
@@ -264,12 +241,23 @@ proc setVolume(ch: Channel, vol: int) =
     let vol_dB = 20 * log10(vol / MAX_VOLUME)
     ch.volumeScalar = pow(10.0, vol_dB / 20) * AMPLIFICATION
 
-# Effects
-
 proc isFirstTick(ps: PlaybackState): bool =
   result = ps.ellapsedTicks == 0
 
+
+# Effects
+
 proc doArpeggio(ps: PlaybackState, ch: Channel, note1, note2: int) =
+
+  proc findClosestPeriodIndex(finetune, period: int): int =
+    result = -1
+    let offs = finetune * FINETUNE_PAD
+    for idx in (offs + NOTE_MIN)..(offs + NOTE_MAX):
+      if period >= periodTable[idx]:
+        result = idx
+        break
+    assert result > -1
+
   if not isFirstTick(ps):
     if ch.currSample != nil and ch.volume > 0:
       var period = ch.period
@@ -277,12 +265,13 @@ proc doArpeggio(ps: PlaybackState, ch: Channel, note1, note2: int) =
       of 0: discard
       of 1:
         if note1 > 0:
-          period = periodTable[
-            findClosestNote(ch.currSample.finetune, ch.period) + note1]
+          let idx = findClosestPeriodIndex(ch.currSample.finetune, ch.period)
+          period = periodTable[idx + note1]
+
       of 2:
         if note2 > 0:
-          period = periodTable[
-            findClosestNote(ch.currSample.finetune, ch.period) + note2]
+          let idx = findClosestPeriodIndex(ch.currSample.finetune, ch.period)
+          period = periodTable[idx + note2]
 
       else: assert false
       setSampleStep(ch, period, ps.config.sampleRate)
@@ -615,8 +604,7 @@ proc advancePlayPosition(ps: var PlaybackState) =
   inc(ps.currTick)
   inc(ps.ellapsedTicks)
 
-  if ps.ticksPerRow == 0:
-    return
+  if ps.ticksPerRow == 0: return
 
   if ps.currTick > ps.ticksPerRow-1:
     if ps.patternDelayCount > 0:
@@ -644,6 +632,18 @@ proc advancePlayPosition(ps: var PlaybackState) =
         ps.currRow = ps.jumpRow
         ps.jumpSongPos = NO_VALUE
         ps.jumpRow = NO_VALUE
+
+
+proc framesPerTick(ps: PlaybackState): Natural =
+  let
+    # 2500 / 125 (default tempo) gives the default 20 ms per tick
+    # that corresponds to 50Hz PAL VBL
+    # See: "FAQ: BPM/SPD/Rows/Ticks etc"
+    # https://modarchive.org/forums/index.php?topic=2709.0
+    millisPerTick  = 2500 / ps.tempo
+    framesPerMilli = ps.config.sampleRate / 1000
+
+  result = (millisPerTick * framesPerMilli).int
 
 
 proc renderInternal(ps: var PlaybackState, mixBuffer: var MixBuffer,
