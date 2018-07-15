@@ -532,6 +532,7 @@ proc doTick(ps: var PlaybackState) =
               ch.currSample = sample
               ch.period = periodTable[finetunedNote(ch.currSample, note)]
               ch.samplePos = 0
+              ch.swapSample = nil
 
       else: # no sampleNum
         var extCmd = cell.effect and 0xff0
