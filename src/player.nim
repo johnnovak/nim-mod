@@ -75,6 +75,8 @@ type
     offset:         int
     delaySample:    Sample
 
+    delaySampleNextRowNote:  int  # kind of a special case...
+
     # Used by the audio renderer
     samplePos:      float32
     volumeScalar:   float32
@@ -105,6 +107,7 @@ proc resetChannel(ch: var Channel) =
   ch.vibratoDepth = 0
   ch.offset = 0
   ch.delaySample = nil
+  ch.delaySampleNextRowNote = NOTE_NONE
 
   ch.samplePos = 0
   ch.volumeScalar = 0
@@ -186,16 +189,16 @@ proc render(ch: Channel, ps: PlaybackState,
         s = 0
       else:
         # no interpolation
-#        s = ch.currSample.data[ch.samplePos.int].float * ch.volumeScalar
+        s = ch.currSample.data[ch.samplePos.int].float * ch.volumeScalar
 
         # linear interpolation
-        let
-          posInt = ch.samplePos.int
-          s1 = ch.currSample.data[posInt]
-          s2 = ch.currSample.data[posInt + 1]
-          f = ch.samplePos - posInt.float32
-
-        s = (s1*(1.0-f) + s2*f) * ch.volumeScalar
+#        let
+#          posInt = ch.samplePos.int
+#          s1 = ch.currSample.data[posInt]
+#          s2 = ch.currSample.data[posInt + 1]
+#          f = ch.samplePos - posInt.float32
+#
+#        s = (s1*(1.0-f) + s2*f) * ch.volumeScalar
 
         # Advance sample position
         ch.samplePos += ch.sampleStep
@@ -472,13 +475,13 @@ proc doNoteCut(ps: PlaybackState, ch: Channel, ticks: int) =
 
 proc doNoteDelay(ps: PlaybackState, ch: Channel, ticks, note: int) =
   if not isFirstTick(ps):
-    if note != NOTE_NONE and ps.currTick == ticks:
+    if note != NOTE_NONE and ps.ellapsedTicks == ticks and ch.delaySample != nil:
       ch.currSample = ch.delaySample
       ch.delaySample = nil
-      if ch.currSample != nil:
-        ch.period = periodTable[finetunedNote(ch.currSample, note)]
-        ch.samplePos = 0
-        setSampleStep(ch, ps.config.sampleRate)
+      ch.period = periodTable[finetunedNote(ch.currSample, note)]
+      ch.samplePos = 0
+      ch.swapSample = nil
+      setSampleStep(ch, ps.config.sampleRate)
 
 proc doPatternDelay(ps: var PlaybackState, ch: Channel, rows: int) =
   if isFirstTick(ps):
@@ -512,6 +515,11 @@ proc doTick(ps: var PlaybackState) =
       xy   =  cell.effect and 0x0ff
 
     if isFirstTick(ps):
+      if ch.delaySampleNextRowNote != NOTE_NONE:
+        ch.period = periodTable[finetunedNote(ch.currSample,
+                                              ch.delaySampleNextRowNote)]
+        ch.delaySampleNextRowNote = NOTE_NONE
+
       if sampleNum > 0:
         var sample = ps.module.samples[sampleNum]
         if sample.data == nil:  # empty sample
@@ -523,8 +531,13 @@ proc doTick(ps: var PlaybackState) =
             ch.swapSample = sample
           else:
             var extCmd = cell.effect and 0xff0
-            if extCmd == 0xED0:
-              ch.delaySample = sample
+            if extCmd == 0xED0 and y > 0:
+              if y < ps.ticksPerRow:
+                ch.delaySample = sample
+              elif sample.isLooped():
+                ch.delaySampleNextRowNote = note
+              else:
+                ch.currSample = nil
             elif cmd == 0x3 or cmd == 0x5:
               ch.swapSample = sample
             else:
@@ -548,6 +561,7 @@ proc doTick(ps: var PlaybackState) =
             ch.samplePos = 0
         # TODO if there's a note, set curr sample to nil?
 
+    # TODO move into first tick processing
     setSampleStep(ch, ps.config.sampleRate)
 
     case cmd:
