@@ -20,6 +20,7 @@ type Theme = object
   effect:     TextColor
   effectNone: TextColor
   border:     TextColor
+  muted:      TextColor
   text:       TextColor
   textHi:     TextColor
   cursor:     TextColor
@@ -51,7 +52,7 @@ proc drawCell(cb: var ConsoleBuffer, x, y: Natural, cell: Cell, muted: bool) =
     sampleNum = nibbleToChar(s1.int) & nibbleToChar(s2.int)
 
   if muted:
-    cb.setColor(currTheme.border)
+    cb.setColor(currTheme.muted)
 
   if not muted:
     if cell.note == NOTE_NONE:
@@ -230,7 +231,7 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
     if chanState == csPlaying:
       cb.setColor(currTheme.text)
     else:
-      cb.setColor(currTheme.border)
+      cb.setColor(currTheme.muted)
     cb.write(x, y1+1, fmt"Channel {i+1:2}")
     cb.drawTrack(x, y, patt.tracks[i], rowLo, rowHi, chanState)
 
