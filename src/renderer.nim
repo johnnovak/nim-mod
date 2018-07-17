@@ -38,10 +38,10 @@ type
     channelState*:       seq[ChannelState]
 
     # Song state
-    tempo*:              Natural # TODO readonly
-    ticksPerRow*:        Natural # TODO readonly
-    currSongPos*:        Natural # TODO readonly
-    currRow*:            int # TODO readonly
+    tempo:               Natural
+    ticksPerRow:         Natural
+    currSongPos:         Natural
+    currRow:             int
     currTick:            Natural # this gets reset to zero by pattern delay
                                  # on every new "delayed" row
     ellapsedTicks:       Natural # actual ellapsed ticks per row
@@ -60,19 +60,20 @@ type
     # playback
     nextSongPos*:        int
 
+
   Channel = ref object
     # Channel state
     currSample:     Sample
-    period:         int #
+    period:         int
     pan:            float32
-    volume:         int
+    volume:         Natural
 
     # Per-channel effect memory
     portaToNote:    int
-    portaSpeed:     int
-    vibratoSpeed:   int
-    vibratoDepth:   int
-    offset:         int
+    portaSpeed:     Natural
+    vibratoSpeed:   Natural
+    vibratoDepth:   Natural
+    offset:         Natural
     delaySample:    Sample
 
     # Used by the audio renderer
@@ -81,16 +82,23 @@ type
     sampleStep:     float32
 
     # Vibrate state
-    vibratoPos:     int
+    vibratoPos:     Natural
     vibratoSign:    int
 
     # For emulating the ProTracker swap sample quirk
     swapSample:     Sample
 
+
   ChannelState* = enum
     csPlaying, csMuted, csDimmed
 
   MixBuffer = array[1024, float32]
+
+
+proc tempo*(ps: PlaybackState): Natural = ps.tempo
+proc ticksPerRow*(ps: PlaybackState): Natural = ps.ticksPerRow
+proc currSongPos*(ps: PlaybackState): Natural = ps.currSongPos
+proc currRow*(ps: PlaybackState): int = ps.currRow
 
 
 proc resetChannel(ch: var Channel) =
@@ -215,7 +223,7 @@ proc render(ch: Channel, ps: PlaybackState,
     var
       stereoSep = ps.config.stereoSeparation
       panLeft = linearPanLeft(ch.pan * stereoSep)
-      panRight = linearPanRight(ch.pan* stereoSep)
+      panRight = linearPanRight(ch.pan * stereoSep)
 
     mixBuffer[(frameOffset + i)*2 + 0] += s * panLeft
     mixBuffer[(frameOffset + i)*2 + 1] += s * panRight
@@ -673,22 +681,53 @@ proc renderInternal(ps: var PlaybackState, mixBuffer: var MixBuffer,
 
 var gMixBuffer: MixBuffer
 
-proc render*(ps: var PlaybackState, samples: AudioBufferPtr,
-             numFrames: Natural) =
-
-  let numFramesMixBuffer = gMixBuffer.len div 2
+proc render16Bit(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
+  let
+    bytesPerFrame = 2
+    numFramesMixBuffer = gMixBuffer.len div bytesPerFrame
+    numFrames = bufLen div (2 * 2) # 16 bits/sample * 2 channels = 4 bytes/frame
   var
     framesLeft = numFrames.int
-    samplesOffs = 0
+    sampleOffs = 0
+    sampleBuf = cast[ptr UncheckedArray[int16]](buf)
 
   while framesLeft > 0:
-    let frames = min(numFramesMixBuffer, framesLeft)
+    let numFrames = min(numFramesMixBuffer, framesLeft)
+    renderInternal(ps, gMixBuffer, numFrames)
 
-    renderInternal(ps, gMixBuffer, frames)
-
-    for i in 0..<frames * 2:
-      samples[samplesOffs + i] = gMixBuffer[i].int16
+    for i in 0..<numFrames * bytesPerFrame:
+      sampleBuf[sampleOffs + i] = gMixBuffer[i].int16
 
     dec(framesLeft, numFramesMixBuffer)
-    inc(samplesOffs, frames * 2)
+    inc(sampleOffs, numFrames * bytesPerFrame)
+
+
+# TODO
+proc render24Bit(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
+  discard
+
+
+proc render32BitFloat(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
+  let
+    bytesPerFrame = 4
+    numFramesMixBuffer = gMixBuffer.len div bytesPerFrame
+    numFrames = bufLen div (4 * 2) # 32 bits/sample * 2 channels = 8 bytes/frame
+  var
+    framesLeft = numFrames.int
+    sampleOffs = 0
+
+  while framesLeft > 0:
+    let numFrames = min(numFramesMixBuffer, framesLeft)
+    var mixBuffer = cast[MixBuffer](cast[int](buf) + sampleOffs)
+    renderInternal(ps, mixBuffer, numFrames)
+
+    dec(framesLeft, numFramesMixBuffer)
+    inc(sampleOffs, numFrames * bytesPerFrame)
+
+
+proc render*(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
+  case ps.config.bitDepth
+  of bd16Bit:      render16Bit(ps, buf, bufLen)
+  of bd24Bit:      render24Bit(ps, buf, bufLen)
+  of bd32BitFloat: render32BitFloat(ps, buf, bufLen)
 

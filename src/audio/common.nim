@@ -1,6 +1,5 @@
 type
-  AudioBuffer* = UncheckedArray[int16]
-  AudioBufferPtr* = ptr AudioBuffer
-
-  AudioCallback* = proc(samples: AudioBufferPtr, numFrames: Natural)
+  # ``buf`` is a pointer to the audio buffer,
+  # ``bufLen`` is the length of the buffer in bytes.
+  AudioCallback* = proc(buf: pointer, bufLen: Natural)
 

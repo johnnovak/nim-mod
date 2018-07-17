@@ -18,7 +18,7 @@ type
     verboseOutput*:    bool
 
   OutputType* = enum
-    otAudio, otFile
+    otAudio, otWaveWriter
 
   SampleInterpolation* = enum
     siNearestNeighbour, siLinear, siSinc
@@ -108,10 +108,10 @@ proc parseCommandLine*(): Config =
         case val
         of "": missingOptValue(opt)
         of "audio": config.outputType = otAudio
-        of "file":  config.outputType = otFile
+        of "wav":   config.outputType = otWaveWriter
         else:
           invalidOptValue(opt, val,
-            "output type must be either 'audio' or 'file'")
+            "output type must be either 'audio' or 'wav'")
 
       of "sampleRate", "s":
         if val == "": missingOptValue(opt)

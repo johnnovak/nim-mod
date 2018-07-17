@@ -3,7 +3,7 @@ import strformat, strutils
 import illwill
 
 import module
-from player import PlaybackState, ChannelState
+import renderer
 
 
 type TextColor = object

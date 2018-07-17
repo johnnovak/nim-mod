@@ -6,48 +6,27 @@ import audio/fmoddriver as audio
 import config
 import module
 import loader
-import player
+import renderer
 import display
 
-var
-  playbackState: PlaybackState
-  displayUI: bool
 
-proc audioCb(samples: AudioBufferPtr, numFrames: Natural) =
-  render(playbackState, samples, numFrames)
+var displayUI: bool
 
-proc quitProc() {.noconv.} =
+proc playerQuitProc() {.noconv.} =
   if displayUI:
     consoleDeinit()
     exitFullscreen()
     showCursor()
   discard audio.closeAudio()
 
+proc startPlayer(config: Config, module: Module) =
+  var playbackState = initPlaybackState(config, module)
 
-proc main() =
-  var logger = newConsoleLogger()
-  addHandler(logger)
-  setLogFilter(lvlNotice)
-
-  var config = parseCommandLine()
-
-  if config.verboseOutput:
-    setLogFilter(lvlDebug)
-
-  # Load module
-  var module: Module
-  try:
-    module = readModule(config.inputFile)
-  except:
-    let ex = getCurrentException()
-    echo "Error loading module: " & ex.msg
-    echo getStackTrace(ex)
-    quit(1)
-
-  playbackState = initPlaybackState(config, module)
+  proc audioCallback(buf: pointer, bufLen: Natural) =
+    render(playbackState, buf, bufLen)
 
   # Init audio stuff
-  if not audio.initAudio(audioCb):
+  if not audio.initAudio(audioCallback):
     echo audio.getLastError()
     quit(1)
 
@@ -55,7 +34,7 @@ proc main() =
     echo audio.getLastError()
     quit(1)
 
-  system.addQuitProc(quitProc)
+  system.addQuitProc(playerQuitProc)
 
   consoleInit()
 
@@ -134,6 +113,40 @@ proc main() =
 
     sleep(config.refreshRateMs)
 
+
+# TODO
+proc writeWaveFile(config: Config, module: Module) =
+  var
+    ps = initPlaybackState(config, module)
+    buf: array[8192, uint8]
+
+  render(ps, buf[0].addr, buf.len)
+
+
+
+proc main() =
+  var logger = newConsoleLogger()
+  addHandler(logger)
+  setLogFilter(lvlNotice)
+
+  var config = parseCommandLine()
+
+  if config.verboseOutput:
+    setLogFilter(lvlDebug)
+
+  # Load module
+  var module: Module
+  try:
+    module = readModule(config.inputFile)
+  except:
+    let ex = getCurrentException()
+    echo "Error loading module: " & ex.msg
+    echo getStackTrace(ex)
+    quit(1)
+
+  case config.outputType
+  of otAudio:      startPlayer(config, module)
+  of otWaveWriter: writeWaveFile(config, module)
 
 main()
 
