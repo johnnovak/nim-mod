@@ -58,12 +58,14 @@ type
     ellapsedTicks:       Natural
 
     # For implementing pattern-level effects
-    jumpRow:             int
     jumpSongPos:         int
+    jumpRow:             int
     loopStartRow:        Natural  # TODO this should be a channel param
+    loopRow:             int      # TODO this should be a channel param
     loopCount:           Natural  # TODO this should be a channel param
     patternDelayCount:   int
 
+    jumpHistory:         seq[JumpPos]
     hasSongEnded*:       bool  # TODO do this properly
 
     # Used by the audio renderer
@@ -149,9 +151,10 @@ proc resetPlaybackState(ps: var PlaybackState) =
   ps.currTick = ps.ticksPerRow-1
 
   ps.ellapsedTicks = 0
-  ps.jumpRow = NO_VALUE
   ps.jumpSongPos = NO_VALUE
+  ps.jumpRow = NO_VALUE
   ps.loopStartRow = 0
+  ps.loopRow = NO_VALUE
   ps.loopCount = 0
   ps.patternDelayCount = NO_VALUE
 
@@ -178,19 +181,20 @@ proc initPlaybackState*(config: Config, module: Module): PlaybackState =
   ps.tempo = DEFAULT_TEMPO
   ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
 
-#  ps.jumpMemory = @[JumpPos(songPos: 0, row: 0)]
+  ps.jumpHistory = @[JumpPos(songPos: 0, row: 0)]
 
   ps.resetPlaybackState()
   result = ps
 
 
 proc checkHasSongEnded(ps: var PlaybackState, songPos: Natural, row: Natural) =
-  discard
-#[  let p = JumpPos(songPos: songPos, row: row)
-  if ps.jumpMemory.contains(p):
+  let p = JumpPos(songPos: songPos, row: row)
+  if ps.jumpHistory.contains(p):
     ps.hasSongEnded = true
+    assert false
   else:
-    ps.jumpMemory.add(p) ]#
+    echo p
+    ps.jumpHistory.add(p)
 
 
 proc swapSample(ch: var Channel) =
@@ -468,8 +472,7 @@ proc doPatternLoop(ps: var PlaybackState, ch: Channel, numRepeats: int) =
       ps.loopStartRow = ps.currRow
     else:
       if ps.loopCount < numRepeats:
-        ps.jumpSongPos = ps.currSongPos
-        ps.jumpRow = ps.loopStartRow
+        ps.loopRow = ps.loopStartRow
         inc(ps.loopCount)
       else:
         ps.loopStartRow = 0
@@ -646,18 +649,33 @@ proc advancePlayPosition(ps: var PlaybackState) =
   inc(ps.currTick)
   inc(ps.ellapsedTicks)
 
-  if ps.ticksPerRow == 0: return
+  if ps.ticksPerRow == 0:  # zero speed
+    ps.hasSongEnded = true
+    # TODO handle differently?
+    return
 
   if ps.currTick > ps.ticksPerRow-1:
-    if ps.patternDelayCount > 0:
+    if ps.patternDelayCount > 0:  # handle pattern delay
       ps.currTick = 0
       dec(ps.patternDelayCount)
-    else:
+    else:  # no pattern delay
       ps.currTick = 0
       ps.ellapsedTicks = 0
       ps.patternDelayCount = NO_VALUE
 
-      if ps.jumpRow == NO_VALUE:
+      if ps.jumpRow != NO_VALUE:  # handle position jump and/or pattern break
+        if ps.currSongPos != ps.jumpSongPos:
+          checkHasSongEnded(ps, ps.jumpSongPos, 0)
+        ps.currSongPos = ps.jumpSongPos
+        ps.currRow = ps.jumpRow
+        ps.jumpSongPos = NO_VALUE
+        ps.jumpRow = NO_VALUE
+
+      elif ps.loopRow != NO_VALUE:  # handle loop pattern
+        ps.currRow = ps.loopRow
+        ps.loopRow = NO_VALUE
+
+      else:  # move to next row normally
         inc(ps.currRow, 1)
         if ps.currRow > ROWS_PER_PATTERN-1:
           inc(ps.currSongPos, 1)
@@ -669,13 +687,6 @@ proc advancePlayPosition(ps: var PlaybackState) =
           ps.loopStartRow = 0
           ps.loopCount = 0
           checkHasSongEnded(ps, ps.currSongPos, 0)
-      else:
-        if ps.currSongPos != ps.jumpSongPos:
-          checkHasSongEnded(ps, ps.jumpSongPos, 0)
-        ps.currSongPos = ps.jumpSongPos
-        ps.currRow = ps.jumpRow
-        ps.jumpSongPos = NO_VALUE
-        ps.jumpRow = NO_VALUE
 
 
 proc framesPerTick(ps: PlaybackState): Natural =
