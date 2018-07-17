@@ -10,6 +10,10 @@ const
   NUM_SONG_POSITIONS*        = 128
   ROWS_PER_PATTERN*          = 64
 
+  # TODO I just made this up... ProTracker 2.3D supports 64 tracks max, but
+  # later version and other trackers supposedly support more.
+  MAX_PATTERNS               = 128
+
   NUM_NOTES*     = 36
   NUM_SEMITONES* = 12
   NOTE_NONE*     = -1

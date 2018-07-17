@@ -50,8 +50,12 @@ type
     currRow*:            int
 
     # --- INTERNAL STUFF ---
-    currTick:            Natural # this gets reset to zero by pattern delay
-                                 # on every new "delayed" row
+    # During a pattern delay (EEy), currTick only counts up to ticksPerRow
+    # then resets to zero.
+    currTick:            Natural
+
+    # Actual ellapsed ticks for the current row during a pattern delay (EEy)
+    ellapsedTicks:       Natural
 
     # For implementing pattern-level effects
     jumpRow:             int
@@ -59,15 +63,16 @@ type
     loopStartRow:        Natural  # TODO this should be a channel param
     loopCount:           Natural  # TODO this should be a channel param
     patternDelayCount:   int
-    ellapsedTicks:       Natural # actual ellapsed ticks for the current row
+
+    hasSongEnded*:       bool  # TODO do this properly
 
     # Used by the audio renderer
     tickFramesRemaining: Natural
 
 
-  Channel* = ref object
+  Channel* = object
     # Can be set from the outside to mute/unmute channels
-    state*:          ChannelState
+    state*:         ChannelState
 
     currSample:     Sample
     period:         int
@@ -97,8 +102,18 @@ type
     swapSample:     Sample
 
 
+  PatternHistory = object
+    history: array[ROWS_PER_PATTERN, bool]
+
+  SongHistory = object
+    history: array[MAX_PATTERNS, PatternHistory]
+
   ChannelState* = enum
     csPlaying, csMuted, csDimmed
+
+  JumpPos = object
+    songPos: Natural
+    row: Natural
 
   MixBuffer = array[1024, float32]
 
@@ -139,9 +154,9 @@ proc resetPlaybackState(ps: var PlaybackState) =
   # These initial values ensure that the very first row & tick of the playback
   # are handled correctly
   ps.currRow = -1
-  ps.currTick = ps.ticksPerRow - 1
-  ps.ellapsedTicks = 0
+  ps.currTick = ps.ticksPerRow-1
 
+  ps.ellapsedTicks = 0
   ps.jumpRow = NO_VALUE
   ps.jumpSongPos = NO_VALUE
   ps.loopStartRow = 0
@@ -166,14 +181,23 @@ proc initPlaybackState*(config: Config, module: Module): PlaybackState =
       chan.pan = -1.0
     else:
       chan.pan =  1.0
-
     ps.channels.add(chan)
 
   ps.tempo = DEFAULT_TEMPO
   ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
 
+  ps.jumpMemory = @[JumpPos(songPos: 0, row: 0)]
+
   ps.resetPlaybackState()
   result = ps
+
+
+proc checkHasSongEnded(ps: var PlaybackState, songPos: Natural, row: Natural) =
+  let p = JumpPos(songPos: songPos, row: row)
+  if ps.jumpMemory.contains(p):
+    ps.hasSongEnded = true
+  else:
+    ps.jumpMemory.add(p)
 
 
 proc swapSample(ch: Channel) =
@@ -439,7 +463,7 @@ proc doSetVibratoWaveform(ps: PlaybackState, ch: Channel, value: int) =
 proc doSetFinetune(ps: PlaybackState, ch: Channel, value: int) =
   if isFirstTick(ps):
     if ch.currSample != nil:
-      ch.currSample.finetune = value  # XXX is this correct?
+      ch.currSample.finetune = value  # TODO is this correct?
 
 # TODO pattern loop memory should be per channel
 proc doPatternLoop(ps: var PlaybackState, ch: Channel, numRepeats: int) =
@@ -579,8 +603,8 @@ proc doTick(ps: var PlaybackState) =
     of 0x4: doVibrato(ps, ch, x, y, note) # TODO waveforms
     of 0x5: doTonePortamentoAndVolumeSlide(ps, ch, x, y, note)
     of 0x6: doVibratoAndVolumeSlide(ps, ch, x, y)
-    of 0x7: doTremolo(ps, ch, x, y) # TODO
-    of 0x8: discard  # TODO set Panning
+    of 0x7: doTremolo(ps, ch, x, y) # TODO implement
+    of 0x8: discard  # TODO implement set panning
     of 0x9: doSetSampleOffset(ps, ch, xy, note)
     of 0xA: doVolumeSlide(ps, ch, x, y)
     of 0xB: doPositionJump(ps, ch, xy)
@@ -589,24 +613,24 @@ proc doTick(ps: var PlaybackState) =
 
     of 0xe:
       case x:
-      of 0x0: doSetFilter(ps, ch, y) # TODO
+      of 0x0: doSetFilter(ps, ch, y) # TODO implement filter
 
       # Extended effects
       of 0x1: doFineSlideUp(ps, ch, y)
       of 0x2: doFineSlideDown(ps, ch, y)
-      of 0x3: doGlissandoControl(ps, ch, y) # TODO
-      of 0x4: doSetVibratoWaveform(ps, ch, y) # TODO
+      of 0x3: doGlissandoControl(ps, ch, y) # TODO implement
+      of 0x4: doSetVibratoWaveform(ps, ch, y) # TODO implement
       of 0x5: doSetFinetune(ps, ch, y)
       of 0x6: doPatternLoop(ps, ch, y)
-      of 0x7: doSetTremoloWaveform(ps, ch, y) # TODO
-      of 0x8: discard  # TODO SetPanning (coarse)
+      of 0x7: doSetTremoloWaveform(ps, ch, y) # TODO implement
+      of 0x8: discard  # TODO implement set panning (coarse)
       of 0x9: doRetrigNote(ps, ch, y, note)
       of 0xA: doFineVolumeSlideUp(ps, ch, y)
       of 0xB: doFineVolumeSlideDown(ps, ch, y)
       of 0xC: doNoteCut(ps, ch, y)
       of 0xD: doNoteDelay(ps, ch, y, note)
       of 0xE: doPatternDelay(ps, ch, y)
-      of 0xF: doInvertLoop(ps, ch, y) # TODO
+      of 0xF: doInvertLoop(ps, ch, y) # TODO MAYBE implement...
       else: assert false
 
     of 0xF: doSetSpeed(ps, ch, xy)
@@ -645,11 +669,13 @@ proc advancePlayPosition(ps: var PlaybackState) =
             ps.currSongPos = ps.module.songRestartPos
             if ps.currSongPos >= ps.module.songLength:
               ps.currSongPos = 0
-
           ps.currRow = 0
           ps.loopStartRow = 0
           ps.loopCount = 0
+          checkHasSongEnded(ps, ps.currSongPos, 0)
       else:
+        if ps.currSongPos != ps.jumpSongPos:
+          checkHasSongEnded(ps, ps.jumpSongPos, 0)
         ps.currSongPos = ps.jumpSongPos
         ps.currRow = ps.jumpRow
         ps.jumpSongPos = NO_VALUE
@@ -715,7 +741,7 @@ proc render16Bit(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
     inc(sampleOffs, numFrames * bytesPerFrame)
 
 
-# TODO
+# TODO implement
 proc render24Bit(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
   discard
 
