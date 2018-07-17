@@ -135,9 +135,9 @@ proc read(f: File, dest: pointer, len: Natural) =
 
 
 proc readPattern(buf: openarray[uint8], numChannels: Natural): Pattern =
-  var patt = newPattern()
+  var patt = initPattern()
   for i in 0..<numChannels:
-    patt.tracks.add(new Track)
+    patt.tracks.add(Track())
 
   var pos = 0
   for rowNum in 0..<ROWS_PER_PATTERN:
@@ -168,7 +168,7 @@ proc readPattern(f: File, numChannels: Natural): Pattern =
 
 
 proc mergePatterns(p1, p2: Pattern): Pattern =
-  var patt = newPattern()
+  var patt = initPattern()
   for t in p1.tracks:
     patt.tracks.add(t)
   for t in p2.tracks:

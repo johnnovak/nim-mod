@@ -102,12 +102,6 @@ type
     swapSample:     Sample
 
 
-  PatternHistory = object
-    history: array[ROWS_PER_PATTERN, bool]
-
-  SongHistory = object
-    history: array[MAX_PATTERNS, PatternHistory]
-
   ChannelState* = enum
     csPlaying, csMuted, csDimmed
 
@@ -143,10 +137,8 @@ proc resetChannel(ch: var Channel) =
   ch.swapSample = nil
 
 
-proc newChannel(): Channel =
-  var ch = new Channel
-  ch.resetChannel()
-  result = ch
+proc initChannel(): Channel =
+  result.resetChannel()
 
 proc resetPlaybackState(ps: var PlaybackState) =
   ps.currSongPos = 0
@@ -175,7 +167,7 @@ proc initPlaybackState*(config: Config, module: Module): PlaybackState =
 
   ps.channels = newSeq[Channel]()
   for ch in 0..<module.numChannels:
-    var chan = newChannel()
+    var chan = initChannel()
     var modCh = ch mod 4
     if modCh == 0 or modch == 3:
       chan.pan = -1.0
@@ -186,21 +178,22 @@ proc initPlaybackState*(config: Config, module: Module): PlaybackState =
   ps.tempo = DEFAULT_TEMPO
   ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
 
-  ps.jumpMemory = @[JumpPos(songPos: 0, row: 0)]
+#  ps.jumpMemory = @[JumpPos(songPos: 0, row: 0)]
 
   ps.resetPlaybackState()
   result = ps
 
 
 proc checkHasSongEnded(ps: var PlaybackState, songPos: Natural, row: Natural) =
-  let p = JumpPos(songPos: songPos, row: row)
+  discard
+#[  let p = JumpPos(songPos: songPos, row: row)
   if ps.jumpMemory.contains(p):
     ps.hasSongEnded = true
   else:
-    ps.jumpMemory.add(p)
+    ps.jumpMemory.add(p) ]#
 
 
-proc swapSample(ch: Channel) =
+proc swapSample(ch: var Channel) =
   if ch.swapSample != nil:
     ch.currSample = ch.swapSample
     ch.swapSample = nil
@@ -209,7 +202,7 @@ proc linearPanLeft (p: float32): float32 = -0.5 * p + 0.5
 proc linearPanRight(p: float32): float32 =  0.5 * p + 0.5
 
 
-proc render(ch: Channel, ps: PlaybackState,
+proc render(ch: var Channel, ps: PlaybackState,
             mixBuffer: var MixBuffer, frameOffset, numFrames: Natural) =
   for i in 0..<numFrames:
     var s: float32
@@ -261,13 +254,13 @@ proc finetunedNote(s: Sample, note: int): int =
 proc periodToFreq(period: int): float32 =
   result = AMIGA_BASE_FREQ_PAL / (period * 2).float32
 
-proc setSampleStep(ch: Channel, sampleRate: int) =
+proc setSampleStep(ch: var Channel, sampleRate: int) =
   ch.sampleStep = periodToFreq(ch.period) / sampleRate.float32
 
-proc setSampleStep(ch: Channel, period, sampleRate: int) =
+proc setSampleStep(ch: var Channel, period, sampleRate: int) =
   ch.sampleStep = periodToFreq(period) / sampleRate.float32
 
-proc setVolume(ch: Channel, vol: int) =
+proc setVolume(ch: var Channel, vol: int) =
   ch.volume = vol
   if vol == 0:
     ch.volumeScalar = 0
@@ -281,7 +274,7 @@ proc isFirstTick(ps: PlaybackState): bool =
 
 # Effects
 
-proc doArpeggio(ps: PlaybackState, ch: Channel, note1, note2: int) =
+proc doArpeggio(ps: PlaybackState, ch: var Channel, note1, note2: int) =
 
   proc findClosestPeriodIndex(finetune, period: int): int =
     result = -1
@@ -311,18 +304,18 @@ proc doArpeggio(ps: PlaybackState, ch: Channel, note1, note2: int) =
       setSampleStep(ch, period, ps.config.sampleRate)
 
 
-proc doSlideUp(ps: PlaybackState, ch: Channel, speed: int) =
+proc doSlideUp(ps: PlaybackState, ch: var Channel, speed: int) =
   if not isFirstTick(ps):
     ch.period = max(ch.period - speed, MIN_PERIOD)
     setSampleStep(ch, ps.config.sampleRate)
 
-proc doSlideDown(ps: PlaybackState, ch: Channel, speed: int) =
+proc doSlideDown(ps: PlaybackState, ch: var Channel, speed: int) =
   if not isFirstTick(ps):
     ch.period = min(ch.period + speed, MAX_PERIOD)
     setSampleStep(ch, ps.config.sampleRate)
 
 
-proc tonePortamento(ps: PlaybackState, ch: Channel) =
+proc tonePortamento(ps: PlaybackState, ch: var Channel) =
   if ch.portaToNote != NOTE_NONE and ch.period > -1 and ch.currSample != nil:
     let toPeriod = periodTable[finetunedNote(ch.currSample, ch.portaToNote)]
     if ch.period < toPeriod:
@@ -337,7 +330,8 @@ proc tonePortamento(ps: PlaybackState, ch: Channel) =
       ch.portaToNote = NOTE_NONE
 
 
-proc doTonePortamento(ps: PlaybackState, ch: Channel, speed: int, note: int) =
+proc doTonePortamento(ps: PlaybackState, ch: var Channel,
+                      speed: int, note: int) =
   if isFirstTick(ps):
     if note != NOTE_NONE:
       ch.portaToNote = note
@@ -347,7 +341,7 @@ proc doTonePortamento(ps: PlaybackState, ch: Channel, speed: int, note: int) =
     tonePortamento(ps, ch)
 
 
-proc vibrato(ps: PlaybackState, ch: Channel) =
+proc vibrato(ps: PlaybackState, ch: var Channel) =
   inc(ch.vibratoPos, ch.vibratoSpeed)
   if ch.vibratoPos > vibratoTable.high:
     dec(ch.vibratoPos, vibratoTable.len)
@@ -357,7 +351,8 @@ proc vibrato(ps: PlaybackState, ch: Channel) =
                                          ch.vibratoDepth) div 128)
   setSampleStep(ch, ch.period + vibratoPeriod, ps.config.sampleRate)
 
-proc doVibrato(ps: PlaybackState, ch: Channel, speed, depth: int, note: int) =
+proc doVibrato(ps: PlaybackState, ch: var Channel, speed,
+               depth: int, note: int) =
   if isFirstTick(ps):
     if note != NOTE_NONE:
       ch.vibratoPos = 0
@@ -367,13 +362,13 @@ proc doVibrato(ps: PlaybackState, ch: Channel, speed, depth: int, note: int) =
   else:
     vibrato(ps, ch)
 
-proc volumeSlide(ps: PlaybackState, ch: Channel, upSpeed, downSpeed: int) =
+proc volumeSlide(ps: PlaybackState, ch: var Channel, upSpeed, downSpeed: int) =
   if upSpeed > 0:
     setVolume(ch, min(ch.volume + upSpeed, MAX_VOLUME))
   elif downSpeed > 0:
     setVolume(ch, max(ch.volume - downSpeed, 0))
 
-proc doTonePortamentoAndVolumeSlide(ps: PlaybackState, ch: Channel,
+proc doTonePortamentoAndVolumeSlide(ps: PlaybackState, ch: var Channel,
                                     upSpeed, downSpeed: int, note: int) =
   if isFirstTick(ps):
     if note != NOTE_NONE:
@@ -382,7 +377,7 @@ proc doTonePortamentoAndVolumeSlide(ps: PlaybackState, ch: Channel,
     tonePortamento(ps, ch)
     volumeSlide(ps, ch, upSpeed, downSpeed)
 
-proc doVibratoAndVolumeSlide(ps: PlaybackState, ch: Channel,
+proc doVibratoAndVolumeSlide(ps: PlaybackState, ch: var Channel,
                              upSpeed, downSpeed: int) =
   if not isFirstTick(ps):
     vibrato(ps, ch)
@@ -391,7 +386,7 @@ proc doVibratoAndVolumeSlide(ps: PlaybackState, ch: Channel,
 proc doTremolo(ps: PlaybackState, ch: Channel, speed, depth: int) =
   discard
 
-proc doSetSampleOffset(ps: PlaybackState, ch: Channel, offset: int,
+proc doSetSampleOffset(ps: PlaybackState, ch: var Channel, offset: int,
                        note: int) =
   if isFirstTick(ps):
     if note != NOTE_NONE and ch.currSample != nil:
@@ -405,22 +400,23 @@ proc doSetSampleOffset(ps: PlaybackState, ch: Channel, offset: int,
           else:
             ch.currSample = nil
 
-proc doVolumeSlide(ps: PlaybackState, ch: Channel, upSpeed, downSpeed: int) =
+proc doVolumeSlide(ps: PlaybackState, ch: var Channel,
+                   upSpeed, downSpeed: int) =
   if not isFirstTick(ps):
     volumeSlide(ps, ch, upSpeed, downSpeed)
 
-proc doPositionJump(ps: var PlaybackState, ch: Channel, songPos: int) =
+proc doPositionJump(ps: var PlaybackState, songPos: int) =
   if isFirstTick(ps):
     ps.jumpRow = 0
     ps.jumpSongPos = songPos
     if ps.currSongPos >= ps.module.songLength:
       ps.currSongPos = 0
 
-proc doSetVolume(ps: PlaybackState, ch: Channel, volume: int) =
+proc doSetVolume(ps: PlaybackState, ch: var Channel, volume: int) =
   if isFirstTick(ps):
     setVolume(ch, min(volume, MAX_VOLUME))
 
-proc doPatternBreak(ps: var PlaybackState, ch: Channel, row: int) =
+proc doPatternBreak(ps: var PlaybackState, row: int) =
   if isFirstTick(ps):
     ps.jumpRow = min(row, ROWS_PER_PATTERN-1)
     if ps.jumpSongPos == NO_VALUE:
@@ -441,15 +437,15 @@ proc doPatternBreak(ps: var PlaybackState, ch: Channel, row: int) =
           ps.currSongPos = 0
 
 
-proc doSetFilter(ps: PlaybackState, ch: Channel, state: int) =
+proc doSetFilter(ps: PlaybackState, state: int) =
   discard
 
-proc doFineSlideUp(ps: PlaybackState, ch: Channel, value: int) =
+proc doFineSlideUp(ps: PlaybackState, ch: var Channel, value: int) =
   if ps.currTick == 0:
     ch.period = max(ch.period - value, MIN_PERIOD)
     setSampleStep(ch, ps.config.sampleRate)
 
-proc doFineSlideDown(ps: PlaybackState, ch: Channel, value: int) =
+proc doFineSlideDown(ps: PlaybackState, ch: var Channel, value: int) =
   if ps.currTick == 0:
     ch.period = min(ch.period + value, MAX_PERIOD)
     setSampleStep(ch, ps.config.sampleRate)
@@ -483,20 +479,20 @@ proc doPatternLoop(ps: var PlaybackState, ch: Channel, numRepeats: int) =
 proc doSetTremoloWaveform(ps: PlaybackState, ch: Channel, value: int) =
   discard
 
-proc doRetrigNote(ps: PlaybackState, ch: Channel, ticks, note: int) =
+proc doRetrigNote(ps: PlaybackState, ch: var Channel, ticks, note: int) =
   if not isFirstTick(ps):
     if note != NOTE_NONE and ticks != 0 and ps.currTick mod ticks == 0:
       ch.samplePos = 0
 
-proc doFineVolumeSlideUp(ps: PlaybackState, ch: Channel, value: int) =
+proc doFineVolumeSlideUp(ps: PlaybackState, ch: var Channel, value: int) =
   if ps.currTick == 0:
     setVolume(ch, min(ch.volume + value, MAX_VOLUME))
 
-proc doFineVolumeSlideDown(ps: PlaybackState, ch: Channel, value: int) =
+proc doFineVolumeSlideDown(ps: PlaybackState, ch: var Channel, value: int) =
   if ps.currTick == 0:
     setVolume(ch, max(ch.volume - value, 0))
 
-proc doNoteCut(ps: PlaybackState, ch: Channel, ticks: int) =
+proc doNoteCut(ps: PlaybackState, ch: var Channel, ticks: int) =
   if isFirstTick(ps):
     if ticks == 0:
       setVolume(ch, 0)
@@ -504,7 +500,7 @@ proc doNoteCut(ps: PlaybackState, ch: Channel, ticks: int) =
     if ps.currTick == ticks:
       setVolume(ch, 0)
 
-proc doNoteDelay(ps: PlaybackState, ch: Channel, ticks, note: int) =
+proc doNoteDelay(ps: PlaybackState, ch: var Channel, ticks, note: int) =
   if not isFirstTick(ps):
     if note != NOTE_NONE and ps.ellapsedTicks == ticks and ch.delaySample != nil:
       ch.currSample = ch.delaySample
@@ -514,7 +510,7 @@ proc doNoteDelay(ps: PlaybackState, ch: Channel, ticks, note: int) =
       ch.swapSample = nil
       setSampleStep(ch, ps.config.sampleRate)
 
-proc doPatternDelay(ps: var PlaybackState, ch: Channel, rows: int) =
+proc doPatternDelay(ps: var PlaybackState, rows: int) =
   if isFirstTick(ps):
     if ps.patternDelayCount == NO_VALUE:
       ps.patternDelayCount = rows
@@ -522,7 +518,7 @@ proc doPatternDelay(ps: var PlaybackState, ch: Channel, rows: int) =
 proc doInvertLoop(ps: PlaybackState, ch: Channel, speed: int) =
   discard
 
-proc doSetSpeed(ps: var PlaybackState, ch: Channel, value: int) =
+proc doSetSpeed(ps: var PlaybackState, value: int) =
   if isFirstTick(ps):
     if value < 0x20:
       ps.ticksPerRow = value
@@ -565,10 +561,8 @@ proc doTick(ps: var PlaybackState) =
             if extCmd == 0xED0 and y > 0:
               if y < ps.ticksPerRow:
                 ch.delaySample = sample
-              elif sample.isLooped():
-                ch.delaySampleNextRowNote = note
               else:
-                ch.currSample = nil
+                ch.delaySampleNextRowNote = note
             elif cmd == 0x3 or cmd == 0x5:
               ch.swapSample = sample
             else:
@@ -607,13 +601,13 @@ proc doTick(ps: var PlaybackState) =
     of 0x8: discard  # TODO implement set panning
     of 0x9: doSetSampleOffset(ps, ch, xy, note)
     of 0xA: doVolumeSlide(ps, ch, x, y)
-    of 0xB: doPositionJump(ps, ch, xy)
+    of 0xB: doPositionJump(ps, xy)
     of 0xC: doSetVolume(ps, ch, xy)
-    of 0xD: doPatternBreak(ps, ch, x*10 + y)
+    of 0xD: doPatternBreak(ps, x*10 + y)
 
     of 0xe:
       case x:
-      of 0x0: doSetFilter(ps, ch, y) # TODO implement filter
+      of 0x0: doSetFilter(ps, y) # TODO implement filter
 
       # Extended effects
       of 0x1: doFineSlideUp(ps, ch, y)
@@ -629,12 +623,14 @@ proc doTick(ps: var PlaybackState) =
       of 0xB: doFineVolumeSlideDown(ps, ch, y)
       of 0xC: doNoteCut(ps, ch, y)
       of 0xD: doNoteDelay(ps, ch, y, note)
-      of 0xE: doPatternDelay(ps, ch, y)
+      of 0xE: doPatternDelay(ps, y)
       of 0xF: doInvertLoop(ps, ch, y) # TODO MAYBE implement...
       else: assert false
 
-    of 0xF: doSetSpeed(ps, ch, xy)
+    of 0xF: doSetSpeed(ps, xy)
     else: assert false
+
+    ps.channels[chanIdx] = ch
 
 
 proc advancePlayPosition(ps: var PlaybackState) =
@@ -709,9 +705,9 @@ proc renderInternal(ps: var PlaybackState, mixBuffer: var MixBuffer,
 
     var frameCount = min(numFrames - framePos, ps.tickFramesRemaining)
 
-    for chNum, ch in pairs(ps.channels):
-      if ps.channels[chNum].state == csPlaying:
-        ch.render(ps, mixBuffer, framePos, frameCount)
+    for i in 0..ps.channels.high:
+      if ps.channels[i].state == csPlaying:
+        render(ps.channels[i], ps, mixBuffer, framePos, frameCount)
 
     inc(framePos, frameCount)
     dec(ps.tickFramesRemaining, frameCount)

@@ -51,10 +51,10 @@ type
     repeatLength*: Natural
     data*:         seq[float32]
 
-  Pattern* = ref object
+  Pattern* = object
     tracks*: seq[Track]
 
-  Track* = ref object
+  Track* = object
     rows*: array[ROWS_PER_PATTERN, Cell]
 
   Cell* = object
@@ -63,8 +63,7 @@ type
     effect*:    int
 
 
-proc newPattern*(): Pattern =
-  result = new Pattern
+proc initPattern*(): Pattern =
   result.tracks = newSeq[Track]()
 
 proc newModule*(): Module =
