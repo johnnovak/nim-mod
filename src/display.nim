@@ -176,7 +176,7 @@ proc drawTrack(cb: var ConsoleBuffer, x, y: Natural, track: Track,
 
 proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
                       currRow, maxRows, startTrack, maxTracks: int,
-                      channelState: seq[ChannelState]) =
+                      channels: seq[renderer.Channel]) =
   assert currRow < ROWS_PER_PATTERN
 
   let
@@ -227,7 +227,7 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
   y = firstRowY
 
   for i in trackLo..trackHi:
-    let chanState = channelState[i]
+    let chanState = channels[i].state
     if chanState == csPlaying:
       cb.setColor(currTheme.text)
     else:
@@ -278,7 +278,7 @@ proc updateScreen*(ps: PlaybackState) =
                   ps.currRow,
                   maxRows = h - PATTERN_Y - PATTERN_HEADER_HEIGHT-4,
                   startTrack = 0, maxTracks = ps.module.numChannels,
-                  ps.channelState)
+                  ps.channels)
 
   cb.setColor(currTheme.text)
   cb.write(SCREEN_X_PAD+1, h - SCREEN_Y_PAD-1, "Press ")

@@ -60,11 +60,11 @@ proc startPlayer(config: Config, module: Module) =
     currPattern = patt
 
   proc toggleMuteChannel(chNum: Natural) =
-    if chNum <= playbackState.channelState.high:
-      if playbackState.channelState[chNum] == csMuted:
-        playbackState.channelState[chNum] = csPlaying
+    if chNum <= playbackState.channels.high:
+      if playbackState.channels[chNum].state == csMuted:
+        playbackState.channels[chNum].state = csPlaying
       else:
-        playbackState.channelState[chNum] = csMuted
+        playbackState.channels[chNum].state = csMuted
 
   while true:
     let key = getKey()

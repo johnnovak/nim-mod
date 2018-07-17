@@ -31,38 +31,44 @@ const vibratoTable = [
 
 type
   PlaybackState* = object
+    # These two are set when initialising the object and should only read
+    # from after that
     config*:             Config
     module*:             Module
 
-    channels:            seq[Channel]
-    channelState*:       seq[ChannelState]
+    # The mute state of the channels can be set from the outside
+    channels*:           seq[Channel]
 
-    # Song state
-    tempo:               Natural
-    ticksPerRow:         Natural
-    currSongPos:         Natural
-    currRow:             int
+    # This can be set from the outside to signal the renderer to change the
+    # song position (defaults to -1)
+    nextSongPos*:        int
+
+    # Song tempo & position, should only be read from the outside
+    tempo*:              Natural
+    ticksPerRow*:        Natural
+    currSongPos*:        Natural
+    currRow*:            int
+
+    # --- INTERNAL STUFF ---
     currTick:            Natural # this gets reset to zero by pattern delay
                                  # on every new "delayed" row
-    ellapsedTicks:       Natural # actual ellapsed ticks per row
 
     # For implementing pattern-level effects
     jumpRow:             int
     jumpSongPos:         int
-    loopStartRow:        Natural
-    loopCount:           Natural
+    loopStartRow:        Natural  # TODO this should be a channel param
+    loopCount:           Natural  # TODO this should be a channel param
     patternDelayCount:   int
+    ellapsedTicks:       Natural # actual ellapsed ticks for the current row
 
     # Used by the audio renderer
     tickFramesRemaining: Natural
 
-    # This is only used for changing the song position by the user during
-    # playback
-    nextSongPos*:        int
 
+  Channel* = ref object
+    # Can be set from the outside to mute/unmute channels
+    state*:          ChannelState
 
-  Channel = ref object
-    # Channel state
     currSample:     Sample
     period:         int
     pan:            float32
@@ -97,13 +103,8 @@ type
   MixBuffer = array[1024, float32]
 
 
-proc tempo*(ps: PlaybackState): Natural = ps.tempo
-proc ticksPerRow*(ps: PlaybackState): Natural = ps.ticksPerRow
-proc currSongPos*(ps: PlaybackState): Natural = ps.currSongPos
-proc currRow*(ps: PlaybackState): int = ps.currRow
-
-
 proc resetChannel(ch: var Channel) =
+  ch.state = csPlaying
   ch.currSample = nil
   ch.period = NO_VALUE
   # panning doesn't get reset
@@ -158,7 +159,6 @@ proc initPlaybackState*(config: Config, module: Module): PlaybackState =
   ps.module = module
 
   ps.channels = newSeq[Channel]()
-  ps.channelState = newSeq[ChannelState]()
   for ch in 0..<module.numChannels:
     var chan = newChannel()
     var modCh = ch mod 4
@@ -168,7 +168,6 @@ proc initPlaybackState*(config: Config, module: Module): PlaybackState =
       chan.pan =  1.0
 
     ps.channels.add(chan)
-    ps.channelState.add(csPlaying)
 
   ps.tempo = DEFAULT_TEMPO
   ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
@@ -197,16 +196,16 @@ proc render(ch: Channel, ps: PlaybackState,
         s = 0
       else:
         # no interpolation
-        s = ch.currSample.data[ch.samplePos.int].float * ch.volumeScalar
+#        s = ch.currSample.data[ch.samplePos.int].float * ch.volumeScalar
 
         # linear interpolation
-#        let
-#          posInt = ch.samplePos.int
-#          s1 = ch.currSample.data[posInt]
-#          s2 = ch.currSample.data[posInt + 1]
-#          f = ch.samplePos - posInt.float32
-#
-#        s = (s1*(1.0-f) + s2*f) * ch.volumeScalar
+        let
+          posInt = ch.samplePos.int
+          s1 = ch.currSample.data[posInt]
+          s2 = ch.currSample.data[posInt + 1]
+          f = ch.samplePos - posInt.float32
+
+        s = (s1*(1.0-f) + s2*f) * ch.volumeScalar
 
         # Advance sample position
         ch.samplePos += ch.sampleStep
@@ -685,7 +684,7 @@ proc renderInternal(ps: var PlaybackState, mixBuffer: var MixBuffer,
     var frameCount = min(numFrames - framePos, ps.tickFramesRemaining)
 
     for chNum, ch in pairs(ps.channels):
-      if ps.channelState[chNum] == csPlaying:
+      if ps.channels[chNum].state == csPlaying:
         ch.render(ps, mixBuffer, framePos, frameCount)
 
     inc(framePos, frameCount)
