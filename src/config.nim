@@ -52,9 +52,9 @@ proc printHelp() =
 Usage: nim-mod FILENAME
 
 Options:
-  -o, --output=audio|file   select output to use; default is 'audio'
-                              audio  = normal audio output
-                              file   = write output to a WAV file
+  -o, --output=audio|wav    select output to use; default is 'audio'
+                              audio = normal audio output
+                              wav   = write output to a WAV file
   -s, --sampleRate=INTEGER  set the sample rate; default is 44100
   -b, --bitDepth=16|24|32   set the output bit depth; default is 16
   -a, --ampGain=FLOAT       set the amplifier gain in dB; default is 0.0
@@ -69,7 +69,7 @@ Options:
                               linear = fast, low quality
                               sinc   = slow, high quality
   -d, --declick=on|off      turn declicking on or off, on by default
-  -o, --outFilename         set the output filename for the file writer
+  -f, --outFilename         set the output filename for the file writer
   -u, --userInterface=on|off  turn the UI on or off; on by default
   -r, --refreshRate=INTEGER set the UI refresh rate in ms; 20 ms by default
   -l, --showLength          only print out the estimated non-looped length

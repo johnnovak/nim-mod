@@ -1,19 +1,25 @@
-import logging, os, strformat, strutils
+import logging, math, os, strformat, strutils
 
 import illwill
 
 import audio/fmoddriver as audio
 import config
-import module
-import loader
-import renderer
 import display
+import loader
+import module
+import renderer
+import wavewriter
 
 
 proc showLength(config: Config, module: Module) =
-  var playbackState = initPlaybackState(config, module)
-  var lengthInMillis = estimateSongLengthMillis(playbackState)
-  echo lengthInMillis
+  var ps = initPlaybackState(config, module)
+
+  let
+    songlengthSeconds = ceil(estimateSongLengthMillis(ps))
+    mins = songlengthSeconds.int div 60
+    secs = songlengthSeconds.int mod 60
+
+  echo fmt"Song length: {mins:02}:{secs:02}"
 
 
 var displayUI: bool
@@ -121,14 +127,38 @@ proc startPlayer(config: Config, module: Module) =
     sleep(config.refreshRateMs)
 
 
-# TODO
 proc writeWaveFile(config: Config, module: Module) =
   var
     ps = initPlaybackState(config, module)
     buf: array[8192, uint8]
+    f: File
+
+  let outfile = config.outFilename
 
   render(ps, buf[0].addr, buf.len)
 
+  if open(f, config.outFilename, fmWrite):
+    var ps = initPlaybackState(config, module)
+    try:
+      wavewriter.writeHeaders(f, config.sampleRate, sf16Bit, numChannels = 2)
+      wavewriter.writeDataStart(format = sf16Bit)
+
+      var bytesWritten = 0
+      while not ps.hasSongEnded:
+        render(ps, buf[0].addr, buf.len)
+        writeData16Bit(f, buf, buf.len)
+        inc(bytesWritten, buf.len)
+        echo bytesWritten
+
+      f.close()
+    except:
+      let ex = getCurrentException()
+      echo fmt"Error writing output file '{outfile}': " & ex.msg
+      echo getStackTrace(ex)
+      quit(1)
+  else:
+    echo fmt"Error opening output file '{outfile}' for writing"
+    quit(1)
 
 
 proc main() =
