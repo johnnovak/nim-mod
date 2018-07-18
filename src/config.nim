@@ -15,6 +15,7 @@ type
     outFilename*:      string
     displayUI*:        bool
     refreshRateMs*:    Natural
+    showLength*:       bool
     verboseOutput*:    bool
 
   OutputType* = enum
@@ -67,10 +68,12 @@ Options:
                               off    = fastest, no interpolation
                               linear = fast, low quality
                               sinc   = slow, high quality
-  -d, --declick=on|off      turns declicking on or off, on by default
+  -d, --declick=on|off      turn declicking on or off, on by default
   -o, --outFilename         set the output filename for the file writer
-  -u, --userInterface=on|off  turns the UI on or off; on by default
+  -u, --userInterface=on|off  turn the UI on or off; on by default
   -r, --refreshRate=INTEGER set the UI refresh rate in ms; 20 ms by default
+  -l, --showLength          only print out the estimated non-looped length
+                            of the module
   -h, --help                show this help
   -v, --version             show detailed version information
   -V, --verbose             verbose output, for debugging; off by default
@@ -189,6 +192,9 @@ proc parseCommandLine*(): Config =
         if rate > 0: config.refreshRateMs = rate
         else:
           invalidOptValue(opt, val, "refresh rate must be a positive integer")
+
+      of "showLength", "l":
+        config.showLength = true
 
       of "help",    "h": printHelp();    quit(0)
       of "version", "v": printVersion(); quit(0)

@@ -49,6 +49,9 @@ type
     currSongPos*:        Natural
     currRow*:            int
 
+    # Number of ellapsed frames since the start of the playback
+    numEllapsedFrames*:    Natural
+
     # --- INTERNAL STUFF ---
     # During a pattern delay (EEy), currTick only counts up to ticksPerRow
     # then resets to zero.
@@ -181,6 +184,7 @@ proc initPlaybackState*(config: Config, module: Module): PlaybackState =
   ps.tempo = DEFAULT_TEMPO
   ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
 
+  ps.hasSongEnded = false
   ps.jumpHistory = @[JumpPos(songPos: 0, row: 0)]
 
   ps.resetPlaybackState()
@@ -191,9 +195,7 @@ proc checkHasSongEnded(ps: var PlaybackState, songPos: Natural, row: Natural) =
   let p = JumpPos(songPos: songPos, row: row)
   if ps.jumpHistory.contains(p):
     ps.hasSongEnded = true
-    assert false
   else:
-    echo p
     ps.jumpHistory.add(p)
 
 
@@ -628,10 +630,12 @@ proc doTick(ps: var PlaybackState) =
       of 0xD: doNoteDelay(ps, ch, y, note)
       of 0xE: doPatternDelay(ps, y)
       of 0xF: doInvertLoop(ps, ch, y) # TODO MAYBE implement...
-      else: assert false
+      # TODO better than crashing
+      else: discard
 
     of 0xF: doSetSpeed(ps, xy)
-    else: assert false
+    # TODO better than crashing
+    else: discard
 
     ps.channels[chanIdx] = ch
 
@@ -664,12 +668,11 @@ proc advancePlayPosition(ps: var PlaybackState) =
       ps.patternDelayCount = NO_VALUE
 
       if ps.jumpRow != NO_VALUE:  # handle position jump and/or pattern break
-        if ps.currSongPos != ps.jumpSongPos:
-          checkHasSongEnded(ps, ps.jumpSongPos, 0)
         ps.currSongPos = ps.jumpSongPos
         ps.currRow = ps.jumpRow
         ps.jumpSongPos = NO_VALUE
         ps.jumpRow = NO_VALUE
+        checkHasSongEnded(ps, ps.currSongPos, ps.currRow)
 
       elif ps.loopRow != NO_VALUE:  # handle loop pattern
         ps.currRow = ps.loopRow
@@ -686,7 +689,7 @@ proc advancePlayPosition(ps: var PlaybackState) =
           ps.currRow = 0
           ps.loopStartRow = 0
           ps.loopCount = 0
-          checkHasSongEnded(ps, ps.currSongPos, 0)
+          checkHasSongEnded(ps, ps.currSongPos, ps.currRow)
 
 
 proc framesPerTick(ps: PlaybackState): Natural =
@@ -711,8 +714,9 @@ proc renderInternal(ps: var PlaybackState, mixBuffer: var MixBuffer,
   while framePos < numFrames-1:
     if ps.tickFramesRemaining == 0:
       advancePlayPosition(ps)
-      ps.tickFramesRemaining = framesPerTick(ps)
       doTick(ps)
+      ps.tickFramesRemaining = framesPerTick(ps)
+      inc(ps.numEllapsedFrames, ps.tickFramesRemaining)
 
     var frameCount = min(numFrames - framePos, ps.tickFramesRemaining)
 
@@ -776,4 +780,12 @@ proc render*(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
   of bd16Bit:      render16Bit(ps, buf, bufLen)
   of bd24Bit:      render24Bit(ps, buf, bufLen)
   of bd32BitFloat: render32BitFloat(ps, buf, bufLen)
+
+
+proc estimateSongLengthMillis*(ps: var PlaybackState): float =
+  while not ps.hasSongEnded:
+    advancePlayPosition(ps)
+    doTick(ps)
+    inc(ps.numEllapsedFrames, framesPerTick(ps))
+  result = ps.numEllapsedFrames / ps.config.sampleRate
 

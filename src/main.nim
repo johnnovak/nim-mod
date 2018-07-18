@@ -10,6 +10,12 @@ import renderer
 import display
 
 
+proc showLength(config: Config, module: Module) =
+  var playbackState = initPlaybackState(config, module)
+  var lengthInMillis = estimateSongLengthMillis(playbackState)
+  echo lengthInMillis
+
+
 var displayUI: bool
 
 proc playerQuitProc() {.noconv.} =
@@ -145,9 +151,12 @@ proc main() =
     echo getStackTrace(ex)
     quit(1)
 
-  case config.outputType
-  of otAudio:      startPlayer(config, module)
-  of otWaveWriter: writeWaveFile(config, module)
+  if config.showLength:
+    showLength(config, module)
+  else:
+    case config.outputType
+    of otAudio:      startPlayer(config, module)
+    of otWaveWriter: writeWaveFile(config, module)
 
 main()
 
