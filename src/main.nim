@@ -127,17 +127,26 @@ proc startPlayer(config: Config, module: Module) =
 
 
 proc writeWaveFile(config: Config, module: Module) =
-  var sampleFormat: SampleFormat
+  const bufSizeInSamples = 4096
+  var
+    sampleFormat: SampleFormat
+    buf: seq[uint8]
+
   case config.bitDepth
-  of bd16Bit:      sampleFormat = sf16Bit
-  of bd24Bit:      sampleFormat = sf24Bit
-  of bd32BitFloat: sampleFormat = sf32BitFloat
+  of bd16Bit:
+    sampleFormat = sf16Bit
+    newSeq(buf, bufSizeInSamples * 2)
+  of bd24Bit:
+    sampleFormat = sf24Bit
+    newSeq(buf, bufSizeInSamples * 3)
+  of bd32BitFloat:
+    sampleFormat = sf32BitFloat
+    newSeq(buf, bufSizeInSamples * 4)
 
   var waveWriter = initWaveWriter(
     config.outFilename, sampleFormat, config.sampleRate, numChannels = 2)
 
   var playbackState = initPlaybackState(config, module)
-  var buf: array[8192, uint8]
 
   wavewriter.writeHeaders()
 

@@ -13,6 +13,7 @@ const
   MAX_VOLUME            = 0x40
   MIN_PERIOD            = periodTable[NOTE_MAX]
   MAX_PERIOD            = periodTable[NOTE_MIN]
+  NUM_CHANNELS = 2
 
   AMIGA_BASE_FREQ_PAL  = 7093789.2
   AMIGA_BASE_FREQ_NTSC = 7159090.5
@@ -20,6 +21,7 @@ const
   AMPLIFICATION = 128
 
   NO_VALUE = -1
+
 
 
 const vibratoTable = [
@@ -250,8 +252,10 @@ proc render(ch: var Channel, ps: PlaybackState,
       panLeft = linearPanLeft(ch.pan * stereoSep)
       panRight = linearPanRight(ch.pan * stereoSep)
 
-    mixBuffer[(frameOffset + i)*2 + 0] += s * panLeft
-    mixBuffer[(frameOffset + i)*2 + 1] += s * panRight
+    var pos = (frameOffset + i) * NUM_CHANNELS
+
+    mixBuffer[pos]   += s * panLeft
+    mixBuffer[pos+1] += s * panRight
 
 
 proc finetunedNote(s: Sample, note: int): int =
@@ -706,12 +710,14 @@ proc framesPerTick(ps: PlaybackState): Natural =
 
 proc renderInternal(ps: var PlaybackState, mixBuffer: var MixBuffer,
                     numFrames: int) =
-  for i in 0..<numFrames * 2:
+  let numSamples = numFrames * NUM_CHANNELS
+  # TODO memset?
+  for i in 0..<numSamples:
     mixBuffer[i] = 0
 
   var framePos = 0
 
-  while framePos < numFrames-1:
+  while framePos < numFrames:
     if ps.tickFramesRemaining == 0:
       advancePlayPosition(ps)
       doTick(ps)
@@ -730,49 +736,50 @@ proc renderInternal(ps: var PlaybackState, mixBuffer: var MixBuffer,
 
 
 var gMixBuffer: MixBuffer
+let gNumFramesMixBuffer = gMixBuffer.len div (sizeof(float32) * NUM_CHANNELS)
 
 proc render16Bit(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
-  let
-    bytesPerFrame = 2
-    numFramesMixBuffer = gMixBuffer.len div bytesPerFrame
-    numFrames = bufLen div (2 * 2) # 16 bits/sample * 2 channels = 4 bytes/frame
+  const BYTES_PER_SAMPLE = 2
   var
-    framesLeft = numFrames.int
-    sampleOffs = 0
+    framesLeft = bufLen div (BYTES_PER_SAMPLE * NUM_CHANNELS)
     sampleBuf = cast[ptr UncheckedArray[int16]](buf)
+    sampleBufOffs = 0
+
+  while framesLeft > 0:
+    let
+      numFrames = min(gNumFramesMixBuffer, framesLeft)
+      numSamples = numFrames * NUM_CHANNELS
+
+    renderInternal(ps, gMixBuffer, numFrames)
+
+    for i in 0..<numSamples:
+      sampleBuf[sampleBufOffs + i] = gMixBuffer[i].int16
+
+    dec(framesLeft, numFrames)
+    inc(sampleBufOffs, numSamples)
+
+
+proc render24Bit(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
+  discard
+#[  const BYTES_PER_SAMPLE = 3
+  var
+    framesLeft = bufLen div (BYTES_PER_SAMPLE * NUM_CHANNELS)
+    sampleOffs = 0
+    sampleBuf = cast[ptr UncheckedArray[uint8]](buf)
 
   while framesLeft > 0:
     let numFrames = min(numFramesMixBuffer, framesLeft)
     renderInternal(ps, gMixBuffer, numFrames)
 
-    for i in 0..<numFrames * bytesPerFrame:
+    for i in 0..<numFrames * BYTES_PER_SAMPLE:
       sampleBuf[sampleOffs + i] = gMixBuffer[i].int16
 
-    dec(framesLeft, numFramesMixBuffer)
-    inc(sampleOffs, numFrames * bytesPerFrame)
-
-
-# TODO implement
-proc render24Bit(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
-  discard
+    dec(framesLeft, numFrames)
+    inc(sampleOffs, numFrames * BYTES_PER_SAMPLE) ]#
 
 
 proc render32BitFloat(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
-  let
-    bytesPerFrame = 4
-    numFramesMixBuffer = gMixBuffer.len div bytesPerFrame
-    numFrames = bufLen div (4 * 2) # 32 bits/sample * 2 channels = 8 bytes/frame
-  var
-    framesLeft = numFrames.int
-    sampleOffs = 0
-
-  while framesLeft > 0:
-    let numFrames = min(numFramesMixBuffer, framesLeft)
-    var mixBuffer = cast[MixBuffer](cast[int](buf) + sampleOffs)
-    renderInternal(ps, mixBuffer, numFrames)
-
-    dec(framesLeft, numFramesMixBuffer)
-    inc(sampleOffs, numFrames * bytesPerFrame)
+  discard
 
 
 proc render*(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
