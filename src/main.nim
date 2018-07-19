@@ -12,10 +12,10 @@ import wavewriter
 
 
 proc showLength(config: Config, module: Module) =
-  var ps = initPlaybackState(config, module)
+  var playbackState = initPlaybackState(config, module)
 
   let
-    songlengthSeconds = ceil(estimateSongLengthMillis(ps))
+    songlengthSeconds = ceil(estimateSongLengthMillis(playbackState))
     mins = songlengthSeconds.int div 60
     secs = songlengthSeconds.int mod 60
 
@@ -128,37 +128,26 @@ proc startPlayer(config: Config, module: Module) =
 
 
 proc writeWaveFile(config: Config, module: Module) =
-  var
-    ps = initPlaybackState(config, module)
-    buf: array[8192, uint8]
-    f: File
+  var sampleFormat: SampleFormat
+  case config.bitDepth
+  of bd16Bit:      sampleFormat = sf16Bit
+  of bd24Bit:      sampleFormat = sf24Bit
+  of bd32BitFloat: sampleFormat = sf32BitFloat
 
-  let outfile = config.outFilename
+  var waveWriter = initWaveWriter(
+    config.outFilename, sampleFormat, config.sampleRate, numChannels = 2)
 
-  render(ps, buf[0].addr, buf.len)
+  var playbackState = initPlaybackState(config, module)
+  var buf: array[8192, uint8]
 
-  if open(f, config.outFilename, fmWrite):
-    var ps = initPlaybackState(config, module)
-    try:
-      wavewriter.writeHeaders(f, config.sampleRate, sf16Bit, numChannels = 2)
-      wavewriter.writeDataStart(format = sf16Bit)
+  wavewriter.writeHeaders()
 
-      var bytesWritten = 0
-      while not ps.hasSongEnded:
-        render(ps, buf[0].addr, buf.len)
-        writeData16Bit(f, buf, buf.len)
-        inc(bytesWritten, buf.len)
-        echo bytesWritten
+  while not playbackState.hasSongEnded:
+    render(playbackState, buf[0].addr, buf.len)
+    waveWriter.writeData(buf)
 
-      f.close()
-    except:
-      let ex = getCurrentException()
-      echo fmt"Error writing output file '{outfile}': " & ex.msg
-      echo getStackTrace(ex)
-      quit(1)
-  else:
-    echo fmt"Error opening output file '{outfile}' for writing"
-    quit(1)
+  wavewriter.updateHeaders()
+  wavewriter.close()
 
 
 proc main() =
@@ -185,8 +174,19 @@ proc main() =
     showLength(config, module)
   else:
     case config.outputType
-    of otAudio:      startPlayer(config, module)
-    of otWaveWriter: writeWaveFile(config, module)
+    of otAudio:
+      # TODO exception handling?
+      startPlayer(config, module)
+
+    of otWaveWriter:
+      try:
+        writeWaveFile(config, module)
+      except:
+        let ex = getCurrentException()
+        echo fmt"Error writing output file '{config.outFilename}': " & ex.msg
+        echo getStackTrace(ex)
+        quit(1)
+
 
 main()
 
