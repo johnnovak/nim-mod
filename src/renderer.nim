@@ -782,7 +782,7 @@ proc render*(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
   of bd32BitFloat: render32BitFloat(ps, buf, bufLen)
 
 
-proc estimateSongLengthMillis*(ps: var PlaybackState): float =
+proc estimateSongLengthInSeconds*(ps: var PlaybackState): float =
   while not ps.hasSongEnded:
     advancePlayPosition(ps)
     doTick(ps)

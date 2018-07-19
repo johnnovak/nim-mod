@@ -12,14 +12,13 @@ import wavewriter
 
 
 proc showLength(config: Config, module: Module) =
-  var playbackState = initPlaybackState(config, module)
-
+  var ps = initPlaybackState(config, module)
   let
-    songlengthSeconds = ceil(estimateSongLengthMillis(playbackState))
-    mins = songlengthSeconds.int div 60
-    secs = songlengthSeconds.int mod 60
+    (lengthSeconds, millis) = splitDecimal(estimateSongLengthInSeconds(ps))
+    mins = lengthSeconds.int div 60
+    secs = lengthSeconds.int mod 60
 
-  echo fmt"Song length: {mins:02}:{secs:02}"
+  echo fmt"Song length: {mins:02}:{secs:02}.{millis*1000:03}"
 
 
 var displayUI: bool
