@@ -18,8 +18,6 @@ const
   AMIGA_BASE_FREQ_PAL  = 7093789.2
   AMIGA_BASE_FREQ_NTSC = 7159090.5
 
-  AMPLIFICATION = 128
-
   NO_VALUE = -1
 
 
@@ -231,6 +229,8 @@ proc render(ch: var Channel, ps: PlaybackState,
           f = ch.samplePos - posInt.float32
 
         s = (s1*(1.0-f) + s2*f) * ch.volumeScalar
+        # TODO figure out correctly scale factor
+        s *= 1/256
 
         # Advance sample position
         ch.samplePos += ch.sampleStep
@@ -243,7 +243,6 @@ proc render(ch: var Channel, ps: PlaybackState,
         else:
           if ch.samplePos >= (ch.currSample.length).float32 and
              ch.swapSample != nil and ch.swapSample.isLooped():
-
             swapSample(ch)
             ch.samplePos = ch.currSample.repeatOffset.float32
 
@@ -276,7 +275,7 @@ proc setVolume(ch: var Channel, vol: int) =
     ch.volumeScalar = 0
   else:
     let vol_dB = 20 * log10(vol / MAX_VOLUME)
-    ch.volumeScalar = pow(10.0, vol_dB / 20) * AMPLIFICATION
+    ch.volumeScalar = pow(10.0, vol_dB / 20)
 
 proc isFirstTick(ps: PlaybackState): bool =
   result = ps.ellapsedTicks == 0
@@ -711,7 +710,6 @@ proc framesPerTick(ps: PlaybackState): Natural =
 proc renderInternal(ps: var PlaybackState, mixBuffer: var MixBuffer,
                     numFrames: int) =
   let numSamples = numFrames * NUM_CHANNELS
-  # TODO memset?
   for i in 0..<numSamples:
     mixBuffer[i] = 0
 
@@ -738,8 +736,11 @@ proc renderInternal(ps: var PlaybackState, mixBuffer: var MixBuffer,
 var gMixBuffer: MixBuffer
 let gNumFramesMixBuffer = gMixBuffer.len div (sizeof(float32) * NUM_CHANNELS)
 
+
 proc render16Bit(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
-  const BYTES_PER_SAMPLE = 2
+  const
+    BYTES_PER_SAMPLE = 2
+    MAX_AMPLITUDE = (2^15-1).float32
   var
     framesLeft = bufLen div (BYTES_PER_SAMPLE * NUM_CHANNELS)
     sampleBuf = cast[ptr UncheckedArray[int16]](buf)
@@ -753,29 +754,40 @@ proc render16Bit(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
     renderInternal(ps, gMixBuffer, numFrames)
 
     for i in 0..<numSamples:
-      sampleBuf[sampleBufOffs + i] = gMixBuffer[i].int16
+      var s = gMixBuffer[i].clamp(-1.0, 1.0)
+      sampleBuf[sampleBufOffs + i] = (s * MAX_AMPLITUDE).int16
 
     dec(framesLeft, numFrames)
     inc(sampleBufOffs, numSamples)
 
 
 proc render24Bit(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
-  discard
-#[  const BYTES_PER_SAMPLE = 3
+  const
+    BYTES_PER_SAMPLE = 3
+    MAX_AMPLITUDE = (2^23-1).float32
   var
     framesLeft = bufLen div (BYTES_PER_SAMPLE * NUM_CHANNELS)
-    sampleOffs = 0
-    sampleBuf = cast[ptr UncheckedArray[uint8]](buf)
+    dataBuf = cast[ptr UncheckedArray[uint8]](buf)
+    dataBufOffs = 0
 
   while framesLeft > 0:
-    let numFrames = min(numFramesMixBuffer, framesLeft)
+    let
+      numFrames = min(gNumFramesMixBuffer, framesLeft)
+      numSamples = numFrames * NUM_CHANNELS
+
     renderInternal(ps, gMixBuffer, numFrames)
 
-    for i in 0..<numFrames * BYTES_PER_SAMPLE:
-      sampleBuf[sampleOffs + i] = gMixBuffer[i].int16
+    for i in 0..<numSamples:
+      var
+        s = gMixBuffer[i].clamp(-1.0, 1.0)
+        s24 = (s * MAX_AMPLITUDE).int32
+
+      dataBuf[dataBufOffs + i*3  ] = ( s24         and 0xff).uint8
+      dataBuf[dataBufOffs + i*3+1] = ((s24 shr  8) and 0xff).uint8
+      dataBuf[dataBufOffs + i*3+2] = ((s24 shr 16) and 0xff).uint8
 
     dec(framesLeft, numFrames)
-    inc(sampleOffs, numFrames * BYTES_PER_SAMPLE) ]#
+    inc(dataBufOffs, numSamples * BYTES_PER_SAMPLE)
 
 
 proc render32BitFloat(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
