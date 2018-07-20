@@ -94,7 +94,7 @@ proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
     COL1_X_VAL = COL1_X + 10
     COL2_X = X1 + 37
     COL2_X_VAL = COL2_X + 12
-    COL3_X = X1 + 22
+    COL3_X = X1 + 25
 
   # Left column
   var y = Y1
@@ -127,10 +127,15 @@ proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
   cb.write(COL1_X, y, fmt"Time:")
   cb.setColor(currTheme.textHi)
   let
-    ellapsedSeconds = (ps.ellapsedFrames / ps.config.sampleRate).int
-    mins = ellapsedSeconds div 60
-    secs = ellapsedSeconds mod 60
-  cb.write(COL1_X_VAL, y, fmt"{mins:02}:{secs:02}")
+    currSecsFract = (ps.currFrame / ps.config.sampleRate).int
+    currMins = currSecsFract div 60
+    currSecs = currSecsFract mod 60
+    totalSecsFract = (ps.songLengthFrames / ps.config.sampleRate).int
+    totalMins = totalSecsFract div 60
+    totalSecs = totalSecsFract mod 60
+
+  cb.write(COL1_X_VAL, y, fmt"{currMins:02}:{currSecs:02} / " &
+                          fmt"{totalMins:02}:{totalSecs:02}")
   inc(y)
 
   # Right column
@@ -165,12 +170,12 @@ proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
   cb.setColor(currTheme.text)
   cb.write(COL3_X, Y1+2, fmt"Tempo:")
   cb.setColor(currTheme.textHi)
-  cb.write(COL3_X+8, Y1+2, fmt"{ps.tempo:3}")
+  cb.write(COL3_X+7, Y1+2, fmt"{ps.tempo:3}")
 
   cb.setColor(currTheme.text)
   cb.write(COL3_X, Y1+3, fmt"Speed:")
   cb.setColor(currTheme.textHi)
-  cb.write(COL3_X+8, Y1+3, fmt"{ps.ticksPerRow:3}")
+  cb.write(COL3_X+7, Y1+3, fmt"{ps.ticksPerRow:3}")
 
 
 proc drawTrack(cb: var ConsoleBuffer, x, y: Natural, track: Track,

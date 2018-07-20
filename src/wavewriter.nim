@@ -126,14 +126,15 @@ proc writeHeaders*(ww: var WaveWriter, numDataBytes: Natural = 0) =
 
 
 proc writeData16Bit(ww: var WaveWriter, data: var openArray[uint8],
-                    dataLen: int = -1) =
+                    dataLen: Natural) =
   const BYTES_PER_SAMPLE = 2
+  assert dataLen mod BYTES_PER_SAMPLE == 0
+
   var bufPos = 0
-  let bufLen = if dataLen == -1: ww.writeBuf.len else dataLen
-  assert bufLen mod 2 == 0
+  let bufLen = ww.writeBuf.len
 
   var i = 0
-  while i < data.len:
+  while i < dataLen:
     littleEndian16(ww.writeBuf[bufPos].addr, data[i].addr)
     inc(bufPos, BYTES_PER_SAMPLE)
     inc(i, BYTES_PER_SAMPLE)
@@ -146,21 +147,23 @@ proc writeData16Bit(ww: var WaveWriter, data: var openArray[uint8],
 
 
 proc writeData24Bit*(ww: var WaveWriter, data: var openArray[uint8],
-                     dataLen: int = -1) =
-  let bufLen = if dataLen == -1: ww.writeBuf.len else dataLen
-  assert bufLen mod 3 == 0
-  ww.writeBuffer(data[0].addr, bufLen)
+                     dataLen: Natural) =
+  const BYTES_PER_SAMPLE = 3
+  assert dataLen mod BYTES_PER_SAMPLE == 0
+
+  ww.writeBuffer(data[0].addr, dataLen)
 
 
 proc writeData32BitFloat*(ww: var WaveWriter, data: var openArray[uint8],
-                          dataLen: int = -1) =
+                          dataLen: Natural) =
   const BYTES_PER_SAMPLE = 4
-  var bufPos = 0
-  let bufLen = if dataLen == -1: ww.writeBuf.len else dataLen
-  assert bufLen mod 4 == 0
+  assert dataLen mod BYTES_PER_SAMPLE == 0
 
+  let bufLen = ww.writeBuf.len
+  var bufPos = 0
   var i = 0
-  while i < data.len:
+
+  while i < dataLen:
     littleEndian32(ww.writeBuf[bufPos].addr, data[i].addr)
     inc(bufPos, BYTES_PER_SAMPLE)
     inc(i, BYTES_PER_SAMPLE)
@@ -172,15 +175,20 @@ proc writeData32BitFloat*(ww: var WaveWriter, data: var openArray[uint8],
     ww.writeBuffer(ww.writeBuf[0].addr, bufPos - BYTES_PER_SAMPLE)
 
 
-proc writeData*(ww: var WaveWriter, data: var openArray[uint8]) =
+proc writeData*(ww: var WaveWriter, data: var openArray[uint8],
+                dataLen: Natural) =
   if ww.file == nil:
     raiseNotInitalisedError()
 
   case ww.sampleFormat:
-  of sf16Bit:      writeData16Bit(ww, data)
-  of sf24Bit:      writeData24Bit(ww, data)
-  of sf32BitFloat: writeData32BitFloat(ww, data)
+  of sf16Bit:      writeData16Bit(ww, data, dataLen)
+  of sf24Bit:      writeData24Bit(ww, data, dataLen)
+  of sf32BitFloat: writeData32BitFloat(ww, data, dataLen)
   inc(ww.dataLen, data.len)
+
+
+proc writeData*(ww: var WaveWriter, data: var openArray[uint8]) =
+  ww.writeData(data, data.len)
 
 
 proc updateHeaders*(ww: var WaveWriter) =

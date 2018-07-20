@@ -14,7 +14,8 @@ import wavewriter
 proc showLength(config: Config, module: Module) =
   var ps = initPlaybackState(config, module)
   let
-    (lengthSeconds, millis) = splitDecimal(estimateSongLengthInSeconds(ps))
+    lengthFractSeconds = calculateSongLengthInFrames(ps) / ps.config.sampleRate
+    (lengthSeconds, millis) = splitDecimal(lengthFractSeconds)
     mins = lengthSeconds.int div 60
     secs = lengthSeconds.int mod 60
 
@@ -31,10 +32,11 @@ proc playerQuitProc() {.noconv.} =
   discard audio.closeAudio()
 
 proc startPlayer(config: Config, module: Module) =
-  var playbackState = initPlaybackState(config, module)
+  var ps = initPlaybackState(config, module)
+  discard ps.calculateSongLengthInFrames()
 
   proc audioCallback(buf: pointer, bufLen: Natural) =
-    render(playbackState, buf, bufLen)
+    render(ps, buf, bufLen)
 
   # Init audio stuff
   if not audio.initAudio(audioCallback):
@@ -71,28 +73,26 @@ proc startPlayer(config: Config, module: Module) =
     currPattern = patt
 
   proc toggleMuteChannel(chNum: Natural) =
-    if chNum <= playbackState.channels.high:
-      if playbackState.channels[chNum].state == csMuted:
-        playbackState.channels[chNum].state = csPlaying
+    if chNum <= ps.channels.high:
+      if ps.channels[chNum].state == csMuted:
+        ps.channels[chNum].state = csPlaying
       else:
-        playbackState.channels[chNum].state = csMuted
+        ps.channels[chNum].state = csMuted
 
   while true:
     let key = getKey()
     case key:
     of Key.Left, Key.H:
-      playbackState.nextSongPos = max(0, playbackState.currSongPos-1)
+      ps.nextSongPos = max(0, ps.currSongPos-1)
 
     of Key.ShiftH:
-      playbackState.nextSongPos = max(0, playbackState.currSongPos-10)
+      ps.nextSongPos = max(0, ps.currSongPos-10)
 
     of Key.Right, Key.L:
-      playbackState.nextSongPos = min(module.songLength-1,
-                                      playbackState.currSongPos+1)
+      ps.nextSongPos = min(module.songLength-1, ps.currSongPos+1)
 
     of Key.ShiftL:
-      playbackState.nextSongPos = min(module.songLength-1,
-                                      playbackState.currSongPos+10)
+      ps.nextSongPos = min(module.songLength-1, ps.currSongPos+10)
 
     of Key.F1: setTheme(0)
     of Key.F2: setTheme(1)
@@ -121,7 +121,7 @@ proc startPlayer(config: Config, module: Module) =
     else: discard
 
     if config.displayUI:
-      updateScreen(playbackState)
+      updateScreen(ps)
 
     sleep(config.refreshRateMs)
 
@@ -130,43 +130,43 @@ proc writeWaveFile(config: Config, module: Module) =
   const
     BUFLEN_SAMPLES = 4096
     NUM_CHANNELS = 2
+
+  var ps = initPlaybackState(config, module)
+  var framesToWrite = calculateSongLengthInFrames(ps)
+
   var
     sampleFormat: SampleFormat
     buf: seq[uint8]
     bufLenFrames: Natural
+    bytesToWrite: Natural
 
   case config.bitDepth
   of bd16Bit:
     sampleFormat = sf16Bit
     newSeq(buf, BUFLEN_SAMPLES * 2)
-    bufLenFrames = buf.len div (NUM_CHANNELS * 2)
+    bytesToWrite = framesToWrite * NUM_CHANNELS * 2
   of bd24Bit:
     sampleFormat = sf24Bit
     newSeq(buf, BUFLEN_SAMPLES * 3)
-    bufLenFrames = buf.len div (NUM_CHANNELS * 3)
+    bytesToWrite = framesToWrite * NUM_CHANNELS * 3
   of bd32BitFloat:
     sampleFormat = sf32BitFloat
     newSeq(buf, BUFLEN_SAMPLES * 4)
-    bufLenFrames = buf.len div (NUM_CHANNELS * 3)
+    bytesToWrite = framesToWrite * NUM_CHANNELS * 4
 
-  var playbackState = initPlaybackState(config, module)
-  var waveWriter = initWaveWriter(
-    config.outFilename, sampleFormat, config.sampleRate, numChannels = 2)
+  var ww = initWaveWriter(
+    config.outFilename, sampleFormat, config.sampleRate, NUM_CHANNELS)
 
-  wavewriter.writeHeaders()
+  ww.writeHeaders()
 
-  var framesWritten = 0
-  while true:
-    render(playbackState, buf[0].addr, buf.len)
-    inc(framesWritten, bufLenFrames)
-    if playbackState.hasSongEnded:
-      waveWriter.writeData(buf)
-      break
-    else:
-      waveWriter.writeData(buf)
+  while bytesToWrite > 0:
+    let numBytes = min(bytesToWrite, buf.len)
+    render(ps, buf[0].addr, numBytes)
+    ww.writeData(buf, numBytes)
+    dec(bytesToWrite, numBytes)
 
-  wavewriter.updateHeaders()
-  wavewriter.close()
+  ww.updateHeaders()
+  ww.close()
 
 
 proc main() =

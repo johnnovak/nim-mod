@@ -9,12 +9,9 @@ UI
 
 PLAYBACK
 
+* BUG: time keeps going even when speed is set to F00
+* BUG: an extra tick is rendered at the very end (maybe)
 * add support for extended octaves
-
-* STRWORLD bugs
-* REDHAIR bugs
-* BUG: changing songpos after F00 causes crash (condom corruption end)
-* BUG: knulla kuk - bridge before fast part, last slow pattern wrong
 
 * add pause / start
 * add channel muting & dimming (+ solo)
@@ -23,15 +20,13 @@ PLAYBACK
 * add no interpolation / linear interpolation toggle
 * add pan separation control (+ invert stereo, stereo/mono toggle)
 
-* implement volume ramping, need to decode the next tick in advance
+* implement volume ramping, need to decode the next tick in advance?
 
 
 OTHER
 
-* add WAV writer
 * add command line params
   * write log to file
-  * UI refresh interval (ms)
   * set audio buffer size
   * set playback params (all that can be set from the UI)
   * FMOD force driver (?)

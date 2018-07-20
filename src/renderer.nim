@@ -49,10 +49,9 @@ type
     currSongPos*:        Natural
     currRow*:            int
 
-    # Number of ellapsed frames since the start of the playback
-    ellapsedFrames*:     Natural  # TODO since the start or play position?
-
     # --- INTERNAL STUFF ---
+    mode:                PlaybackMode
+
     # During a pattern delay (EEy), currTick only counts up to ticksPerRow
     # then resets to zero.
     currTick:            Natural
@@ -68,8 +67,12 @@ type
     loopCount:           Natural  # TODO this should be a channel param
     patternDelayCount:   int
 
+    # Number of ellapsed frames since the start of the playback
+    currFrame*:          Natural  # TODO since the start or play position?
+
     jumpHistory:         seq[JumpPos]
-    hasSongEnded*:       bool  # TODO do this properly
+    songPosCache:        array[NUM_SONG_POSITIONS, SongPosInfo]
+    hasSongEnded:        bool  # TODO do this properly
     songLengthFrames*:   Natural
 
     # Used by the audio renderer
@@ -111,16 +114,24 @@ type
   ChannelState* = enum
     csPlaying, csMuted, csDimmed
 
+  PlaybackMode = enum
+    pmPlayback, pmCalculateSongLength
+
   JumpPos = object
     songPos: Natural
     row: Natural
 
+  SongPosInfo = object
+    frame:        Natural
+    tempo*:       Natural
+    ticksPerRow*: Natural
+    startRow*:    Natural
+
 
 proc resetChannel(ch: var Channel) =
-  ch.state = csPlaying
+  # mute state & panning doesn't get reset
   ch.currSample = nil
   ch.period = NO_VALUE
-  # panning doesn't get reset
   ch.volume = 0
 
   ch.portaToNote = NOTE_NONE
@@ -145,7 +156,13 @@ proc initChannel(): Channel =
   result.resetChannel()
 
 proc resetPlaybackState(ps: var PlaybackState) =
+  ps.nextSongPos = NO_VALUE
+
+  ps.tempo = DEFAULT_TEMPO
+  ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
   ps.currSongPos = 0
+
+  ps.mode = pmPlayback
 
   # These initial values ensure that the very first row & tick of the playback
   # are handled correctly
@@ -160,9 +177,15 @@ proc resetPlaybackState(ps: var PlaybackState) =
   ps.loopCount = 0
   ps.patternDelayCount = NO_VALUE
 
+  ps.currFrame = 0
+  ps.hasSongEnded = false
+
   ps.tickFramesRemaining = 0
 
-  ps.nextSongPos = NO_VALUE
+
+proc resetChannels(ps: var PlaybackState) =
+  for i in 0..ps.channels.high:
+    ps.channels[i].resetChannel()
 
 
 proc initPlaybackState*(config: Config, module: Module): PlaybackState =
@@ -180,23 +203,33 @@ proc initPlaybackState*(config: Config, module: Module): PlaybackState =
       chan.pan =  1.0
     ps.channels.add(chan)
 
-  ps.tempo = DEFAULT_TEMPO
-  ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
-
-  ps.hasSongEnded = false
   ps.jumpHistory = @[JumpPos(songPos: 0, row: 0)]
+
+  ps.songPosCache[0].frame = 0
+  ps.songPosCache[0].tempo = DEFAULT_TEMPO
+  ps.songPosCache[0].ticksPerRow = DEFAULT_TICKS_PER_ROW
+  ps.songPosCache[0].startRow = 0
 
   ps.resetPlaybackState()
   result = ps
 
 
 proc checkHasSongEnded(ps: var PlaybackState, songPos: Natural, row: Natural) =
-  let p = JumpPos(songPos: songPos, row: row)
+  let p = JumpPos(songPos: ps.currSongPos, row: ps.currRow)
   if ps.jumpHistory.contains(p):
     ps.hasSongEnded = true
-    ps.songLengthFrames = ps.ellapsedFrames
   else:
     ps.jumpHistory.add(p)
+
+proc storeSongPosInfo(ps: var PlaybackState) =
+  # TODO check if cache entry is empty in a less hacky way...
+  if ps.songPosCache[ps.currSongPos].tempo == 0:
+    var spi: SongPosInfo
+    spi.frame = ps.currFrame
+    spi.tempo = ps.tempo
+    spi.ticksPerRow = ps.ticksPerRow
+    spi.startRow = ps.currRow
+    ps.songPosCache[ps.currSongPos] = spi
 
 
 proc swapSample(ch: var Channel) =
@@ -230,7 +263,7 @@ proc render(ch: var Channel, ps: PlaybackState,
           f = ch.samplePos - posInt.float32
 
         s = (s1*(1.0-f) + s2*f) * ch.volumeScalar
-        # TODO figure out correctly scale factor
+        # TODO figure out the correct scale factor
         s *= 1/256
 
         # Advance sample position
@@ -441,8 +474,6 @@ proc doPatternBreak(ps: var PlaybackState, row: int) =
       if ps.jumpRow >= ROWS_PER_PATTERN:
         ps.jumpRow = 0
         inc(ps.jumpSongPos)
-        # TODO test if this actually wraps around into the next song pos if the
-        # target is the last row
         if ps.jumpSongPos >= ps.module.songLength:
           ps.currSongPos = 0
 
@@ -646,13 +677,15 @@ proc doTick(ps: var PlaybackState) =
 
 proc advancePlayPosition(ps: var PlaybackState) =
   # The user has changed the play position
-  if ps.nextSongPos >= 0:
+  if ps.nextSongPos >= 0 and ps.nextSongPos != ps.currSongPos:
     var nextSongPos = ps.nextSongPos
     ps.resetPlaybackState()
+    ps.resetChannels()
     ps.currSongPos = nextSongPos
-
-    for i in 0..ps.channels.high:
-      ps.channels[i].resetChannel()
+    ps.currFrame   = ps.songPosCache[ps.currSongPos].frame
+    ps.tempo       = ps.songPosCache[ps.currSongPos].tempo
+    ps.ticksPerRow = ps.songPosCache[ps.currSongPos].ticksPerRow
+    ps.currRow     = ps.songPosCache[ps.currSongPos].startRow - 1
 
   inc(ps.currTick)
   inc(ps.ellapsedTicks)
@@ -672,11 +705,17 @@ proc advancePlayPosition(ps: var PlaybackState) =
       ps.patternDelayCount = NO_VALUE
 
       if ps.jumpRow != NO_VALUE:  # handle position jump and/or pattern break
+        let prevSongPos = ps.currSongPos
         ps.currSongPos = ps.jumpSongPos
         ps.currRow = ps.jumpRow
         ps.jumpSongPos = NO_VALUE
         ps.jumpRow = NO_VALUE
-        checkHasSongEnded(ps, ps.currSongPos, ps.currRow)
+
+        if ps.mode == pmCalculateSongLength:
+          checkHasSongEnded(ps, ps.currSongPos, ps.currRow)
+          storeSongPosInfo(ps)
+        elif ps.currSongPos != prevSongPos:
+          ps.currFrame = ps.songPosCache[ps.currSongPos].frame
 
       elif ps.loopRow != NO_VALUE:  # handle loop pattern
         ps.currRow = ps.loopRow
@@ -693,7 +732,12 @@ proc advancePlayPosition(ps: var PlaybackState) =
           ps.currRow = 0
           ps.loopStartRow = 0
           ps.loopCount = 0
-          checkHasSongEnded(ps, ps.currSongPos, ps.currRow)
+
+          if ps.mode == pmCalculateSongLength:
+            checkHasSongEnded(ps, ps.currSongPos, ps.currRow)
+            storeSongPosInfo(ps)
+          else:
+            ps.currFrame = ps.songPosCache[ps.currSongPos].frame
 
 
 proc framesPerTick(ps: PlaybackState): Natural =
@@ -721,7 +765,7 @@ proc renderInternal(ps: var PlaybackState, mixBuffer: var openArray[float32],
       advancePlayPosition(ps)
       doTick(ps)
       ps.tickFramesRemaining = framesPerTick(ps)
-      inc(ps.ellapsedFrames, ps.tickFramesRemaining)
+      inc(ps.currFrame, ps.tickFramesRemaining)
 
     var frameCount = min(numFrames - framePos, ps.tickFramesRemaining)
 
@@ -792,17 +836,13 @@ proc render24Bit(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
     inc(dataBufOffs, numSamples * BYTES_PER_SAMPLE)
 
 
-# TODO move to utils?
-# From: https://github.com/nim-lang/Nim/issues/5437
-template ptrLenToOpenArray[T](p: ptr T, len: Natural): untyped =
-    toOpenArray(cast[ptr array[10000000, T]](p)[], 0, len-1)
-
 proc render32BitFloat(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
   const BYTES_PER_SAMPLE = 4
   assert bufLen mod BYTES_PER_SAMPLE == 0
 
   var numFrames = bufLen div (BYTES_PER_SAMPLE * NUM_CHANNELS)
-  renderInternal(ps, ptrLenToOpenArray(cast[ptr float32](buf), bufLen), numFrames)
+  # ugly but works...
+  renderInternal(ps, cast[ptr array[1000000, float32]](buf)[], numFrames)
 
 
 proc render*(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
@@ -812,10 +852,26 @@ proc render*(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
   of bd32BitFloat: render32BitFloat(ps, buf, bufLen)
 
 
-proc estimateSongLengthInSeconds*(ps: var PlaybackState): float =
+proc calculateSongLengthInFrames*(ps: var PlaybackState): Natural =
+  ps.mode = pmCalculateSongLength
   while not ps.hasSongEnded:
     advancePlayPosition(ps)
     doTick(ps)
-    inc(ps.ellapsedFrames, framesPerTick(ps))
-  result = ps.ellapsedFrames / ps.config.sampleRate
+    inc(ps.currFrame, framesPerTick(ps))
+
+  # Store result and reset state for the real playback
+  result = ps.currFrame
+  ps.songLengthFrames = ps.currFrame
+  ps.resetPlaybackState()
+  ps.resetChannels()
+
+  # Initialise remaining "unvisited" song positions with safe defaults
+  for i in 0..ps.songPosCache.high:
+    # TODO check this in a less hacky way...
+    if ps.songPosCache[i].tempo == 0:
+      ps.songPosCache[i].frame = 0
+      ps.songPosCache[i].tempo = DEFAULT_TEMPO
+      ps.songPosCache[i].ticksPerRow = DEFAULT_TICKS_PER_ROW
+      ps.songPosCache[i].startRow = 0
+
 
