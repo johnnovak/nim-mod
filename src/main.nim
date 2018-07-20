@@ -107,14 +107,10 @@ proc startPlayer(config: Config, module: Module) =
     of Key.Q: quit(0)
 
     of Key.R:
-      # TODO do this in a more optimal way
-      consoleDeinit()
-      exitFullscreen()
-      showCursor()
-
       consoleInit()
       enterFullscreen()
       hideCursor()
+      updateScreen(ps, forceRedraw = true)
 
     else: discard
 

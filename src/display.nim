@@ -277,7 +277,7 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
 
 var cb: ConsoleBuffer
 
-proc updateScreen*(ps: PlaybackState) =
+proc updateScreen*(ps: PlaybackState, forceRedraw: bool = false) =
   var (w, h) = terminalSize()
   dec(w)
 
@@ -306,5 +306,10 @@ proc updateScreen*(ps: PlaybackState) =
   cb.setColor(currTheme.text)
   cb.write(" to quit")
 
-  cb.display()
+  if forceRedraw:
+    setDoubleBuffering(false)
+    cb.display()
+    setDoubleBuffering(true)
+  else:
+    cb.display()
 
