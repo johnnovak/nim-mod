@@ -127,7 +127,7 @@ proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
   cb.write(COL1_X, y, fmt"Time:")
   cb.setColor(currTheme.textHi)
   let
-    ellapsedSeconds = (ps.numEllapsedFrames / ps.config.sampleRate).int
+    ellapsedSeconds = (ps.ellapsedFrames / ps.config.sampleRate).int
     mins = ellapsedSeconds div 60
     secs = ellapsedSeconds mod 60
   cb.write(COL1_X_VAL, y, fmt"{mins:02}:{secs:02}")

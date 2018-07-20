@@ -127,32 +127,43 @@ proc startPlayer(config: Config, module: Module) =
 
 
 proc writeWaveFile(config: Config, module: Module) =
-  const bufSizeInSamples = 4096
+  const
+    BUFLEN_SAMPLES = 4096
+    NUM_CHANNELS = 2
   var
     sampleFormat: SampleFormat
     buf: seq[uint8]
+    bufLenFrames: Natural
 
   case config.bitDepth
   of bd16Bit:
     sampleFormat = sf16Bit
-    newSeq(buf, bufSizeInSamples * 2)
+    newSeq(buf, BUFLEN_SAMPLES * 2)
+    bufLenFrames = buf.len div (NUM_CHANNELS * 2)
   of bd24Bit:
     sampleFormat = sf24Bit
-    newSeq(buf, bufSizeInSamples * 3)
+    newSeq(buf, BUFLEN_SAMPLES * 3)
+    bufLenFrames = buf.len div (NUM_CHANNELS * 3)
   of bd32BitFloat:
     sampleFormat = sf32BitFloat
-    newSeq(buf, bufSizeInSamples * 4)
+    newSeq(buf, BUFLEN_SAMPLES * 4)
+    bufLenFrames = buf.len div (NUM_CHANNELS * 3)
 
+  var playbackState = initPlaybackState(config, module)
   var waveWriter = initWaveWriter(
     config.outFilename, sampleFormat, config.sampleRate, numChannels = 2)
 
-  var playbackState = initPlaybackState(config, module)
-
   wavewriter.writeHeaders()
 
-  while not playbackState.hasSongEnded:
+  var framesWritten = 0
+  while true:
     render(playbackState, buf[0].addr, buf.len)
-    waveWriter.writeData(buf)
+    inc(framesWritten, bufLenFrames)
+    if playbackState.hasSongEnded:
+      waveWriter.writeData(buf)
+      break
+    else:
+      waveWriter.writeData(buf)
 
   wavewriter.updateHeaders()
   wavewriter.close()

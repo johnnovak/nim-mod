@@ -125,11 +125,12 @@ proc writeHeaders*(ww: var WaveWriter, numDataBytes: Natural = 0) =
   ww.writeUInt32LE(chunkSize.uint32)
 
 
-proc writeData16Bit(ww: var WaveWriter, data: var openArray[uint8]) =
-  assert data.len mod 2 == 0
+proc writeData16Bit(ww: var WaveWriter, data: var openArray[uint8],
+                    dataLen: int = -1) =
   const BYTES_PER_SAMPLE = 2
   var bufPos = 0
-  let bufLen = ww.writeBuf.len
+  let bufLen = if dataLen == -1: ww.writeBuf.len else dataLen
+  assert bufLen mod 2 == 0
 
   var i = 0
   while i < data.len:
@@ -144,16 +145,19 @@ proc writeData16Bit(ww: var WaveWriter, data: var openArray[uint8]) =
     ww.writeBuffer(ww.writeBuf[0].addr, bufPos - BYTES_PER_SAMPLE)
 
 
-proc writeData24Bit*(ww: var WaveWriter, data: var openArray[uint8]) =
-  assert data.len mod 3 == 0
-  ww.writeBuffer(data[0].addr, data.len)
+proc writeData24Bit*(ww: var WaveWriter, data: var openArray[uint8],
+                     dataLen: int = -1) =
+  let bufLen = if dataLen == -1: ww.writeBuf.len else dataLen
+  assert bufLen mod 3 == 0
+  ww.writeBuffer(data[0].addr, bufLen)
 
 
-proc writeData32BitFloat*(ww: var WaveWriter, data: var openArray[uint8]) =
-  assert data.len mod 4 == 0
+proc writeData32BitFloat*(ww: var WaveWriter, data: var openArray[uint8],
+                          dataLen: int = -1) =
   const BYTES_PER_SAMPLE = 4
   var bufPos = 0
-  let bufLen = ww.writeBuf.len
+  let bufLen = if dataLen == -1: ww.writeBuf.len else dataLen
+  assert bufLen mod 4 == 0
 
   var i = 0
   while i < data.len:

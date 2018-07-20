@@ -50,7 +50,7 @@ type
     currRow*:            int
 
     # Number of ellapsed frames since the start of the playback
-    numEllapsedFrames*:    Natural
+    ellapsedFrames*:     Natural  # TODO since the start or play position?
 
     # --- INTERNAL STUFF ---
     # During a pattern delay (EEy), currTick only counts up to ticksPerRow
@@ -70,6 +70,7 @@ type
 
     jumpHistory:         seq[JumpPos]
     hasSongEnded*:       bool  # TODO do this properly
+    songLengthFrames*:   Natural
 
     # Used by the audio renderer
     tickFramesRemaining: Natural
@@ -193,6 +194,7 @@ proc checkHasSongEnded(ps: var PlaybackState, songPos: Natural, row: Natural) =
   let p = JumpPos(songPos: songPos, row: row)
   if ps.jumpHistory.contains(p):
     ps.hasSongEnded = true
+    ps.songLengthFrames = ps.ellapsedFrames
   else:
     ps.jumpHistory.add(p)
 
@@ -719,7 +721,7 @@ proc renderInternal(ps: var PlaybackState, mixBuffer: var openArray[float32],
       advancePlayPosition(ps)
       doTick(ps)
       ps.tickFramesRemaining = framesPerTick(ps)
-      inc(ps.numEllapsedFrames, ps.tickFramesRemaining)
+      inc(ps.ellapsedFrames, ps.tickFramesRemaining)
 
     var frameCount = min(numFrames - framePos, ps.tickFramesRemaining)
 
@@ -814,6 +816,6 @@ proc estimateSongLengthInSeconds*(ps: var PlaybackState): float =
   while not ps.hasSongEnded:
     advancePlayPosition(ps)
     doTick(ps)
-    inc(ps.numEllapsedFrames, framesPerTick(ps))
-  result = ps.numEllapsedFrames / ps.config.sampleRate
+    inc(ps.ellapsedFrames, framesPerTick(ps))
+  result = ps.ellapsedFrames / ps.config.sampleRate
 
