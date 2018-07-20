@@ -58,8 +58,8 @@ proc initWaveWriter*(filename: string, sampleFormat: SampleFormat,
   result = ww
 
 
-proc writeBuffer(ww: var WaveWriter, dest: pointer, numBytes: Natural) =
-  let numBytesWritten = writeBuffer(ww.file, dest, numBytes)
+proc writeBuffer(ww: var WaveWriter, buf: pointer, numBytes: Natural) =
+  let numBytesWritten = writeBuffer(ww.file, buf, numBytes)
   if numBytesWritten != numBytes:
     raise newException(WaveWriterError, "Error writing file")
   inc(ww.fileLen, numBytes)
@@ -146,26 +146,7 @@ proc writeData16Bit(ww: var WaveWriter, data: var openArray[uint8]) =
 
 proc writeData24Bit*(ww: var WaveWriter, data: var openArray[uint8]) =
   assert data.len mod 3 == 0
-  const BYTES_PER_SAMPLE = 3
-  var bufPos = 0
-  let bufLen = ww.writeBuf.len
-  var int32Buf: array[4, uint8]
-
-  var i = 0
-  while i < data.len:
-    littleEndian32(int32Buf[0].addr, data[i].addr)
-    ww.writeBuf[bufPos  ] = int32Buf[0]
-    ww.writeBuf[bufPos+1] = int32Buf[1]
-    ww.writeBuf[bufPos+2] = int32Buf[2]
-    inc(bufPos, BYTES_PER_SAMPLE)
-    inc(i, BYTES_PER_SAMPLE)
-
-    if bufPos >= bufLen:
-      ww.writeBuffer(ww.writeBuf[0].addr, bufLen)
-      bufPos = 0
-
-  if bufPos > 0:
-    ww.writeBuffer(ww.writeBuf[0].addr, bufPos - BYTES_PER_SAMPLE)
+  ww.writeBuffer(data[0].addr, data.len)
 
 
 proc writeData32BitFloat*(ww: var WaveWriter, data: var openArray[uint8]) =

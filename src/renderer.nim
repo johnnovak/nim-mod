@@ -13,13 +13,13 @@ const
   MAX_VOLUME            = 0x40
   MIN_PERIOD            = periodTable[NOTE_MAX]
   MAX_PERIOD            = periodTable[NOTE_MIN]
+
   NUM_CHANNELS = 2
 
   AMIGA_BASE_FREQ_PAL  = 7093789.2
   AMIGA_BASE_FREQ_NTSC = 7159090.5
 
   NO_VALUE = -1
-
 
 
 const vibratoTable = [
@@ -114,8 +114,6 @@ type
     songPos: Natural
     row: Natural
 
-  MixBuffer = array[1024, float32]
-
 
 proc resetChannel(ch: var Channel) =
   ch.state = csPlaying
@@ -209,7 +207,8 @@ proc linearPanRight(p: float32): float32 =  0.5 * p + 0.5
 
 
 proc render(ch: var Channel, ps: PlaybackState,
-            mixBuffer: var MixBuffer, frameOffset, numFrames: Natural) =
+            mixBuffer: var openArray[float32],
+            frameOffset, numFrames: Natural) =
   for i in 0..<numFrames:
     var s: float32
     if ch.currSample == nil:
@@ -253,7 +252,7 @@ proc render(ch: var Channel, ps: PlaybackState,
 
     var pos = (frameOffset + i) * NUM_CHANNELS
 
-    mixBuffer[pos]   += s * panLeft
+    mixBuffer[pos  ] += s * panLeft
     mixBuffer[pos+1] += s * panRight
 
 
@@ -707,7 +706,7 @@ proc framesPerTick(ps: PlaybackState): Natural =
   result = (millisPerTick * framesPerMilli).int
 
 
-proc renderInternal(ps: var PlaybackState, mixBuffer: var MixBuffer,
+proc renderInternal(ps: var PlaybackState, mixBuffer: var openArray[float32],
                     numFrames: int) =
   let numSamples = numFrames * NUM_CHANNELS
   for i in 0..<numSamples:
@@ -733,14 +732,14 @@ proc renderInternal(ps: var PlaybackState, mixBuffer: var MixBuffer,
     assert ps.tickFramesRemaining >= 0
 
 
-var gMixBuffer: MixBuffer
+var gMixBuffer: array[1024, float32]
 let gNumFramesMixBuffer = gMixBuffer.len div (sizeof(float32) * NUM_CHANNELS)
 
-
 proc render16Bit(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
-  const
-    BYTES_PER_SAMPLE = 2
-    MAX_AMPLITUDE = (2^15-1).float32
+  const BYTES_PER_SAMPLE = 2
+  assert bufLen mod BYTES_PER_SAMPLE == 0
+
+  const MAX_AMPLITUDE = (2^15-1).float32
   var
     framesLeft = bufLen div (BYTES_PER_SAMPLE * NUM_CHANNELS)
     sampleBuf = cast[ptr UncheckedArray[int16]](buf)
@@ -762,9 +761,10 @@ proc render16Bit(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
 
 
 proc render24Bit(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
-  const
-    BYTES_PER_SAMPLE = 3
-    MAX_AMPLITUDE = (2^23-1).float32
+  const BYTES_PER_SAMPLE = 3
+  assert bufLen mod BYTES_PER_SAMPLE == 0
+
+  const MAX_AMPLITUDE = (2^23-1).float32
   var
     framesLeft = bufLen div (BYTES_PER_SAMPLE * NUM_CHANNELS)
     dataBuf = cast[ptr UncheckedArray[uint8]](buf)
@@ -790,8 +790,17 @@ proc render24Bit(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
     inc(dataBufOffs, numSamples * BYTES_PER_SAMPLE)
 
 
+# TODO move to utils?
+# From: https://github.com/nim-lang/Nim/issues/5437
+template ptrLenToOpenArray[T](p: ptr T, len: Natural): untyped =
+    toOpenArray(cast[ptr array[10000000, T]](p)[], 0, len-1)
+
 proc render32BitFloat(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
-  discard
+  const BYTES_PER_SAMPLE = 4
+  assert bufLen mod BYTES_PER_SAMPLE == 0
+
+  var numFrames = bufLen div (BYTES_PER_SAMPLE * NUM_CHANNELS)
+  renderInternal(ps, ptrLenToOpenArray(cast[ptr float32](buf), bufLen), numFrames)
 
 
 proc render*(ps: var PlaybackState, buf: pointer, bufLen: Natural) =

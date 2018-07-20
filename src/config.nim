@@ -56,7 +56,8 @@ Options:
                               audio = normal audio output
                               wav   = write output to a WAV file
   -s, --sampleRate=INTEGER  set the sample rate; default is 44100
-  -b, --bitDepth=16|24|32   set the output bit depth; default is 16
+  -b, --bitDepth=16|24|32   set the output bit depth, 32 stands for 32-bit
+                            floating point; default is 16
   -a, --ampGain=FLOAT       set the amplifier gain in dB; default is 0.0
   -p, --stereoSeparation=FLOAT
                             set the stereo separation, must be between
