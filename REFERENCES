@@ -11,6 +11,25 @@ Timothy John Weber – The Canonical WAVE File Format
 http://www.lightlink.com/tjweber/StripWav/Canon.html
 
 
+DSP
+---
+
+The Scientist and Engineer's Guide to Digital Signal Processing
+http://www.dspguide.com/pdfbook.htm
+
+Low pass filter software? - Stack Overflow
+https://stackoverflow.com/questions/344343/low-pass-filter-software
+
+lowpass and high pass filter in C# - Stack Overflow
+https://stackoverflow.com/questions/8079526/lowpass-and-high-pass-filter-in-c-sharp
+
+Baum Dev Blog: Butterworth Lowpass Filter Coefficients in C++
+http://baumdevblog.blogspot.com/2010/11/butterworth-lowpass-filter-coefficients.html?m=1
+
+A Butterworth Filter in C# - CodeProject
+https://www.codeproject.com/tips/1092012/a-butterworth-filter-in-csharp
+
+
 BLEP
 ----
 
@@ -21,3 +40,10 @@ http://www.cs.cmu.edu/~eli/papers/icmc01-hardsync.pdf
 http://www.willpirkle.com/forum/algorithm-design/trivial-square-wave-polyblep/
 http://research.spa.aalto.fi/publications/papers/spl-ptr/
 https://www.experimentalscene.com/articles/minbleps.php
+
+
+DATA LOCALITY
+-------------
+
+http://gameprogrammingpatterns.com/data-locality.html
+Data Locality · Optimization Patterns · Game Programming Patterns
