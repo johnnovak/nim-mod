@@ -14,12 +14,11 @@ const
   MIN_PERIOD            = periodTable[NOTE_MAX]
   MAX_PERIOD            = periodTable[NOTE_MIN]
 
-  NUM_CHANNELS = 2
+  AMIGA_BASE_FREQ_PAL   = 7093789.2
 
-  AMIGA_BASE_FREQ_PAL  = 7093789.2
-  AMIGA_BASE_FREQ_NTSC = 7159090.5
+  NUM_CHANNELS          = 2
 
-  NO_VALUE = -1
+  NO_VALUE              = -1
 
 
 const vibratoTable = [

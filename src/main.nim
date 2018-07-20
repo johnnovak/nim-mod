@@ -56,8 +56,6 @@ proc startPlayer(config: Config, module: Module) =
     enterFullscreen()
     hideCursor()
 
-  let (w, h) = terminalSize()
-
   var
     currPattern = 0
     currRow = 0
@@ -137,7 +135,6 @@ proc writeWaveFile(config: Config, module: Module) =
   var
     sampleFormat: SampleFormat
     buf: seq[uint8]
-    bufLenFrames: Natural
     bytesToWrite: Natural
 
   case config.bitDepth

@@ -1,4 +1,4 @@
-import parseopt2, parseutils, strformat
+import parseopt, parseutils, strformat
 
 const VERSION = "0.1.0"
 
@@ -49,7 +49,7 @@ proc printVersion() =
 proc printHelp() =
   printVersion()
   echo """
-Usage: nim-mod FILENAME
+Usage: nim-mod [OPTIONS] FILENAME
 
 Options:
   -o, --output=audio|wav    select output to use; default is 'audio'
