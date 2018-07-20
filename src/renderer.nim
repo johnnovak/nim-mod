@@ -1,4 +1,4 @@
-import math
+import math, strformat
 
 import audio/common
 import config
@@ -10,11 +10,12 @@ import module
 const
   DEFAULT_TEMPO         = 125
   DEFAULT_TICKS_PER_ROW = 6
-  MAX_VOLUME            = 0x40
+
+  AMIGA_BASE_FREQ_PAL   = 7093789.2
   MIN_PERIOD            = periodTable[NOTE_MAX]
   MAX_PERIOD            = periodTable[NOTE_MIN]
 
-  AMIGA_BASE_FREQ_PAL   = 7093789.2
+  MAX_VOLUME            = 0x40
 
   NUM_CHANNELS          = 2
 
@@ -248,7 +249,8 @@ proc render(ch: var Channel, ps: PlaybackState,
     if ch.currSample == nil:
       s = 0
     else:
-      if ch.period == NO_VALUE or ch.samplePos >= (ch.currSample.length).float32:
+      if ch.period == NO_VALUE or
+         ch.samplePos >= (ch.currSample.length).float32:
         s = 0
       else:
         # no interpolation
@@ -569,6 +571,7 @@ proc doTick(ps: var PlaybackState) =
   let patt = ps.module.patterns[ps.module.songPositions[ps.currSongPos]]
 
   for chanIdx in 0..ps.channels.high:
+#    echo fmt"chanIdx: {chanIdx}, ps.currRow: {ps.currRow}"
     let cell = patt.tracks[chanIdx].rows[ps.currRow]
     var ch = ps.channels[chanIdx]
 
@@ -675,16 +678,27 @@ proc doTick(ps: var PlaybackState) =
 
 
 proc advancePlayPosition(ps: var PlaybackState) =
-  # The user has changed the play position
-  if ps.nextSongPos >= 0 and ps.nextSongPos != ps.currSongPos:
-    var nextSongPos = ps.nextSongPos
-    ps.resetPlaybackState()
-    ps.resetChannels()
-    ps.currSongPos = nextSongPos
-    ps.currFrame   = ps.songPosCache[ps.currSongPos].frame
-    ps.tempo       = ps.songPosCache[ps.currSongPos].tempo
-    ps.ticksPerRow = ps.songPosCache[ps.currSongPos].ticksPerRow
-    ps.currRow     = ps.songPosCache[ps.currSongPos].startRow - 1
+  # The user has changed the play position, let's do something about it :)
+  if ps.nextSongPos != NO_VALUE:
+    if ps.nextSongPos == ps.currSongPos:
+      ps.nextSongPos = NO_VALUE
+    else:
+      var nextSongPos = ps.nextSongPos
+      ps.resetPlaybackState()
+      ps.resetChannels()
+      ps.currSongPos = nextSongPos
+
+      # This effectively achieves tempo & speed command chasing in a very
+      # cheap way!
+      ps.currFrame   = ps.songPosCache[ps.currSongPos].frame
+      ps.tempo       = ps.songPosCache[ps.currSongPos].tempo
+      ps.ticksPerRow = ps.songPosCache[ps.currSongPos].ticksPerRow
+
+      # This is important! The current tick will be advanced by one below, so we
+      # need to start from the last tick of the previous row to then just
+      # "slide" into the correct row position (it's ok to have -1 in currRow)
+      ps.currRow     = ps.songPosCache[ps.currSongPos].startRow-1
+      ps.currTick    = ps.ticksPerRow-1
 
   inc(ps.currTick)
   inc(ps.ellapsedTicks)
@@ -872,5 +886,9 @@ proc calculateSongLengthInFrames*(ps: var PlaybackState): Natural =
       ps.songPosCache[i].tempo = DEFAULT_TEMPO
       ps.songPosCache[i].ticksPerRow = DEFAULT_TICKS_PER_ROW
       ps.songPosCache[i].startRow = 0
+
+  # TODO debug stuff
+#  for sp in ps.songPosCache:
+#    echo sp
 
 

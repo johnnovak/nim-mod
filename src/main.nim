@@ -22,11 +22,11 @@ proc showLength(config: Config, module: Module) =
   echo fmt"Song length: {mins:02}:{secs:02}.{millis*1000:03}"
 
 
-var displayUI: bool
+var displayUI = false
 
 proc playerQuitProc() {.noconv.} =
+  consoleDeinit()
   if displayUI:
-    consoleDeinit()
     exitFullscreen()
     showCursor()
   discard audio.closeAudio()
