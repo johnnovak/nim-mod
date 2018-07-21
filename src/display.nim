@@ -149,7 +149,7 @@ proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
   inc(y)
 
   cb.setColor(currTheme.text)
-  cb.write(COL2_X, y, fmt"Resampler:")
+  cb.write(COL2_X, y, fmt"Interpol:")
   cb.setColor(currTheme.textHi)
   cb.write(COL2_X_VAL, y, "linear")
   inc(y)
@@ -161,9 +161,9 @@ proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
   inc(y)
 
   cb.setColor(currTheme.text)
-  cb.write(COL2_X, y, fmt"Stereo sep.:")
+  cb.write(COL2_X, y, fmt"Stereo width:")
   cb.setColor(currTheme.textHi)
-  cb.write(COL2_X_VAL, y, "   20%")
+  cb.write(COL2_X_VAL+2, y, fmt"{ps.config.stereoWidth:4}")
   inc(y)
 
   # Tempo & speed

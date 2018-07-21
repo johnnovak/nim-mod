@@ -9,7 +9,7 @@ type
     sampleRate*:       Natural
     bitDepth*:         BitDepth
     ampGain*:          float
-    stereoSeparation*: float
+    stereoWidth*:      int
     interpolation*:    SampleInterpolation
     declick*:          bool
     outFilename*:      string
@@ -22,7 +22,7 @@ type
     otAudio, otWaveWriter
 
   SampleInterpolation* = enum
-    siNearestNeighbour, siLinear, siSinc
+    siNearestNeighbour, siLinear
 
   BitDepth* = enum
     bd16Bit, bd24Bit, bd32BitFloat
@@ -33,7 +33,7 @@ proc initConfigWithDefaults(): Config =
   result.sampleRate       = 44100
   result.bitDepth         = bd16Bit
   result.ampGain          = -6.0
-  result.stereoSeparation = 0.6
+  result.stereoWidth      = 50
   result.interpolation    = siLinear
   result.declick          = true
   result.outFilename      = nil
@@ -58,17 +58,16 @@ Options:
   -s, --sampleRate=INTEGER  set the sample rate; default is 44100
   -b, --bitDepth=16|24|32   set the output bit depth, 32 stands for 32-bit
                             floating point; default is 16
-  -a, --ampGain=FLOAT       set the amplifier gain in dB; default is 0.0
-  -p, --stereoSeparation=FLOAT
-                            set the stereo separation, must be between
-                            -1.0 and 1.0; default is 0.7
-                                 0.0 = mono
-                                 1.0 = stereo (no crosstalk)
-                                -1.0 = reverse stereo (no crosstalk)
-  -i, --interpolation=MODE  set the sample interpolation mode; default is 'sinc'
-                              off    = fastest, no interpolation
-                              linear = fast, low quality
-                              sinc   = slow, high quality
+  -a, --ampGain=FLOAT       set the amplifier gain in dB; default is -6.0
+  -w, --stereoWidth=INTEGER
+                            set the stereo width, must be between
+                            -100 and 100; default is 50
+                                   0 = mono
+                                 100 = full stereo (hard panned channels)
+                                -100 = full reverse stereo
+  -i, --interpolation=MODE  set the sample interpolation mode; default is 'linear'
+                              off    = no interpolation (nearest-neighbour)
+                              linear = linear interpolation
   -d, --declick=on|off      turn declicking on or off, on by default
   -f, --outFilename         set the output filename for the file writer
   -u, --userInterface=on|off  turn the UI on or off; on by default
@@ -147,24 +146,23 @@ proc parseCommandLine*(): Config =
             "amplification gain must be between -36 and +36 dB")
         config.ampGain = g
 
-      of "stereoSeparation", "p":
+      of "stereoWidth", "w":
         if val == "": missingOptValue(opt)
-        var sep: float
-        if parseFloat(val, sep) == 0:
-          invalidOptValue(opt, val, "invalid stereo separation value")
-        if sep < -1.0 or sep > 1.0:
-          invalidOptValue(opt, val, "stereo separation must be between -100 and 100")
-        config.stereoSeparation = sep
+        var w: int
+        if parseInt(val, w) == 0:
+          invalidOptValue(opt, val, "invalid stereo width value")
+        if w < -100 or w > 100:
+          invalidOptValue(opt, val, "stereo width must be between -100 and 100")
+        config.stereoWidth = w
 
       of "interpolation", "i":
         case val:
         of "": missingOptValue(opt)
-        of "nearest": config.interpolation = siNearestNeighbour
+        of "off": config.interpolation = siNearestNeighbour
         of "linear":  config.interpolation = siLinear
-        of "sinc":    config.interpolation = siSinc
         else:
           invalidOptValue(opt, val,
-            "interpolation must be one of 'nearest', 'linear' or 'sinc'")
+            "interpolation must be one of 'off' or 'linear'")
 
       of "declick", "d":
         case val:

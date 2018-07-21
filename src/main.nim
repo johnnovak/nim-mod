@@ -89,11 +89,8 @@ proc startPlayer(config: Config, module: Module) =
     of Key.ShiftL:
       ps.nextSongPos = min(module.songLength-1, ps.currSongPos+10)
 
-    of Key.G:
-      ps.nextSongPos = 0
-
-    of Key.ShiftG:
-      ps.nextSongPos = module.songLength-1
+    of Key.G:      ps.nextSongPos = 0
+    of Key.ShiftG: ps.nextSongPos = module.songLength-1
 
     of Key.F1: setTheme(0)
     of Key.F2: setTheme(1)
@@ -114,6 +111,12 @@ proc startPlayer(config: Config, module: Module) =
     of Key.Zero:  toggleMuteChannel(9)
 
     of Key.U:     unmuteAllChannels()
+
+    of Key.Comma:
+      ps.config.stereoWidth = max(-100, ps.config.stereoWidth - 10)
+
+    of Key.Dot:
+      ps.config.stereoWidth = min( 100, ps.config.stereoWidth + 10)
 
     of Key.Q: quit(0)
 

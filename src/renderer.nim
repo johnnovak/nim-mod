@@ -286,9 +286,9 @@ proc render(ch: var Channel, ps: PlaybackState,
             ch.samplePos = ch.currSample.repeatOffset.float32
 
     var
-      stereoSep = ps.config.stereoSeparation
-      panLeft = linearPanLeft(ch.pan * stereoSep)
-      panRight = linearPanRight(ch.pan * stereoSep)
+      width = ps.config.stereoWidth.float32 / 100
+      panLeft = linearPanLeft(ch.pan * width)
+      panRight = linearPanRight(ch.pan * width)
 
     var pos = (frameOffset + i) * NUM_CHANNELS
 
