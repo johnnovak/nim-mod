@@ -62,20 +62,17 @@ proc startPlayer(config: Config, module: Module) =
     lastPattern = -1
     lastRow = -1
 
-  proc setRow(row: Natural) =
-    lastRow = currRow
-    currRow = row
-
-  proc setPattern(patt: Natural) =
-    lastPattern = currPattern
-    currPattern = patt
-
   proc toggleMuteChannel(chNum: Natural) =
     if chNum <= ps.channels.high:
       if ps.channels[chNum].state == csMuted:
         ps.channels[chNum].state = csPlaying
       else:
         ps.channels[chNum].state = csMuted
+
+  proc unmuteAllChannels() =
+    for chNum in 0..ps.channels.high:
+      ps.channels[chNum].state = csPlaying
+
 
   while true:
     let key = getKey()
@@ -92,6 +89,12 @@ proc startPlayer(config: Config, module: Module) =
     of Key.ShiftL:
       ps.nextSongPos = min(module.songLength-1, ps.currSongPos+10)
 
+    of Key.G:
+      ps.nextSongPos = 0
+
+    of Key.ShiftG:
+      ps.nextSongPos = module.songLength-1
+
     of Key.F1: setTheme(0)
     of Key.F2: setTheme(1)
     of Key.F3: setTheme(2)
@@ -103,6 +106,14 @@ proc startPlayer(config: Config, module: Module) =
     of Key.Two:   toggleMuteChannel(1)
     of Key.Three: toggleMuteChannel(2)
     of Key.Four:  toggleMuteChannel(3)
+    of Key.Five:  toggleMuteChannel(4)
+    of Key.Six:   toggleMuteChannel(5)
+    of Key.Seven: toggleMuteChannel(6)
+    of Key.Eight: toggleMuteChannel(7)
+    of Key.Nine:  toggleMuteChannel(8)
+    of Key.Zero:  toggleMuteChannel(9)
+
+    of Key.U:     unmuteAllChannels()
 
     of Key.Q: quit(0)
 

@@ -13,5 +13,6 @@ I write modplayers.
   StarTrekker etc.)
 * Cross-platform (Windows, Linux & OS X)
 * Kickass console UI
+* Vim-inspired keyboard shortcuts (**SUPR IMPRTANT!!!1**)
 * Uses FMOD for audio playback
 
