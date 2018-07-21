@@ -2,7 +2,7 @@ import strformat, strutils
 
 import illwill
 
-import module
+import config, module
 import renderer
 
 
@@ -145,13 +145,18 @@ proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
   cb.setColor(currTheme.text)
   cb.write(COL2_X, y, fmt"Volume:")
   cb.setColor(currTheme.textHi)
-  cb.write(COL2_X_VAL, y, "  -6db")
+  cb.write(COL2_X_VAL, y, "-6.0dB")
   inc(y)
 
   cb.setColor(currTheme.text)
-  cb.write(COL2_X, y, fmt"Interpol:")
+  cb.write(COL2_X, y, fmt"Interpol.:")
   cb.setColor(currTheme.textHi)
-  cb.write(COL2_X_VAL, y, "linear")
+
+  var interpol: string
+  case ps.config.interpolation
+  of siNearestNeighbour: interpol = "off"
+  of siLinear:           interpol = "linear"
+  cb.write(COL2_X_VAL, y, fmt"{interpol:>6}")
   inc(y)
 
   cb.setColor(currTheme.text)
@@ -163,7 +168,7 @@ proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
   cb.setColor(currTheme.text)
   cb.write(COL2_X, y, fmt"Stereo width:")
   cb.setColor(currTheme.textHi)
-  cb.write(COL2_X_VAL+2, y, fmt"{ps.config.stereoWidth:4}")
+  cb.write(COL2_X_VAL+1, y, fmt"{ps.config.stereoWidth:4}%")
   inc(y)
 
   # Tempo & speed
