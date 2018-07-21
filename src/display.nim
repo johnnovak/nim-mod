@@ -82,6 +82,7 @@ proc drawCell(cb: var ConsoleBuffer, x, y: Natural, cell: Cell, muted: bool) =
 const
   SCREEN_X_PAD = 2
   SCREEN_Y_PAD = 1
+  PLAYBACK_STATE_HEIGHT = 5
   PATTERN_Y             = 6
   PATTERN_HEADER_HEIGHT = 3
   PATTERN_TRACK_WIDTH   = 10
@@ -288,23 +289,27 @@ proc updateScreen*(ps: PlaybackState, forceRedraw: bool = false) =
 
   drawPlaybackState(cb, ps)
 
-  let currPattern = ps.module.songPositions[ps.currSongPos]
-  drawPatternView(cb, ps.module.patterns[currPattern],
-                  ps.currRow,
-                  maxRows = h - PATTERN_Y - PATTERN_HEADER_HEIGHT-4,
-                  startTrack = 0, maxTracks = ps.module.numChannels,
-                  ps.channels)
+  let
+    currPattern = ps.module.songPositions[ps.currSongPos]
+    maxRows = h - PATTERN_Y - PATTERN_HEADER_HEIGHT - 4
 
-  cb.setColor(currTheme.text)
-  cb.write(SCREEN_X_PAD+1, h - SCREEN_Y_PAD-1, "Press ")
-  cb.setColor(currTheme.textHi)
-  cb.write("?")
-  cb.setColor(currTheme.text)
-  cb.write(" for help, ")
-  cb.setColor(currTheme.textHi)
-  cb.write("Q")
-  cb.setColor(currTheme.text)
-  cb.write(" to quit")
+  if maxRows >= 1:
+    drawPatternView(cb, ps.module.patterns[currPattern],
+                    ps.currRow, maxRows,
+                    startTrack = 0, maxTracks = ps.module.numChannels,
+                    ps.channels)
+
+  if h >= 9:
+    cb.setColor(currTheme.text)
+    cb.write(SCREEN_X_PAD+1, h - SCREEN_Y_PAD-1, "Press ")
+    cb.setColor(currTheme.textHi)
+    cb.write("?")
+    cb.setColor(currTheme.text)
+    cb.write(" for help, ")
+    cb.setColor(currTheme.textHi)
+    cb.write("Q")
+    cb.setColor(currTheme.text)
+    cb.write(" to quit")
 
   if forceRedraw:
     setDoubleBuffering(false)

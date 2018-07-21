@@ -1,8 +1,5 @@
 UI
 
-* BUG: crash when there's not enough vertical space to display at least
-  a single pattern row
-
 * add help screen
 * add sample list view
 
