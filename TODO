@@ -6,7 +6,6 @@ UI
 
 PLAYBACK
 
-* BUG: time keeps going even when speed is set to F00
 * BUG: an extra tick is rendered at the very end (maybe)
 * add support for extended octaves
 

@@ -128,7 +128,7 @@ proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
   cb.write(COL1_X, y, fmt"Time:")
   cb.setColor(currTheme.textHi)
   let
-    currSecsFract = (ps.currFrame / ps.config.sampleRate).int
+    currSecsFract = (ps.playPositionFrame / ps.config.sampleRate).int
     currMins = currSecsFract div 60
     currSecs = currSecsFract mod 60
     totalSecsFract = (ps.songLengthFrames / ps.config.sampleRate).int

@@ -32,7 +32,7 @@ const vibratoTable = [
 type
   PlaybackState* = object
     # These two are set when initialising the object and should only read
-    # from after that
+    # from after that.
     config*:             Config
     module*:             Module
 
@@ -48,6 +48,14 @@ type
     ticksPerRow*:        Natural
     currSongPos*:        Natural
     currRow*:            int
+
+    # Total unlooped song length in frames, should only be read from the
+    # outside
+    songLengthFrames*:   Natural
+
+    # Play position in frames, should only be read from the outside
+    # (it's also used internally in the precalc stage)
+    playPositionFrame*:  Natural
 
     # --- INTERNAL STUFF ---
     mode:                PlaybackMode
@@ -67,13 +75,9 @@ type
     loopCount:           Natural  # TODO this should be a channel param
     patternDelayCount:   int
 
-    # Number of ellapsed frames since the start of the playback
-    currFrame*:          Natural  # TODO since the start or play position?
-
     jumpHistory:         seq[JumpPos]
     songPosCache:        array[NUM_SONG_POSITIONS, SongPosInfo]
     hasSongEnded:        bool  # TODO do this properly
-    songLengthFrames*:   Natural
 
     # Used by the audio renderer
     tickFramesRemaining: Natural
@@ -177,7 +181,7 @@ proc resetPlaybackState(ps: var PlaybackState) =
   ps.loopCount = 0
   ps.patternDelayCount = NO_VALUE
 
-  ps.currFrame = 0
+  ps.playPositionFrame = 0
   ps.hasSongEnded = false
 
   ps.tickFramesRemaining = 0
@@ -225,7 +229,7 @@ proc storeSongPosInfo(ps: var PlaybackState) =
   # TODO check if cache entry is empty in a less hacky way...
   if ps.songPosCache[ps.currSongPos].tempo == 0:
     var spi: SongPosInfo
-    spi.frame = ps.currFrame
+    spi.frame = ps.playPositionFrame
     spi.tempo = ps.tempo
     spi.ticksPerRow = ps.ticksPerRow
     spi.startRow = ps.currRow
@@ -690,9 +694,9 @@ proc advancePlayPosition(ps: var PlaybackState) =
 
       # This effectively achieves tempo & speed command chasing in a very
       # cheap way!
-      ps.currFrame   = ps.songPosCache[ps.currSongPos].frame
-      ps.tempo       = ps.songPosCache[ps.currSongPos].tempo
-      ps.ticksPerRow = ps.songPosCache[ps.currSongPos].ticksPerRow
+      ps.playPositionFrame = ps.songPosCache[ps.currSongPos].frame
+      ps.tempo             = ps.songPosCache[ps.currSongPos].tempo
+      ps.ticksPerRow       = ps.songPosCache[ps.currSongPos].ticksPerRow
 
       # This is important! The current tick will be advanced by one below, so we
       # need to start from the last tick of the previous row to then just
@@ -728,7 +732,7 @@ proc advancePlayPosition(ps: var PlaybackState) =
           checkHasSongEnded(ps, ps.currSongPos, ps.currRow)
           storeSongPosInfo(ps)
         elif ps.currSongPos != prevSongPos:
-          ps.currFrame = ps.songPosCache[ps.currSongPos].frame
+          ps.playPositionFrame = ps.songPosCache[ps.currSongPos].frame
 
       elif ps.loopRow != NO_VALUE:  # handle loop pattern
         ps.currRow = ps.loopRow
@@ -750,7 +754,7 @@ proc advancePlayPosition(ps: var PlaybackState) =
             checkHasSongEnded(ps, ps.currSongPos, ps.currRow)
             storeSongPosInfo(ps)
           else:
-            ps.currFrame = ps.songPosCache[ps.currSongPos].frame
+            ps.playPositionFrame = ps.songPosCache[ps.currSongPos].frame
 
 
 proc framesPerTick(ps: PlaybackState): Natural =
@@ -778,7 +782,9 @@ proc renderInternal(ps: var PlaybackState, mixBuffer: var openArray[float32],
       advancePlayPosition(ps)
       doTick(ps)
       ps.tickFramesRemaining = framesPerTick(ps)
-      inc(ps.currFrame, ps.tickFramesRemaining)
+
+      if ps.ticksPerRow > 0:
+        inc(ps.playPositionFrame, ps.tickFramesRemaining)
 
     var frameCount = min(numFrames - framePos, ps.tickFramesRemaining)
 
@@ -870,11 +876,11 @@ proc calculateSongLengthInFrames*(ps: var PlaybackState): Natural =
   while not ps.hasSongEnded:
     advancePlayPosition(ps)
     doTick(ps)
-    inc(ps.currFrame, framesPerTick(ps))
+    inc(ps.playPositionFrame, framesPerTick(ps))
 
   # Store result and reset state for the real playback
-  result = ps.currFrame
-  ps.songLengthFrames = ps.currFrame
+  result = ps.playPositionFrame
+  ps.songLengthFrames = ps.playPositionFrame
   ps.resetPlaybackState()
   ps.resetChannels()
 
