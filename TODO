@@ -6,17 +6,15 @@ UI
 
 PLAYBACK
 
-* BUG: an extra tick is rendered at the very end (maybe)
 * add support for extended octaves
 
 * add pause / start
 * add channel muting & dimming (+ solo)
 * add volume control
 * add auto-volume reduction
-* add no interpolation / linear interpolation toggle
-* add pan separation control (+ invert stereo, stereo/mono toggle)
-
 * implement volume ramping, need to decode the next tick in advance?
+
+* set bit depth for audio playback too
 
 
 OTHER
