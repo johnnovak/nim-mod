@@ -39,7 +39,7 @@ proc startPlayer(config: Config, module: Module) =
     render(ps, buf, bufLen)
 
   # Init audio stuff
-  if not audio.initAudio(audioCallback):
+  if not audio.initAudio(config, audioCallback):
     echo audio.getLastError()
     quit(1)
 

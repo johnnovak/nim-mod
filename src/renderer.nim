@@ -257,17 +257,17 @@ proc render(ch: var Channel, ps: PlaybackState,
          ch.samplePos >= (ch.currSample.length).float32:
         s = 0
       else:
-        # no interpolation
-#        s = ch.currSample.data[ch.samplePos.int].float * ch.volumeScalar
+        case ps.config.interpolation
+        of siNearestNeighbour:
+          s = ch.currSample.data[ch.samplePos.int].float * ch.volumeScalar
+        of siLinear:
+          let
+            posInt = ch.samplePos.int
+            s1 = ch.currSample.data[posInt]
+            s2 = ch.currSample.data[posInt + 1]
+            f = ch.samplePos - posInt.float32
+          s = (s1*(1.0-f) + s2*f) * ch.volumeScalar
 
-        # linear interpolation
-        let
-          posInt = ch.samplePos.int
-          s1 = ch.currSample.data[posInt]
-          s2 = ch.currSample.data[posInt + 1]
-          f = ch.samplePos - posInt.float32
-
-        s = (s1*(1.0-f) + s2*f) * ch.volumeScalar
         # TODO figure out the correct scale factor
         s *= 1/256
 
