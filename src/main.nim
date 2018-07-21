@@ -149,6 +149,7 @@ proc writeWaveFile(config: Config, module: Module) =
 
   var ps = initPlaybackState(config, module)
   var framesToWrite = calculateSongLengthInFrames(ps)
+  echo fmt"framesToWrite: {framesToWrite}"
 
   var
     sampleFormat: SampleFormat

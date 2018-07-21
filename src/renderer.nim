@@ -119,7 +119,7 @@ type
     csPlaying, csMuted, csDimmed
 
   PlaybackMode = enum
-    pmPlayback, pmCalculateSongLength
+    pmPlayback, pmCalculateSongLength  # TODO rename to precalc
 
   JumpPos = object
     songPos: Natural
@@ -783,10 +783,7 @@ proc renderInternal(ps: var PlaybackState, mixBuffer: var openArray[float32],
       doTick(ps)
       ps.tickFramesRemaining = framesPerTick(ps)
 
-      if ps.ticksPerRow > 0:
-        inc(ps.playPositionFrame, ps.tickFramesRemaining)
-
-    var frameCount = min(numFrames - framePos, ps.tickFramesRemaining)
+    let frameCount = min(numFrames - framePos, ps.tickFramesRemaining)
 
     for i in 0..ps.channels.high:
       if ps.channels[i].state == csPlaying:
@@ -794,6 +791,11 @@ proc renderInternal(ps: var PlaybackState, mixBuffer: var openArray[float32],
 
     inc(framePos, frameCount)
     dec(ps.tickFramesRemaining, frameCount)
+
+    # TODO if needed?
+    if ps.ticksPerRow > 0:
+      inc(ps.playPositionFrame, frameCount)
+
     assert ps.tickFramesRemaining >= 0
 
 
@@ -876,7 +878,8 @@ proc calculateSongLengthInFrames*(ps: var PlaybackState): Natural =
   while not ps.hasSongEnded:
     advancePlayPosition(ps)
     doTick(ps)
-    inc(ps.playPositionFrame, framesPerTick(ps))
+    if not ps.hasSongEnded:
+      inc(ps.playPositionFrame, framesPerTick(ps))
 
   # Store result and reset state for the real playback
   result = ps.playPositionFrame

@@ -184,7 +184,7 @@ proc writeData*(ww: var WaveWriter, data: var openArray[uint8],
   of sf16Bit:      writeData16Bit(ww, data, dataLen)
   of sf24Bit:      writeData24Bit(ww, data, dataLen)
   of sf32BitFloat: writeData32BitFloat(ww, data, dataLen)
-  inc(ww.dataLen, data.len)
+  inc(ww.dataLen, dataLen)
 
 
 proc writeData*(ww: var WaveWriter, data: var openArray[uint8]) =
