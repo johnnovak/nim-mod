@@ -310,8 +310,9 @@ proc readModule*(f: File): Module =
       const SAMPLE_PADDING = 1   # padding for easier interpolation
       newSeq(floatData, byteData.len + SAMPLE_PADDING)
 
+      # Normalise sample data to (-1.0, 1.0) range
       for i in 0..byteData.high:
-        floatData[i] = byteData[i].float32
+        floatData[i] = byteData[i].float32 / 128
 
       # repeat the last sample value for easier linear interpolation
       floatData[sampLen] = floatData[sampLen-1]

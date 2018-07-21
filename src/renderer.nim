@@ -21,7 +21,6 @@ const
 
   NO_VALUE              = -1
 
-
 const vibratoTable = [
     0,  24,  49,  74,  97, 120, 141, 161,
   180, 197, 212, 224, 235, 244, 250, 253,
@@ -88,6 +87,7 @@ type
 
     # Used by the audio renderer
     tickFramesRemaining: Natural
+    channelGain:         float32
 
 
   Channel* = object
@@ -223,6 +223,8 @@ proc initPlaybackState*(config: Config, module: Module): PlaybackState =
   ps.songPosCache[0].ticksPerRow = DEFAULT_TICKS_PER_ROW
   ps.songPosCache[0].startRow = 0
 
+  ps.channelGain = 1 / module.numChannels
+
   ps.resetPlaybackState()
   result = ps
 
@@ -257,6 +259,9 @@ proc linearPanRight(p: float32): float32 =  0.5 * p + 0.5
 proc render(ch: var Channel, ps: PlaybackState,
             mixBuffer: var openArray[float32],
             frameOffset, numFrames: Natural) =
+  let
+    width = ps.config.stereoWidth.float32 / 100
+
   for i in 0..<numFrames:
     var s: float32
     if ch.currSample == nil:
@@ -277,8 +282,7 @@ proc render(ch: var Channel, ps: PlaybackState,
             f = ch.samplePos - posInt.float32
           s = (s1*(1.0-f) + s2*f) * ch.volumeScalar
 
-        # TODO figure out the correct scale factor
-        s *= 1/256
+        s *= ps.channelGain
 
         # Advance sample position
         ch.samplePos += ch.sampleStep
@@ -295,7 +299,6 @@ proc render(ch: var Channel, ps: PlaybackState,
             ch.samplePos = ch.currSample.repeatOffset.float32
 
     var
-      width = ps.config.stereoWidth.float32 / 100
       panLeft = linearPanLeft(ch.pan * width)
       panRight = linearPanRight(ch.pan * width)
 
@@ -319,11 +322,7 @@ proc setSampleStep(ch: var Channel, period, sampleRate: int) =
 
 proc setVolume(ch: var Channel, vol: int) =
   ch.volume = vol
-  if vol == 0:
-    ch.volumeScalar = 0
-  else:
-    let vol_dB = 20 * log10(vol / MAX_VOLUME)
-    ch.volumeScalar = pow(10.0, vol_dB / 20)
+  ch.volumeScalar = vol / MAX_VOLUME
 
 proc isFirstTick(ps: PlaybackState): bool =
   result = ps.ellapsedTicks == 0
