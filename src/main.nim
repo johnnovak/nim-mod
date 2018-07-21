@@ -14,7 +14,7 @@ import wavewriter
 proc showLength(config: Config, module: Module) =
   var ps = initPlaybackState(config, module)
   let
-    lengthFractSeconds = calculateSongLengthInFrames(ps) / ps.config.sampleRate
+    lengthFractSeconds = precalcSongPosCacheAndSongLength(ps) / ps.config.sampleRate
     (lengthSeconds, millis) = splitDecimal(lengthFractSeconds)
     mins = lengthSeconds.int div 60
     secs = lengthSeconds.int mod 60
@@ -33,7 +33,7 @@ proc playerQuitProc() {.noconv.} =
 
 proc startPlayer(config: Config, module: Module) =
   var ps = initPlaybackState(config, module)
-  discard ps.calculateSongLengthInFrames()
+  discard ps.precalcSongPosCacheAndSongLength()
 
   proc audioCallback(buf: pointer, bufLen: Natural) =
     render(ps, buf, bufLen)
@@ -148,8 +148,7 @@ proc writeWaveFile(config: Config, module: Module) =
     NUM_CHANNELS = 2
 
   var ps = initPlaybackState(config, module)
-  var framesToWrite = calculateSongLengthInFrames(ps)
-  echo fmt"framesToWrite: {framesToWrite}"
+  var framesToWrite = precalcSongPosCacheAndSongLength(ps)
 
   var
     sampleFormat: SampleFormat
