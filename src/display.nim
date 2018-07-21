@@ -115,13 +115,13 @@ proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
   cb.setColor(currTheme.text)
   cb.write(COL1_X, y, fmt"Songpos:")
   cb.setColor(currTheme.textHi)
-  cb.write(COL1_X_VAL, y, fmt"{ps.currSongPos:02}/{ps.module.songLength-1:02}")
+  cb.write(COL1_X_VAL, y, fmt"{ps.currSongPos:03} / {ps.module.songLength-1:03}")
   inc(y)
 
   cb.setColor(currTheme.text)
   cb.write(COL1_X, y, fmt"Pattern:")
   cb.setColor(currTheme.textHi)
-  cb.write(COL1_X_VAL, y, fmt"{ps.module.songPositions[ps.currSongPos]:02}")
+  cb.write(COL1_X_VAL, y, fmt"{ps.module.songPositions[ps.currSongPos]:03}")
   inc(y)
 
   cb.setColor(currTheme.text)
