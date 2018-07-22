@@ -58,7 +58,7 @@ Options:
   -s, --sampleRate=INTEGER  set the sample rate; default is 44100
   -b, --bitDepth=16|24|32   set the output bit depth, 32 stands for 32-bit
                             floating point; default is 16
-  -a, --ampGain=FLOAT       set the amplifier gain in dB; default is -6.0
+  -a, --ampGain=FLOAT       set the amplifier gain in dB; default is -6.0 dB
   -w, --stereoWidth=INTEGER
                             set the stereo width, must be between
                             -100 and 100; default is 50
@@ -84,15 +84,15 @@ Options:
 proc invalidOptValue(opt: string, val: string, msg: string) {.noconv.} =
   echo fmt"Error: value '{val}' for option -{opt} is invalid:"
   echo fmt"    {msg}"
-  quit(1)
+  quit(QuitFailure)
 
 proc missingOptValue(opt: string) {.noconv.} =
   echo fmt"Error: option -{opt} requires a parameter"
-  quit(1)
+  quit(QuitFailure)
 
 proc invalidOption(opt: string) {.noconv.} =
   echo fmt"Error: option -{opt} is invalid"
-  quit(1)
+  quit(QuitFailure)
 
 
 proc parseCommandLine*(): Config =
@@ -141,7 +141,7 @@ proc parseCommandLine*(): Config =
         if parseFloat(val, g) == 0:
           invalidOptValue(opt, val,
             "amplification gain must be a floating point number")
-        if g < -36.0 or g > 36.0:
+        if g < -24.0 or g > 24.0:
           invalidOptValue(opt, val,
             "amplification gain must be between -36 and +36 dB")
         config.ampGain = g
@@ -195,8 +195,8 @@ proc parseCommandLine*(): Config =
       of "showLength", "l":
         config.showLength = true
 
-      of "help",    "h": printHelp();    quit(0)
-      of "version", "v": printVersion(); quit(0)
+      of "help",    "h": printHelp();    quit(QuitSuccess)
+      of "version", "v": printVersion(); quit(QuitSuccess)
 
       of "verbose", "V":
         case val:
@@ -212,7 +212,7 @@ proc parseCommandLine*(): Config =
 
   if config.inputFile == nil:
     echo "Error: input file must be specified"
-    quit(0)
+    quit(QuitFailure)
 
   result = config
 
