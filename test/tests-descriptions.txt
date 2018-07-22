@@ -103,6 +103,12 @@ a pattern delay (EEx) command on the same row.
 row 31    [OK]
 Do nothing if no slide speed is provided.
 
+row 36    [FAIL]
+First a B-3 note with finetune +7 is played, then two slide up that should be
+clamped to the same period as the first note.
+*NOTE* The slides are clamped fine, but the first note is not clamped
+correctly.
+
 
 ------------------------------------------------------------------------------
 Slide down (2xy)
