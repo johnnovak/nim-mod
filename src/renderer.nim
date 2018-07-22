@@ -16,9 +16,7 @@ const
   MAX_PERIOD            = periodTable[NOTE_MIN]
 
   MAX_VOLUME            = 0x40
-
   NUM_CHANNELS          = 2
-
   NO_VALUE              = -1
 
 const vibratoTable = [
@@ -87,8 +85,6 @@ type
 
     # Used by the audio renderer
     tickFramesRemaining: Natural
-    channelGain:         float32
-
 
   Channel* = object
     # Can be set from the outside to mute/unmute channels
@@ -120,7 +116,6 @@ type
 
     # For emulating the ProTracker swap sample quirk
     swapSample:     Sample
-
 
   ChannelState* = enum
     csPlaying, csMuted, csDimmed
@@ -223,8 +218,6 @@ proc initPlaybackState*(config: Config, module: Module): PlaybackState =
   ps.songPosCache[0].ticksPerRow = DEFAULT_TICKS_PER_ROW
   ps.songPosCache[0].startRow = 0
 
-  ps.channelGain = 1 / module.numChannels
-
   ps.resetPlaybackState()
   result = ps
 
@@ -261,6 +254,7 @@ proc render(ch: var Channel, ps: PlaybackState,
             frameOffset, numFrames: Natural) =
   let
     width = ps.config.stereoWidth.float32 / 100
+    ampGain = pow(10, ps.config.ampGain / 20)
 
   for i in 0..<numFrames:
     var s: float32
@@ -282,7 +276,7 @@ proc render(ch: var Channel, ps: PlaybackState,
             f = ch.samplePos - posInt.float32
           s = (s1*(1.0-f) + s2*f) * ch.volumeScalar
 
-        s *= ps.channelGain
+        s *= ampGain
 
         # Advance sample position
         ch.samplePos += ch.sampleStep

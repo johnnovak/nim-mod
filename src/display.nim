@@ -145,7 +145,7 @@ proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
   cb.setColor(currTheme.text)
   cb.write(COL2_X, y, fmt"Volume:")
   cb.setColor(currTheme.textHi)
-  cb.write(COL2_X_VAL, y, "-6.0dB")
+  cb.write(COL2_X_VAL-1, y, fmt"{ps.config.ampGain:5.1f}dB")
   inc(y)
 
   cb.setColor(currTheme.text)

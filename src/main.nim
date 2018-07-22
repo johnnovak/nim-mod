@@ -41,11 +41,11 @@ proc startPlayer(config: Config, module: Module) =
   # Init audio stuff
   if not audio.initAudio(config, audioCallback):
     echo audio.getLastError()
-    quit(1)
+    quit(QuitFailure)
 
   if not audio.startPlayback():
     echo audio.getLastError()
-    quit(1)
+    quit(QuitFailure)
 
   system.addQuitProc(playerQuitProc)
 
@@ -112,6 +112,9 @@ proc startPlayer(config: Config, module: Module) =
 
     of Key.U:     unmuteAllChannels()
 
+    of Key.LeftBracket:  ps.config.ampGain = max(-24.0, ps.config.ampGain - 0.5)
+    of Key.RightBracket: ps.config.ampGain = min( 24.0, ps.config.ampGain + 0.5)
+
     of Key.Comma:
       ps.config.stereoWidth = max(-100, ps.config.stereoWidth - 10)
 
@@ -126,7 +129,7 @@ proc startPlayer(config: Config, module: Module) =
         inc(i)
       ps.config.interpolation = i
 
-    of Key.Q: quit(0)
+    of Key.Q: quit(QuitSuccess)
 
     of Key.R:
       consoleInit()
@@ -202,7 +205,7 @@ proc main() =
     let ex = getCurrentException()
     echo "Error loading module: " & ex.msg
     echo getStackTrace(ex)
-    quit(1)
+    quit(QuitFailure)
 
   if config.showLength:
     showLength(config, module)
@@ -219,7 +222,7 @@ proc main() =
         let ex = getCurrentException()
         echo fmt"Error writing output file '{config.outFilename}': " & ex.msg
         echo getStackTrace(ex)
-        quit(1)
+        quit(QuitFailure)
 
 
 main()
