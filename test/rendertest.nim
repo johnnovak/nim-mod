@@ -2,7 +2,7 @@ import os, strutils, strformat, terminal
 
 const
   TEST_PATH = "./"
-  CMD_OPTS = "-o:wav -s:22050 -b:16 -a:-6 -w:50 -i:linear -d:off"
+  CMD_OPTS = "-o:wav -s:22050 -b:16 -a:-6 -w:50 -i:off -d:off"
   EXPECTED_SUFFIX = "-EXPECTED"
   RESULT_SUFFIX = "-RESULT"
 
@@ -14,7 +14,7 @@ else:
 
 proc deleteResults() =
   styledEcho(styleBright,
-    fmt"Deleting previous test results in '{TEST_PATH}'...", resetStyle)
+    fmt"Deleting previous test results in '{TEST_PATH}'", resetStyle)
   for f in walkFiles(fmt"{TEST_PATH}/*{RESULT_SUFFIX}.wav"):
     removeFile(f)
 
@@ -78,7 +78,7 @@ proc displayResult(testName: string, success: bool) =
 
 
 proc executeTests() =
-  styledEcho(styleBright, fmt"Executing tests in '{TEST_PATH}'...", resetStyle)
+  styledEcho(styleBright, fmt"Executing tests in '{TEST_PATH}'", resetStyle)
 
   for testPath in walkFiles(fmt"{TEST_PATH}/*.mod"):
     var testName = testPath

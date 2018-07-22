@@ -15,23 +15,32 @@ to carry out the tests. In theory, that shouldn't make much of a difference.
 EFFECTS
 =======
 
+------------------------------------------------------------------------------
 Arpeggio (0xy)
---------------
-Test 1:   arpeggio-1.mod
+------------------------------------------------------------------------------
+The arpeggio command should be performed on every tick:
+
+  tick MOD 3 = 0  -> original note (only retrigger on the first tick)
+  tick MOD 3 = 1  -> x semitone up (without retriggering)
+  tick MOD 3 = 2  -> y semitone up (without retriggering)
+  ...
+
+
+## Test 1:   arpeggio-1.mod
 
 row 0     [OK]
 Do nothing if note and sample num are empty, and no note was previously played
 on the channel.
 
 row 2     [OK]
-Do nothing if note is empty, sample num is provided, and no note was
+Do nothing if note is provided, sample num is empty, and no note was
 previously played on the channel.
 
 row 4     [FAIL]
-Do sample swap, start playing the arpeggio from the loop position, ignoring
-the finetune setting. Keep playing the non-finetuned note from row 8 after the
-arpeggio ended. The fine tuned note can be heard on row 12 for pitch
-reference.
+Do sample swap, start playing the arpeggio from the loop start position,
+ignoring the finetune setting. Keep playing the non-finetuned note from row
+8 after the arpeggio ended. The fine tuned note can be heard on row 12 for
+pitch reference.
 *NOTE* This is probably due to a sample swapping bug.
 
 row 18    [OK]
@@ -50,155 +59,263 @@ row 36    [OK]
 Test different speed (ticks per row) settings.
 
 
+------------------------------------------------------------------------------
 Slide up (1xy)
---------------
-Test 1:         slide-up-1.mod
+------------------------------------------------------------------------------
+The slide up command should be performed on every tick but the very first.
 
 
+## Test 1:         slide-up-1.mod
+
+row 0     [OK]
+Do nothing if note and sample num are empty, speed is empty, and no note was
+previously played on the channel.
+
+row 1     [OK]
+Do nothing if note and sample num are empty, speed is provided, and no note
+was previously played on the channel.
+
+row 2     [OK]
+Do nothing if note is provided, sample num is empty, and no note was
+previously played on the channel.
+
+row 4     [FAIL]
+Do sample swap, start playing from the loop start position and do the slide.
+*NOTE* This is probably due to a sample swapping bug.
+
+row 12    [OK*]
+Do the slide up and clamp period to Amiga limits.
+
+* When playing a sample at B-3 with finetune 0, a strange distortion starts to
+  appear on a real Amiga because the DMA cannot fetch the samples quickly
+  enough so it starts skipping a few (this is emulated well in WinUAE).  Using
+  higher finetune values makes the sound progressively more distorted. This is
+  not emulated in the player, but I don't think it's too important (or even
+  desirable).
+
+row 20    [OK]
+Slide up should not have effect memory.
+
+row 26    [OK]
+Slide up should be performed on every tick but the very first when there's
+a pattern delay (EEx) command on the same row.
+
+row 31    [OK]
+Do nothing if no slide speed is provided.
+
+
+------------------------------------------------------------------------------
 Slide down (2xy)
-----------------
-Test 1:         slide-down-1.mod
+------------------------------------------------------------------------------
+The slide up command should be performed on every tick but the very first.
 
 
+## Test 1:         slide-down-1.mod
+
+row 0     [OK]
+Do nothing if note and sample num are empty, speed is empty, and no note was
+previously played on the channel.
+
+row 1     [OK]
+Do nothing if note and sample num are empty, speed is provided, and no note
+was previously played on the channel.
+
+row 2     [OK]
+Do nothing if note is provided, sample num is empty, and no note was
+previously played on the channel.
+
+row 4     [FAIL]
+Do sample swap, start playing from the loop start position and do the slide.
+*NOTE* This is probably due to a sample swapping bug.
+
+row 12    [OK]
+Do the slide down and clamp period to Amiga limits. Note that the lower limit
+is C-1 with finetune 0. A C-1 note with finetune -7 is played next for
+reference.
+
+row 26    [OK]
+Due to the clamp period limits, sliding down from a C-1 note with a negative
+finetune value (-7 in this case) will set the period to C-1 with finetune
+0 immediately, regardless of the slide down speed setting.
+
+row 33    [OK]
+Slide down should not have effect memory.
+
+row 39    [OK]
+Slide up should be performed on every tick but the very first when there's
+a pattern delay (EEx) command on the same row.
+
+row 44    [OK]
+Do nothing if no slide speed is provided.
+
+
+------------------------------------------------------------------------------
 Tone portamento (3xy)
----------------------
+------------------------------------------------------------------------------
 Test 1:         tone-portamento-1.mod
 
 
+------------------------------------------------------------------------------
 Vibrato (4xy)
--------------
+------------------------------------------------------------------------------
 Test 1:         vibrato-1.mod
 
 
+------------------------------------------------------------------------------
 Tone portamento and volume slide (5xy)
---------------------------------------
+------------------------------------------------------------------------------
 Test 1:         tone-port-and-vol-slide-1.mod
 
 
+------------------------------------------------------------------------------
 Vibrato and volume slide (6xy)
-------------------------------
+------------------------------------------------------------------------------
 Test 1:         vibrato-and-vol-slide-1.mod
 
 
+------------------------------------------------------------------------------
 Tremolo (7xy)
--------------
+------------------------------------------------------------------------------
 Test 1:         tremolo-1.mod
 
 
+------------------------------------------------------------------------------
 Set panning (fine) (8xy)
-------------------------
+------------------------------------------------------------------------------
 Test 1:         set-pan-fine-1.mod
 
 
+------------------------------------------------------------------------------
 Set sample offset (9xy)
------------------------
+------------------------------------------------------------------------------
 Test 1:         set-sample-offset-1.mod
 
 
+------------------------------------------------------------------------------
 Volume slide (Axy)
-------------------
+------------------------------------------------------------------------------
 Test 1:         volume-slide-1.mod
 
 
+------------------------------------------------------------------------------
 Position jump (Bxy)
--------------------
+------------------------------------------------------------------------------
 Test 1:         position-jump-1.mod
 
 
+------------------------------------------------------------------------------
 Set volume (Cxy)
-----------------
+------------------------------------------------------------------------------
 Test 1:         set-volume-1.mod
 
 
+------------------------------------------------------------------------------
 Pattern break (Dxy)
--------------------
+------------------------------------------------------------------------------
 Test 1:         pattern-break-1.mod
 
 
+------------------------------------------------------------------------------
 Set filter (E0x)
---------------------
+------------------------------------------------------------------------------
 Test 1:         set-filter-1.mod
 
 
+------------------------------------------------------------------------------
 Set tempo/speed (Fxy)
----------------------
+------------------------------------------------------------------------------
 Test 1:         set-speed-1.mod
 
 
 EXTENDED EFFECTS
 ================
 
+------------------------------------------------------------------------------
 Fine slide up (E1x)
--------------------
+------------------------------------------------------------------------------
 Test 1:         fine-slide-up-1.mod
 
 
+------------------------------------------------------------------------------
 Fine slide down (E2x)
----------------------
+------------------------------------------------------------------------------
 Test 1:         fine-slide-down-1.mod
 
 
+------------------------------------------------------------------------------
 Glissando control (E3x)
------------------------
+------------------------------------------------------------------------------
 Test 1:         glissando-1.mod
 
 
+------------------------------------------------------------------------------
 Set vibrato waveform (E4x)
---------------------------
+------------------------------------------------------------------------------
 Test 1:         set-vibrato-waveform-1.mod
 
 
+------------------------------------------------------------------------------
 Set finetune (E5x)
-------------------
+------------------------------------------------------------------------------
 Test 1:         set-finetune-1.mod
 
 
+------------------------------------------------------------------------------
 Pattern loop (E6x)
-------------------
+------------------------------------------------------------------------------
 Test 1:         pattern-loop-1.mod
 
 
+------------------------------------------------------------------------------
 Set tremolo waveform (E7x)
---------------------------
+------------------------------------------------------------------------------
 Test 1:         set-tremolo-waveform-1.mod
 
 
+------------------------------------------------------------------------------
 Set Panning (coarse) (E8x)
---------------------------
+------------------------------------------------------------------------------
 Test 1:         set-pan-coarse-1.mod
 
 
+------------------------------------------------------------------------------
 Retrig note (E9x)
------------------
+------------------------------------------------------------------------------
 Test 1:         retrig-note-1.mod
 
 
+------------------------------------------------------------------------------
 Fine volume slide up (EAx)
---------------------------
+------------------------------------------------------------------------------
 Test 1:         fine-vol-slide-up-1.mod
 
 
+------------------------------------------------------------------------------
 Fine volume slide down (EBx)
-----------------------------
+------------------------------------------------------------------------------
 Test 1:         fine-vol-slide-down-1.mod
 
 
+------------------------------------------------------------------------------
 Note cut (ECx)
---------------
+------------------------------------------------------------------------------
 Test 1:         note-cut-1.mod
 
 
+------------------------------------------------------------------------------
 Note delay (EDx)
-----------------
+------------------------------------------------------------------------------
 Test 1:         note-delay-1.mod
 
 
+------------------------------------------------------------------------------
 Pattern delay (EEx)
--------------------
+------------------------------------------------------------------------------
 Test 1:         pattern-delay-1.mod
 
 
+------------------------------------------------------------------------------
 Invert loop (EFx)
------------------
+------------------------------------------------------------------------------
 Test 1:         invert-loop-1.mod
 
