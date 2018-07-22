@@ -1,3 +1,6 @@
 *~
 nimcache
 *.exe
+*.sfk
+.DS_Store
+._*
