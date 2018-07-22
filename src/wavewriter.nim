@@ -143,7 +143,7 @@ proc writeData16Bit(ww: var WaveWriter, data: var openArray[uint8],
       bufPos = 0
 
   if bufPos > 0:
-    ww.writeBuffer(ww.writeBuf[0].addr, bufPos - BYTES_PER_SAMPLE)
+    ww.writeBuffer(ww.writeBuf[0].addr, bufPos)
 
 
 proc writeData24Bit*(ww: var WaveWriter, data: var openArray[uint8],
@@ -172,7 +172,7 @@ proc writeData32BitFloat*(ww: var WaveWriter, data: var openArray[uint8],
       bufPos = 0
 
   if bufPos > 0:
-    ww.writeBuffer(ww.writeBuf[0].addr, bufPos - BYTES_PER_SAMPLE)
+    ww.writeBuffer(ww.writeBuf[0].addr, bufPos)
 
 
 proc writeData*(ww: var WaveWriter, data: var openArray[uint8],
@@ -195,6 +195,7 @@ proc updateHeaders*(ww: var WaveWriter) =
   if ww.file == nil:
     raiseNotInitalisedError()
 
+  # TODO do this in another func, e.g. dateEnd()
   if ww.dataLen mod 2 == 1:
     var pad: uint8 = 0
     ww.writeBuffer(pad.addr, 1)
@@ -216,3 +217,19 @@ proc close*(ww: var WaveWriter) =
   ww.dataLen = 0
   ww.fileLen = 0
 
+
+when isMainModule:
+  var ww = initWaveWriter("writetest.wav", sf24Bit, sampleRate = 44100,
+                          numChannels = 2)
+
+  ww.writeHeaders()
+
+  var buf: array[192, uint8]
+  for i in 0..buf.high:
+    buf[i] = i.uint8
+
+  ww.writeData(buf, buf.len)
+
+  ww.updateHeaders()
+  ww.close()
+  

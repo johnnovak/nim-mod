@@ -19,6 +19,8 @@ PLAYBACK
 
 OTHER
 
+* with some mods -l prints out some funky duration strings...
+
 * add command line params
   * write log to file
   * set audio buffer size

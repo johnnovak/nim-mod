@@ -34,7 +34,6 @@ proc diff(resultPath, expectedPath: string): bool =
   var f1, f2: FILE
   if not f1.open(resultPath):
     displayError(fmt"Cannot open file '{resultPath}'")
-    echo "*"
     return false
   if not f2.open(expectedPath):
     displayError(fmt"Cannot open file '{expectedPath}'")

@@ -152,6 +152,7 @@ proc writeWaveFile(config: Config, module: Module) =
 
   var ps = initPlaybackState(config, module)
   var framesToWrite = precalcSongPosCacheAndSongLength(ps)
+  debug(fmt"framesToWrite: {framesToWrite}")
 
   var
     sampleFormat: SampleFormat
@@ -176,6 +177,8 @@ proc writeWaveFile(config: Config, module: Module) =
     config.outFilename, sampleFormat, config.sampleRate, NUM_CHANNELS)
 
   ww.writeHeaders()
+
+  debug(fmt"bytesToWrite: {bytesToWrite}")
 
   while bytesToWrite > 0:
     let numBytes = min(bytesToWrite, buf.len)

@@ -898,4 +898,3 @@ proc precalcSongPosCacheAndSongLength*(ps: var PlaybackState): Natural =
       ps.songPosCache[i].ticksPerRow = DEFAULT_TICKS_PER_ROW
       ps.songPosCache[i].startRow = 0
 
-
