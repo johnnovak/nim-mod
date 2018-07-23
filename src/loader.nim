@@ -105,25 +105,25 @@ proc readSampleInfo(buf: var seq[uint8], pos: var Natural): Sample =
   result = samp
 
 
-proc periodToNote(period: Natural): int =
+proc periodToExtNote(period: Natural): int =
   # Find closest note in the period table as in some modules the periods can
   # be a little off.
   if period == 0:
     return NOTE_NONE
 
-  if period >= periodTable[0]:
-    return NOTE_MIN
+  if period >= extPeriodTable[0]:
+    return EXT_NOTE_MIN
 
-  for i in 1..NUM_NOTES:
-    if periodTable[i] <= period:
-      let d1 = period - periodTable[i]
-      let d2 = periodTable[i-1] - period
+  for i in 1..EXT_NUM_NOTES:
+    if extPeriodTable[i] <= period:
+      let d1 = period - extPeriodTable[i]
+      let d2 = extPeriodTable[i-1] - period
       if d1 < d2:
         return i
       else:
         return i-1
 
-  return NOTE_MAX
+  return EXT_NOTE_MAX
 
 
 proc read(f: File, dest: pointer, len: Natural) =
@@ -143,8 +143,8 @@ proc readPattern(buf: openarray[uint8], numChannels: Natural): Pattern =
   for rowNum in 0..<ROWS_PER_PATTERN:
     for track in 0..<numChannels:
       var cell: Cell
-      cell.note = periodToNote(((buf[pos+0] and 0x0f).int shl 8) or
-                                 buf[pos+1].int)
+      cell.note = periodToExtNote(((buf[pos+0] and 0x0f).int shl 8) or
+                                    buf[pos+1].int)
 
       cell.sampleNum =  (buf[pos+0] and 0xf0).int or
                        ((buf[pos+2] and 0xf0).int shr 4)
@@ -175,6 +175,23 @@ proc mergePatterns(p1, p2: Pattern): Pattern =
     patt.tracks.add(t)
   result = patt
 
+proc allNotesWithinAmigaLimits(module: Module): bool =
+  for patt in module.patterns:
+    for track in patt.tracks:
+      for cell in track.rows:
+        if not noteWithinAmigaLimits(cell.note):
+          return false
+  return true
+
+proc convertToAmigaNotes(module: Module) =
+  for patt in 0..module.patterns.high:
+    for track in 0..<module.numChannels:
+      for row in 0..<ROWS_PER_PATTERN:
+        var note = module.patterns[patt].tracks[track].rows[row].note
+        if note != NOTE_NONE:
+          note -= EXT_NOTE_MIN_AMIGA
+          assert note >= AMIGA_NOTE_MIN and note <= AMIGA_NOTE_MAX
+          module.patterns[patt].tracks[track].rows[row].note = note
 
 proc readModule*(f: File): Module =
   var module = newModule()
@@ -292,6 +309,12 @@ proc readModule*(f: File): Module =
       debug(fmt"  Reading pattern {pattNum}")
       let patt = readPattern(f, module.numChannels)
       module.patterns.add(patt)
+
+  # Detect whether we should use Amiga notes and the ProTracker period table
+  # or extended FT2 notes & periods
+  if allNotesWithinAmigaLimits(module):
+    convertToAmigaNotes(module)
+    module.useAmigaLimits = true
 
   # Read sample data
   debug(fmt"Reading sample data...")

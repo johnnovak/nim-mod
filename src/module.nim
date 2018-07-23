@@ -10,13 +10,23 @@ const
   NUM_SONG_POSITIONS*        = 128
   ROWS_PER_PATTERN*          = 64
 
-  NUM_NOTES*     = 36
   NUM_SEMITONES* = 12
-  NOTE_NONE*     = -1
-  NOTE_MIN*      =  0
-  NOTE_MAX*      = NUM_NOTES - 1
 
-  FINETUNE_PAD*  = 37
+  AMIGA_NUM_OCTAVES*  = 3
+  AMIGA_NUM_NOTES*    = AMIGA_NUM_OCTAVES * NUM_SEMITONES
+  AMIGA_NOTE_MIN*     = 0
+  AMIGA_NOTE_MAX*     = AMIGA_NUM_NOTES - 1
+
+  EXT_NUM_OCTAVES*    = 8
+  EXT_NUM_NOTES*      = EXT_NUM_OCTAVES * NUM_SEMITONES
+  EXT_NOTE_MIN*       = 0
+  EXT_NOTE_MAX*       = EXT_NUM_NOTES - 1
+  EXT_NOTE_MIN_AMIGA* = 3 * NUM_SEMITONES
+  EXT_NOTE_MAX_AMIGA* = EXT_NOTE_MIN_AMIGA + AMIGA_NUM_NOTES - 1
+
+  NOTE_NONE* = -1
+
+  AMIGA_FINETUNE_PAD* = 37
 
 type
   Module* = ref object
@@ -28,6 +38,7 @@ type
     songPositions*:  array[NUM_SONG_POSITIONS, Natural]
     samples*:        array[1..NUM_SAMPLES, Sample]
     patterns*:       seq[Pattern]
+    useAmigaLimits*: bool
 
   ModuleType* = enum
     mtFastTracker,
@@ -55,7 +66,7 @@ type
 
   Cell* = object
     note*:      int
-    sampleNum*: int
+    sampleNum*: Natural
     effect*:    int
 
 
@@ -119,6 +130,13 @@ proc toString*(mt: ModuleType): string =
 proc isLooped*(s: Sample): bool =
   const REPEAT_LENGTH_MIN = 3
   result = s.repeatLength >= REPEAT_LENGTH_MIN
+
+
+proc noteWithinAmigaLimits*(note: int): bool =
+  if note == NOTE_NONE:
+    result = true
+  else:
+    result = note >= EXT_NOTE_MIN_AMIGA and note <= EXT_NOTE_MAX_AMIGA
 
 
 proc `$`*(c: Cell): string =

@@ -110,6 +110,8 @@ proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
   cb.write(COL1_X, y, fmt"Type:")
   cb.setColor(currTheme.textHi)
   cb.write(COL1_X_VAL, y, fmt"{ps.module.moduleType.toString} {ps.module.numChannels}chn")
+  if not ps.module.useAmigaLimits:
+    cb.write(fmt" [ext]")
   inc(y)
 
   cb.setColor(currTheme.text)

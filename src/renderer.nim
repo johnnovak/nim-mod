@@ -12,8 +12,8 @@ const
   DEFAULT_TICKS_PER_ROW = 6
 
   AMIGA_BASE_FREQ_PAL   = 7093789.2
-  MIN_PERIOD            = periodTable[NOTE_MAX]
-  MAX_PERIOD            = periodTable[NOTE_MIN]
+  AMIGA_MIN_PERIOD      = amigaPeriodTable[AMIGA_NOTE_MAX]
+  AMIGA_MAX_PERIOD      = amigaPeriodTable[AMIGA_NOTE_MIN]
 
   MAX_VOLUME            = 0x40
   NUM_CHANNELS          = 2
@@ -303,7 +303,13 @@ proc render(ch: var Channel, ps: PlaybackState,
 
 
 proc finetunedNote(s: Sample, note: int): int =
-  result = s.finetune * FINETUNE_PAD + note
+  result = s.finetune * AMIGA_FINETUNE_PAD + note
+
+proc getPeriod(ps: PlaybackState, sample: Sample, note: int): Natural =
+  if ps.module.useAmigaLimits:
+    result = amigaPeriodTable[finetunedNote(sample, note)]
+  else:
+    result = extPeriodTable[note]
 
 proc periodToFreq(period: int): float32 =
   result = AMIGA_BASE_FREQ_PAL / (period * 2).float32
@@ -325,49 +331,52 @@ proc isFirstTick(ps: PlaybackState): bool =
 # Effects
 
 proc doArpeggio(ps: PlaybackState, ch: var Channel, note1, note2: int) =
+  # TODO
+  if ps.module.useAmigaLimits:
 
-  proc findClosestPeriodIndex(finetune, period: int): int =
-    result = -1
-    let offs = finetune * FINETUNE_PAD
-    for idx in (offs + NOTE_MIN)..(offs + NOTE_MAX):
-      if period >= periodTable[idx]:
-        result = idx
-        break
-    assert result > -1
+    proc findClosestPeriodIndex(finetune, period: int): int =
+      result = -1
+      let offs = finetune * AMIGA_FINETUNE_PAD
+      for idx in (offs + AMIGA_NOTE_MIN)..(offs + AMIGA_NOTE_MAX):
+        if period >= amigaPeriodTable[idx]:
+          result = idx
+          break
+      assert result > -1
 
-  if not isFirstTick(ps):
-    if ch.currSample != nil and ch.volume > 0:
-      var period = ch.period
-      case ps.currTick mod 3:
-      of 0: discard
-      of 1:
-        if note1 > 0:
-          let idx = findClosestPeriodIndex(ch.currSample.finetune, ch.period)
-          period = periodTable[idx + note1]
+    if not isFirstTick(ps):
+      if ch.currSample != nil and ch.volume > 0:
+        var period = ch.period
+        case ps.currTick mod 3:
+        of 0: discard
+        of 1:
+          if note1 > 0:
+            let idx = findClosestPeriodIndex(ch.currSample.finetune, ch.period)
+            period = amigaPeriodTable[idx + note1]
 
-      of 2:
-        if note2 > 0:
-          let idx = findClosestPeriodIndex(ch.currSample.finetune, ch.period)
-          period = periodTable[idx + note2]
+        of 2:
+          if note2 > 0:
+            let idx = findClosestPeriodIndex(ch.currSample.finetune, ch.period)
+            period = amigaPeriodTable[idx + note2]
 
-      else: assert false
-      setSampleStep(ch, period, ps.config.sampleRate)
-
+        else: assert false
+        setSampleStep(ch, period, ps.config.sampleRate)
+  else:
+    discard
 
 proc doSlideUp(ps: PlaybackState, ch: var Channel, speed: int) =
   if not isFirstTick(ps):
-    ch.period = max(ch.period - speed, MIN_PERIOD)
+    ch.period = max(ch.period - speed, AMIGA_MIN_PERIOD)
     setSampleStep(ch, ps.config.sampleRate)
 
 proc doSlideDown(ps: PlaybackState, ch: var Channel, speed: int) =
   if not isFirstTick(ps):
-    ch.period = min(ch.period + speed, MAX_PERIOD)
+    ch.period = min(ch.period + speed, AMIGA_MAX_PERIOD)
     setSampleStep(ch, ps.config.sampleRate)
 
 
 proc tonePortamento(ps: PlaybackState, ch: var Channel) =
   if ch.portaToNote != NOTE_NONE and ch.period > -1 and ch.currSample != nil:
-    let toPeriod = periodTable[finetunedNote(ch.currSample, ch.portaToNote)]
+    let toPeriod = getPeriod(ps, ch.currSample, ch.portaToNote)
     if ch.period < toPeriod:
       ch.period = min(ch.period + ch.portaSpeed, toPeriod)
       setSampleStep(ch, ps.config.sampleRate)
@@ -490,12 +499,12 @@ proc doSetFilter(ps: PlaybackState, state: int) =
 
 proc doFineSlideUp(ps: PlaybackState, ch: var Channel, value: int) =
   if ps.currTick == 0:
-    ch.period = max(ch.period - value, MIN_PERIOD)
+    ch.period = max(ch.period - value, AMIGA_MIN_PERIOD)
     setSampleStep(ch, ps.config.sampleRate)
 
 proc doFineSlideDown(ps: PlaybackState, ch: var Channel, value: int) =
   if ps.currTick == 0:
-    ch.period = min(ch.period + value, MAX_PERIOD)
+    ch.period = min(ch.period + value, AMIGA_MAX_PERIOD)
     setSampleStep(ch, ps.config.sampleRate)
 
 proc doGlissandoControl(ps: PlaybackState, ch: Channel, state: int) =
@@ -552,7 +561,7 @@ proc doNoteDelay(ps: PlaybackState, ch: var Channel, ticks, note: int) =
     if note != NOTE_NONE and ps.ellapsedTicks == ticks and ch.delaySample != nil:
       ch.currSample = ch.delaySample
       ch.delaySample = nil
-      ch.period = periodTable[finetunedNote(ch.currSample, note)]
+      ch.period = getPeriod(ps, ch.currSample, note)
       ch.samplePos = 0
       ch.swapSample = nil
       setSampleStep(ch, ps.config.sampleRate)
@@ -591,8 +600,7 @@ proc doTick(ps: var PlaybackState) =
 
     if isFirstTick(ps):
       if ch.delaySampleNextRowNote != NOTE_NONE:
-        ch.period = periodTable[finetunedNote(ch.currSample,
-                                              ch.delaySampleNextRowNote)]
+        ch.period = getPeriod(ps, ch.currSample, ch.delaySampleNextRowNote)
         ch.delaySampleNextRowNote = NOTE_NONE
 
       if sampleNum > 0:
@@ -615,7 +623,7 @@ proc doTick(ps: var PlaybackState) =
               ch.swapSample = sample
             else:
               ch.currSample = sample
-              ch.period = periodTable[finetunedNote(ch.currSample, note)]
+              ch.period = getPeriod(ps, ch.currSample, note)
               ch.samplePos = 0
               ch.swapSample = nil
 
@@ -630,7 +638,7 @@ proc doTick(ps: var PlaybackState) =
         elif note != NOTE_NONE and cmd != 0x3 and cmd != 0x5:
           swapSample(ch)
           if ch.currSample != nil:
-            ch.period = periodTable[finetunedNote(ch.currSample, note)]
+            ch.period = getPeriod(ps, ch.currSample, note)
             ch.samplePos = 0
         # TODO if there's a note, set curr sample to nil?
 
