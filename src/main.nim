@@ -112,13 +112,13 @@ proc startPlayer(config: Config, module: Module) =
 
     of Key.U:     unmuteAllChannels()
 
-    of Key.LeftBracket:  ps.config.ampGain = max(-24.0, ps.config.ampGain - 0.5)
-    of Key.RightBracket: ps.config.ampGain = min( 24.0, ps.config.ampGain + 0.5)
+    of Key.Comma: ps.config.ampGain = max(-24.0, ps.config.ampGain - 0.5)
+    of Key.Dot:   ps.config.ampGain = min( 24.0, ps.config.ampGain + 0.5)
 
-    of Key.Comma:
+    of Key.LeftBracket:
       ps.config.stereoWidth = max(-100, ps.config.stereoWidth - 10)
 
-    of Key.Dot:
+    of Key.RightBracket:
       ps.config.stereoWidth = min( 100, ps.config.stereoWidth + 10)
 
     of Key.I:
