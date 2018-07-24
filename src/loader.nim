@@ -118,6 +118,8 @@ proc periodToExtNote(period: Natural): int =
     if extPeriodTable[i] <= period:
       let d1 = period - extPeriodTable[i]
       let d2 = extPeriodTable[i-1] - period
+      if d1 != 0 and d2 != 0:
+        debug(fmt"    Non-standard period found: {period}")
       if d1 < d2:
         return i
       else:

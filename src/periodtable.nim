@@ -1,4 +1,6 @@
 # 8-octave extended period table used by FastTracker 2
+# The first 9 values are not used, as they are greater than 4095 (period
+# values are stored on 12-bits)
 const extPeriodTable* = [
   4*1712, 4*1616, 4*1524, 4*1440, 4*1356, 4*1280, 4*1208, 4*1140, 4*1076, 4*1016, 4*960, 4*906, # C-0 to B-0
   2*1712, 2*1616, 2*1524, 2*1440, 2*1356, 2*1280, 2*1208, 2*1140, 2*1076, 2*1016, 2*960, 2*906, # C-1 to B-1
