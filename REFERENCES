@@ -1,3 +1,9 @@
+MOD
+---
+
+https://github.com/AntonioND/gbt-player/blob/master/mod2gbt/FMODDOC.TXT
+
+
 WAVE file format
 ----------------
 
@@ -9,6 +15,16 @@ http://www.lightlink.com/tjweber/StripWav/WAVE.html
 
 Timothy John Weber – The Canonical WAVE File Format
 http://www.lightlink.com/tjweber/StripWav/Canon.html
+
+
+AMIGA HARDWARE
+--------------
+Amiga Hardware Reference Manual — Audio Hardware
+http://amigadev.elowar.com/read/ADCD_2.1/Hardware_Manual_guide/node00D5.html
+
+Generating an accurate Paula period table
+http://eab.abime.net/showthread.php?t=69675&page=2
+
 
 
 DSP
