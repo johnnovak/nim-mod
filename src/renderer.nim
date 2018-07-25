@@ -699,28 +699,32 @@ proc doTick(ps: var PlaybackState) =
     ps.channels[chanIdx] = ch
 
 
+proc setNextSongPos(ps: var PlaybackState) = 
+  if ps.nextSongPos == ps.currSongPos:
+    ps.nextSongPos = NO_VALUE
+  else:
+    var nextSongPos = ps.nextSongPos
+    ps.resetPlaybackState()
+    ps.resetChannels()
+    ps.currSongPos = nextSongPos
+
+    # This effectively achieves tempo & speed command chasing in a very
+    # cheap way!
+    ps.playPositionFrame = ps.songPosCache[ps.currSongPos].frame
+    ps.tempo             = ps.songPosCache[ps.currSongPos].tempo
+    ps.ticksPerRow       = ps.songPosCache[ps.currSongPos].ticksPerRow
+
+    # This is important! The current tick will be advanced by one below, so we
+    # need to start from the last tick of the previous row to then just
+    # "slide" into the correct row position (it's ok to have -1 in currRow)
+    ps.currRow     = ps.songPosCache[ps.currSongPos].startRow-1
+    ps.currTick    = ps.ticksPerRow-1
+
+
 proc advancePlayPosition(ps: var PlaybackState) =
   # The user has changed the play position, let's do something about it :)
   if ps.nextSongPos != NO_VALUE:
-    if ps.nextSongPos == ps.currSongPos:
-      ps.nextSongPos = NO_VALUE
-    else:
-      var nextSongPos = ps.nextSongPos
-      ps.resetPlaybackState()
-      ps.resetChannels()
-      ps.currSongPos = nextSongPos
-
-      # This effectively achieves tempo & speed command chasing in a very
-      # cheap way!
-      ps.playPositionFrame = ps.songPosCache[ps.currSongPos].frame
-      ps.tempo             = ps.songPosCache[ps.currSongPos].tempo
-      ps.ticksPerRow       = ps.songPosCache[ps.currSongPos].ticksPerRow
-
-      # This is important! The current tick will be advanced by one below, so we
-      # need to start from the last tick of the previous row to then just
-      # "slide" into the correct row position (it's ok to have -1 in currRow)
-      ps.currRow     = ps.songPosCache[ps.currSongPos].startRow-1
-      ps.currTick    = ps.ticksPerRow-1
+    setNextSongPos(ps)
 
   inc(ps.currTick)
   inc(ps.ellapsedTicks)
@@ -802,7 +806,11 @@ proc renderInternal(ps: var PlaybackState, mixBuffer: var openArray[float32],
     mixBuffer[i] = 0
 
   # Just return silence if paused
-  if ps.paused: return
+  if ps.paused:
+    # The user has changed the play position, let's do something about it :)
+    if ps.nextSongPos != NO_VALUE:
+      setNextSongPos(ps)
+    return
 
   # Otherwise render some audio
   var framePos = 0
