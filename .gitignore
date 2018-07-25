@@ -4,3 +4,4 @@ nimcache
 *.sfk
 .DS_Store
 ._*
+*-RESULT.wav
