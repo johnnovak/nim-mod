@@ -18,8 +18,9 @@ proc showLength(config: Config, module: Module) =
     (lengthSeconds, millis) = splitDecimal(lengthFractSeconds)
     mins = lengthSeconds.int div 60
     secs = lengthSeconds.int mod 60
+    ms = round(millis * 1000).int
 
-  echo fmt"Song length: {mins:02}:{secs:02}.{millis*1000:03}"
+  echo fmt"Song length: {mins:02}:{secs:02}.{ms:03}"
 
 
 var displayUI = false
