@@ -68,9 +68,6 @@ type
     # For implementing pattern-level effects
     jumpSongPos:         int
     jumpRow:             int
-    loopStartRow:        Natural  # TODO this should be a channel param
-    loopRow:             int      # TODO this should be a channel param
-    loopCount:           Natural  # TODO this should be a channel param
     patternDelayCount:   int
 
     # Used for detecting song loops during the precalc phase
@@ -105,6 +102,10 @@ type
     delaySample:    Sample
 
     delaySampleNextRowNote:  int  # kind of a special case...
+
+    loopStartRow:   Natural
+    loopRow:        int
+    loopCount:      Natural
 
     # Used by the audio renderer
     samplePos:      float32
@@ -149,6 +150,9 @@ proc resetChannel(ch: var Channel) =
   ch.offset = 0
   ch.delaySample = nil
   ch.delaySampleNextRowNote = NOTE_NONE
+  ch.loopStartRow = 0
+  ch.loopRow = NO_VALUE
+  ch.loopCount = 0
 
   ch.samplePos = 0
   ch.volumeScalar = 0
@@ -180,9 +184,6 @@ proc resetPlaybackState(ps: var PlaybackState) =
   ps.ellapsedTicks = 0
   ps.jumpSongPos = NO_VALUE
   ps.jumpRow = NO_VALUE
-  ps.loopStartRow = 0
-  ps.loopRow = NO_VALUE
-  ps.loopCount = 0
   ps.patternDelayCount = NO_VALUE
 
   ps.playPositionFrame = 0
@@ -231,6 +232,7 @@ proc checkHasSongEnded(ps: var PlaybackState, songPos: Natural, row: Natural) =
     ps.jumpHistory.add(p)
 
 proc storeSongPosInfo(ps: var PlaybackState) =
+  echo fmt"currSongPos: {ps.currSongPos}, currRow: {ps.currRow}"
   if not ps.songPosCache[ps.currSongPos].visited:
     var spi: SongPosInfo
     spi.visited = true
@@ -523,18 +525,17 @@ proc doSetFinetune(ps: PlaybackState, ch: Channel, value: int) =
     if ch.currSample != nil:
       ch.currSample.finetune = value  # TODO is this correct?
 
-# TODO pattern loop memory should be per channel
-proc doPatternLoop(ps: var PlaybackState, ch: Channel, numRepeats: int) =
+proc doPatternLoop(ps: var PlaybackState, ch: var Channel, numRepeats: int) =
   if isFirstTick(ps):
     if numRepeats == 0:
-      ps.loopStartRow = ps.currRow
+      ch.loopStartRow = ps.currRow
     else:
-      if ps.loopCount < numRepeats:
-        ps.loopRow = ps.loopStartRow
-        inc(ps.loopCount)
+      if ch.loopCount < numRepeats:
+        ch.loopRow = ch.loopStartRow
+        inc(ch.loopCount)
       else:
-        ps.loopStartRow = 0
-        ps.loopCount = 0
+        ch.loopStartRow = 0
+        ch.loopCount = 0
 
 
 proc doSetTremoloWaveform(ps: PlaybackState, ch: Channel, value: int) =
@@ -748,27 +749,34 @@ proc advancePlayPosition(ps: var PlaybackState) =
         elif ps.currSongPos != prevSongPos:
           ps.playPositionFrame = ps.songPosCache[ps.currSongPos].frame
 
-      elif ps.loopRow != NO_VALUE:  # handle loop pattern
-        ps.currRow = ps.loopRow
-        ps.loopRow = NO_VALUE
+      else:
+        # handle loop pattern
+        var loopFound = false
+        for i in 0..ps.channels.high:
+          if ps.channels[i].loopRow != NO_VALUE:
+            ps.currRow = ps.channels[i].loopRow
+            ps.channels[i].loopRow = NO_VALUE
+            loopFound = true
+            break
 
-      else:  # move to next row normally
-        inc(ps.currRow, 1)
-        if ps.currRow > ROWS_PER_PATTERN-1:
-          inc(ps.currSongPos, 1)
-          if ps.currSongPos >= ps.module.songLength:
-            ps.currSongPos = ps.module.songRestartPos
+        if not loopFound:  # move to next row normally
+          inc(ps.currRow, 1)
+          if ps.currRow > ROWS_PER_PATTERN-1:
+            inc(ps.currSongPos, 1)
             if ps.currSongPos >= ps.module.songLength:
-              ps.currSongPos = 0
-          ps.currRow = 0
-          ps.loopStartRow = 0
-          ps.loopCount = 0
+              ps.currSongPos = ps.module.songRestartPos
+              if ps.currSongPos >= ps.module.songLength:
+                ps.currSongPos = 0
+            ps.currRow = 0
+            for i in 0..ps.channels.high:
+              ps.channels[i].loopStartRow = 0
+              ps.channels[i].loopCount = 0
 
-          if ps.mode == rmPrecalc:
-            checkHasSongEnded(ps, ps.currSongPos, ps.currRow)
-            storeSongPosInfo(ps)
-          else:
-            ps.playPositionFrame = ps.songPosCache[ps.currSongPos].frame
+            if ps.mode == rmPrecalc:
+              checkHasSongEnded(ps, ps.currSongPos, ps.currRow)
+              storeSongPosInfo(ps)
+            else:
+              ps.playPositionFrame = ps.songPosCache[ps.currSongPos].frame
 
 
 proc framesPerTick(ps: PlaybackState): Natural =

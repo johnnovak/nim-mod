@@ -32,8 +32,7 @@ OTHER
 Notes about the test modules
 ----------------------------
 
-legend_of_faerghail - this is the only SoundTracker module (15 samples), also
-turns on the filter for the whole duration of the song
+legend_of_faerghail - this is the only SoundTracker module (15 samples)
 
 killing road - play pattern backwards trick (pattern break & position jump
 commands on the same row)
@@ -50,3 +49,4 @@ living insanity - lots of delay note and retrigger note commands
 
 kaviar - the intro turns the filter on
 
+melon - nested pattern loops at songpos 40
