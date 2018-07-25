@@ -78,6 +78,9 @@ proc startPlayer(config: Config, module: Module) =
   while true:
     let key = getKey()
     case key:
+    of Key.Space:
+      ps.paused = not ps.paused
+
     of Key.Left, Key.H:
       ps.nextSongPos = max(0, ps.currSongPos-1)
 

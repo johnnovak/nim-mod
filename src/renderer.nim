@@ -41,6 +41,10 @@ type
     # song position (defaults to -1)
     nextSongPos*:        int
 
+    # This can be set from the outside to signal the renderer that the
+    # playback should be paused.
+    paused*:             bool
+
     # Song tempo & position, should only be read from the outside
     tempo*:              Natural
     ticksPerRow*:        Natural
@@ -232,7 +236,6 @@ proc checkHasSongEnded(ps: var PlaybackState, songPos: Natural, row: Natural) =
     ps.jumpHistory.add(p)
 
 proc storeSongPosInfo(ps: var PlaybackState) =
-  echo fmt"currSongPos: {ps.currSongPos}, currRow: {ps.currRow}"
   if not ps.songPosCache[ps.currSongPos].visited:
     var spi: SongPosInfo
     spi.visited = true
@@ -793,12 +796,16 @@ proc framesPerTick(ps: PlaybackState): Natural =
 
 proc renderInternal(ps: var PlaybackState, mixBuffer: var openArray[float32],
                     numFrames: int) =
+  # Clear mixbuffer
   let numSamples = numFrames * NUM_CHANNELS
   for i in 0..<numSamples:
     mixBuffer[i] = 0
 
-  var framePos = 0
+  # Just return silence if paused
+  if ps.paused: return
 
+  # Otherwise render some audio
+  var framePos = 0
   while framePos < numFrames:
     if ps.tickFramesRemaining == 0:
       advancePlayPosition(ps)

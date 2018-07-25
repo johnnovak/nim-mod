@@ -6,7 +6,6 @@ UI
 
 PLAYBACK
 
-* add pause / start
 * add channel muting & dimming (+ solo)
 * add auto-volume reduction
 * implement volume ramping, need to decode the next tick in advance?

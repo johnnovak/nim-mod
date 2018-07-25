@@ -199,7 +199,7 @@ proc drawTrack(cb: var ConsoleBuffer, x, y: Natural, track: Track,
 
 proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
                       currRow, maxRows, startTrack, maxTracks: int,
-                      channels: seq[renderer.Channel]) =
+                      channels: seq[renderer.Channel]): Natural =
   assert currRow < ROWS_PER_PATTERN
 
   let
@@ -282,6 +282,8 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
       c.style = {}
     cb[x, cursorY] = c
 
+  result = x2 - x1 + 1
+
 
 var cb: ConsoleBuffer
 
@@ -300,11 +302,13 @@ proc updateScreen*(ps: PlaybackState, forceRedraw: bool = false) =
     currPattern = ps.module.songPositions[ps.currSongPos]
     maxRows = h - PATTERN_Y - PATTERN_HEADER_HEIGHT - 4
 
+  var pattViewWidth = 0
   if maxRows >= 1:
-    drawPatternView(cb, ps.module.patterns[currPattern],
-                    ps.currRow, maxRows,
-                    startTrack = 0, maxTracks = ps.module.numChannels,
-                    ps.channels)
+    pattViewWidth = drawPatternView(cb, ps.module.patterns[currPattern],
+                                    ps.currRow, maxRows,
+                                    startTrack = 0,
+                                    maxTracks = ps.module.numChannels,
+                                    ps.channels)
 
   if h >= 9:
     cb.setColor(currTheme.text)
@@ -317,6 +321,15 @@ proc updateScreen*(ps: PlaybackState, forceRedraw: bool = false) =
     cb.write("Q")
     cb.setColor(currTheme.text)
     cb.write(" to quit")
+
+  if ps.paused:
+    var y = PATTERN_Y + PATTERN_HEADER_HEIGHT + (maxRows-1) div 2 - 1
+    var txt = "P A U S E D"
+    cb.setColor(currTheme.text)
+    cb.write(SCREEN_X_PAD, y, "─".repeat(pattViewWidth))
+    cb.write(SCREEN_X_PAD, y+1, " ".repeat(pattViewWidth))
+    cb.write(SCREEN_X_PAD + (pattViewWidth - txt.len) div 2, y+1, "P A U S E D")
+    cb.write(SCREEN_X_PAD, y+2, "─".repeat(pattViewWidth))
 
   if forceRedraw:
     setDoubleBuffering(false)
