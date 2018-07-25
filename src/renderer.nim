@@ -11,7 +11,7 @@ const
   DEFAULT_TEMPO         = 125
   DEFAULT_TICKS_PER_ROW = 6
 
-  AMIGA_BASE_FREQ_PAL   = 7093789.2
+  AMIGA_PAL_CLOCK       = 3546895
   AMIGA_MIN_PERIOD      = amigaPeriodTable[AMIGA_NOTE_MAX]
   AMIGA_MAX_PERIOD      = amigaPeriodTable[AMIGA_NOTE_MIN]
 
@@ -91,7 +91,7 @@ type
     state*:         ChannelState
 
     currSample:     Sample
-    period:         int
+    period:         int  # TODO use Natural and 0 for no value
     pan:            float32
     volume:         Natural
 
@@ -312,7 +312,7 @@ proc getPeriod(ps: PlaybackState, sample: Sample, note: int): Natural =
     result = extPeriodTable[note]
 
 proc periodToFreq(period: int): float32 =
-  result = AMIGA_BASE_FREQ_PAL / (period * 2).float32
+  result = AMIGA_PAL_CLOCK / period
 
 proc setSampleStep(ch: var Channel, sampleRate: int) =
   ch.sampleStep = periodToFreq(ch.period) / sampleRate.float32
@@ -586,7 +586,6 @@ proc doTick(ps: var PlaybackState) =
   let patt = ps.module.patterns[ps.module.songPositions[ps.currSongPos]]
 
   for chanIdx in 0..ps.channels.high:
-#    echo fmt"chanIdx: {chanIdx}, ps.currRow: {ps.currRow}"
     let cell = patt.tracks[chanIdx].rows[ps.currRow]
     var ch = ps.channels[chanIdx]
 
