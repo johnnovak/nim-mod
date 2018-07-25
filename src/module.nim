@@ -26,8 +26,6 @@ const
 
   NOTE_NONE* = -1
 
-  AMIGA_FINETUNE_PAD* = 37
-
 type
   Module* = ref object
     moduleType*:     ModuleType
@@ -159,9 +157,12 @@ proc `$`*(p: Pattern): string =
 
 
 proc `$`*(s: Sample): string =
-  result = fmt"name: '{s.name}'," &
+  # convert signed nibble to signed int
+  var finetune = s.finetune
+  if finetune > 7: dec(finetune, 16)
+  result = fmt"name: '{s.name}', " &
            fmt"length: {s.length}, " &
-           fmt"finetune: {s.finetune}, " &
+           fmt"finetune: {finetune}, " &
            fmt"volume: {s.volume}, " &
            fmt"repeatOffset: {s.repeatOffset}, " &
            fmt"repeatLength: {s.repeatLength}"

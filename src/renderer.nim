@@ -14,6 +14,7 @@ const
   AMIGA_PAL_CLOCK       = 3546895
   AMIGA_MIN_PERIOD      = amigaPeriodTable[AMIGA_NOTE_MAX]
   AMIGA_MAX_PERIOD      = amigaPeriodTable[AMIGA_NOTE_MIN]
+  AMIGA_FINETUNE_PAD    = 37
 
   MAX_VOLUME            = 0x40
   NUM_CHANNELS          = 2
@@ -309,7 +310,11 @@ proc getPeriod(ps: PlaybackState, sample: Sample, note: int): Natural =
   if ps.module.useAmigaLimits:
     result = amigaPeriodTable[finetunedNote(sample, note)]
   else:
-    result = extPeriodTable[note]
+    # convert signed nibble to signed int
+    var finetune = sample.finetune
+    if finetune > 7: dec(finetune, 16)
+    result = round(extPeriodTable[note].float32 *
+                   pow(2, -finetune/(12*8))).Natural
 
 proc periodToFreq(period: int): float32 =
   result = AMIGA_PAL_CLOCK / period
