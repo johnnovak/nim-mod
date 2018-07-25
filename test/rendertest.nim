@@ -8,8 +8,10 @@ const
 
 when defined(windows):
   const EXE_PATH = "..\\src\\main.exe"
+  const LD_PATH = ""
 else:
   const EXE_PATH = "../src/main"
+  const LD_PATH = "LD_LIBRARY_PATH=../src "
 
 
 proc deleteResults() =
@@ -22,7 +24,7 @@ proc displayError(msg: string) =
   styledEcho(fgRed, msg, resetStyle)
 
 proc renderTest(testPath: string, wavPath: string): bool =
-  let renderCmd = fmt"{EXE_PATH} {CMD_OPTS} -f:{wavPath} {testPath}"
+  let renderCmd = fmt"{LD_PATH}{EXE_PATH} {CMD_OPTS} -f:{wavPath} {testPath}"
   if execShellCmd(renderCmd) == QuitSuccess:
     result = true
   else:
