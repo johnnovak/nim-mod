@@ -6,11 +6,8 @@ UI
 
 PLAYBACK
 
-* add support for extended octaves
-
 * add pause / start
 * add channel muting & dimming (+ solo)
-* add volume control
 * add auto-volume reduction
 * implement volume ramping, need to decode the next tick in advance?
 
@@ -18,8 +15,6 @@ PLAYBACK
 
 
 OTHER
-
-* with some mods -l prints out some funky duration strings...
 
 * add command line params
   * write log to file
@@ -54,7 +49,4 @@ intro & fx processing during pattern delay. sample swap at the very end.
 living insanity - lots of delay note and retrigger note commands
 
 kaviar - the intro turns the filter on
-
-
-
 
