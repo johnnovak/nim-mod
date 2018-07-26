@@ -78,6 +78,10 @@ proc startPlayer(config: Config, module: Module) =
   while true:
     let key = getKey()
     case key:
+    of Key.V:
+      if   currView() == vtPattern: setCurrView(vtSamples)
+      elif currView() == vtSamples: setCurrView(vtPattern)
+
     of Key.Space:
       ps.paused = not ps.paused
 
@@ -102,6 +106,7 @@ proc startPlayer(config: Config, module: Module) =
     of Key.F4: setTheme(3)
     of Key.F5: setTheme(4)
     of Key.F6: setTheme(5)
+    of Key.F7: setTheme(6)
 
     of Key.One:   toggleMuteChannel(0)
     of Key.Two:   toggleMuteChannel(1)

@@ -5,7 +5,7 @@ include periodtable
 const
   SONG_TITLE_LEN*            = 20
   SAMPLE_NAME_LEN*           = 22
-  NUM_SAMPLES*               = 31
+  MAX_SAMPLES*               = 31
   NUM_SAMPLES_SOUNDTRACKER*  = 15
   NUM_SONG_POSITIONS*        = 128
   ROWS_PER_PATTERN*          = 64
@@ -34,7 +34,8 @@ type
     songLength*:     Natural
     songRestartPos*: Natural
     songPositions*:  array[NUM_SONG_POSITIONS, Natural]
-    samples*:        array[1..NUM_SAMPLES, Sample]
+    samples*:        array[1..MAX_SAMPLES, Sample]
+    numSamples*:     Natural
     patterns*:       seq[Pattern]
     useAmigaLimits*: bool
 
@@ -125,16 +126,20 @@ proc toString*(mt: ModuleType): string =
   of mtStarTrekker:  result = "StarTrekker"
   of mtTakeTracker:  result = "TakeTracker"
 
+
 proc isLooped*(s: Sample): bool =
   const REPEAT_LENGTH_MIN = 3
   result = s.repeatLength >= REPEAT_LENGTH_MIN
-
 
 proc noteWithinAmigaLimits*(note: int): bool =
   if note == NOTE_NONE:
     result = true
   else:
     result = note >= EXT_NOTE_MIN_AMIGA and note <= EXT_NOTE_MAX_AMIGA
+
+proc signedFinetune*(s: Sample): int =
+  result = s.finetune
+  if result > 7: dec(result, 16)
 
 
 proc `$`*(c: Cell): string =
@@ -159,10 +164,9 @@ proc `$`*(p: Pattern): string =
 proc `$`*(s: Sample): string =
   # convert signed nibble to signed int
   var finetune = s.finetune
-  if finetune > 7: dec(finetune, 16)
   result = fmt"name: '{s.name}', " &
            fmt"length: {s.length}, " &
-           fmt"finetune: {finetune}, " &
+           fmt"finetune: {s.signedFinetune()}, " &
            fmt"volume: {s.volume}, " &
            fmt"repeatOffset: {s.repeatOffset}, " &
            fmt"repeatLength: {s.repeatLength}"

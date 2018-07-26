@@ -76,12 +76,19 @@ proc determineModuleType(tag: int): (ModuleType, int) =
     result = (mtSoundTracker, 4)
 
 
+proc nonPrintableCharsToSpace(s: var string) =
+  for i in 0..s.high:
+    if ord(s[i]) < 32: s[i] = ' '
+
+
 proc readSampleInfo(buf: var seq[uint8], pos: var Natural): Sample =
   var samp = new Sample
 
   var name = cast[cstring](alloc0(SAMPLE_NAME_LEN + 1))
   copyMem(name, buf[pos].addr, SAMPLE_NAME_LEN)
   samp.name = $name
+  nonPrintableCharsToSpace(samp.name)
+
   inc(pos, SAMPLE_NAME_LEN)
 
   bigEndian16(samp.length.addr, buf[pos].addr)
@@ -220,6 +227,7 @@ proc readModule*(f: File): Module =
   var songName = cast[cstring](alloc0(SONG_TITLE_LEN + 1))
   copyMem(songName, buf[pos].addr, SONG_TITLE_LEN)
   module.songName = $songName
+  nonPrintableCharsToSpace(module.songName)
   info(fmt"Songname: {songname}")
   inc(pos, SONG_TITLE_LEN)
 
@@ -227,8 +235,9 @@ proc readModule*(f: File): Module =
   let numSamples = if module.moduleType == mtSoundTracker:
     NUM_SAMPLES_SOUNDTRACKER
   else:
-    NUM_SAMPLES
+    MAX_SAMPLES
 
+  module.numSamples = numSamples
   info(fmt"Number of samples: {numSamples}")
 
   debug(fmt"Reading sample info...")

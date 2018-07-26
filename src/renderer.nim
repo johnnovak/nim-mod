@@ -93,7 +93,7 @@ type
     state*:         ChannelState
 
     currSample:     Sample
-    period:         int  # TODO use Natural and 0 for no value
+    period:         Natural  # TODO use Natural and 0 for no value
     pan:            float32
     volume:         Natural
 
@@ -144,7 +144,7 @@ type
 proc resetChannel(ch: var Channel) =
   # mute state & panning doesn't get reset
   ch.currSample = nil
-  ch.period = NO_VALUE
+  ch.period = 0
   ch.volume = 0
 
   ch.portaToNote = NOTE_NONE
@@ -267,8 +267,7 @@ proc render(ch: var Channel, ps: PlaybackState,
     if ch.currSample == nil:
       s = 0
     else:
-      if ch.period == NO_VALUE or
-         ch.samplePos >= (ch.currSample.length).float32:
+      if ch.period == 0 or ch.samplePos >= (ch.currSample.length).float32:
         s = 0
       else:
         case ps.config.interpolation
@@ -316,10 +315,8 @@ proc getPeriod(ps: PlaybackState, sample: Sample, note: int): Natural =
     result = amigaPeriodTable[finetunedNote(sample, note)]
   else:
     # convert signed nibble to signed int
-    var finetune = sample.finetune
-    if finetune > 7: dec(finetune, 16)
     result = round(extPeriodTable[note].float32 *
-                   pow(2, -finetune/(12*8))).Natural
+                   pow(2, -sample.signedFinetune()/(12*8))).Natural
 
 proc periodToFreq(period: int): float32 =
   result = AMIGA_PAL_CLOCK / period
@@ -341,17 +338,17 @@ proc isFirstTick(ps: PlaybackState): bool =
 # Effects
 
 proc doArpeggio(ps: PlaybackState, ch: var Channel, note1, note2: int) =
-  # TODO
+  # TODO implement arpeggio for extended octaves
   if ps.module.useAmigaLimits:
 
     proc findClosestPeriodIndex(finetune, period: int): int =
-      result = -1
+      result = 0
       let offs = finetune * AMIGA_FINETUNE_PAD
       for idx in (offs + AMIGA_NOTE_MIN)..(offs + AMIGA_NOTE_MAX):
         if period >= amigaPeriodTable[idx]:
           result = idx
           break
-      assert result > -1
+      assert result > 0
 
     if not isFirstTick(ps):
       if ch.currSample != nil and ch.volume > 0:
@@ -467,7 +464,7 @@ proc doSetSampleOffset(ps: PlaybackState, ch: var Channel, offset: int,
           if ch.currSample.isLooped():
             ch.samplePos = ch.currSample.repeatOffset.float32
           else:
-            ch.currSample = nil
+            ch.currSample = nil   # TODO should never set the currSample to nil!
 
 proc doVolumeSlide(ps: PlaybackState, ch: var Channel,
                    upSpeed, downSpeed: int) =
@@ -526,7 +523,7 @@ proc doSetVibratoWaveform(ps: PlaybackState, ch: Channel, value: int) =
 proc doSetFinetune(ps: PlaybackState, ch: Channel, value: int) =
   if isFirstTick(ps):
     if ch.currSample != nil:
-      ch.currSample.finetune = value  # TODO is this correct?
+      ch.currSample.finetune = value
 
 proc doPatternLoop(ps: var PlaybackState, ch: var Channel, numRepeats: int) =
   if isFirstTick(ps):
@@ -689,11 +686,9 @@ proc doTick(ps: var PlaybackState) =
       of 0xD: doNoteDelay(ps, ch, y, note)
       of 0xE: doPatternDelay(ps, y)
       of 0xF: doInvertLoop(ps, ch, y) # TODO MAYBE implement...
-      # TODO better than crashing
       else: discard
 
     of 0xF: doSetSpeed(ps, xy)
-    # TODO better than crashing
     else: discard
 
     ps.channels[chanIdx] = ch
