@@ -4,6 +4,22 @@ let themes = @[
     rowNumHi:   TextColor(fg: fgWhite,   hi: true),
     note:       TextColor(fg: fgCyan,    hi: true),
     noteNone:   TextColor(fg: fgCyan,    hi: false),
+    sample:     TextColor(fg: fgYellow,  hi: true),
+    sampleNone: TextColor(fg: fgBlack,   hi: true),
+    effect:     TextColor(fg: fgGreen,   hi: true),
+    effectNone: TextColor(fg: fgBlack,   hi: true),
+    border:     TextColor(fg: fgBlack,   hi: true),
+    muted:      TextColor(fg: fgBlack,   hi: true),
+    text:       TextColor(fg: fgWhite,   hi: false),
+    textHi:     TextColor(fg: fgGreen,   hi: true),
+    cursor:     TextColor(fg: fgBlack,   hi: false),
+    cursorBg:   bgYellow
+  ),
+  Theme(
+    rowNum:     TextColor(fg: fgWhite,   hi: false),
+    rowNumHi:   TextColor(fg: fgWhite,   hi: true),
+    note:       TextColor(fg: fgCyan,    hi: true),
+    noteNone:   TextColor(fg: fgCyan,    hi: false),
     sample:     TextColor(fg: fgWhite,   hi: true),
     sampleNone: TextColor(fg: fgWhite,   hi: false),
     effect:     TextColor(fg: fgMagenta, hi: true),
@@ -14,6 +30,22 @@ let themes = @[
     textHi:     TextColor(fg: fgCyan,    hi: true),
     cursor:     TextColor(fg: fgBlack,   hi: false),
     cursorBg:   bgMagenta
+  ),
+  Theme(
+    rowNum:     TextColor(fg: fgWhite,   hi: false),
+    rowNumHi:   TextColor(fg: fgWhite,   hi: true),
+    note:       TextColor(fg: fgCyan,    hi: true),
+    noteNone:   TextColor(fg: fgBlack,   hi: true),
+    sample:     TextColor(fg: fgCyan,    hi: false),
+    sampleNone: TextColor(fg: fgBlack,   hi: true),
+    effect:     TextColor(fg: fgWhite,   hi: true),
+    effectNone: TextColor(fg: fgBlack,   hi: true),
+    border:     TextColor(fg: fgBlack,   hi: true),
+    muted:      TextColor(fg: fgBlack,   hi: true),
+    text:       TextColor(fg: fgWhite,   hi: false),
+    textHi:     TextColor(fg: fgCyan,    hi: true),
+    cursor:     TextColor(fg: fgBlack,   hi: false),
+    cursorBg:   bgCyan
   ),
   Theme(
     rowNum:     TextColor(fg: fgWhite,   hi: false),
@@ -30,22 +62,6 @@ let themes = @[
     textHi:     TextColor(fg: fgYellow,  hi: true),
     cursor:     TextColor(fg: fgBlack,   hi: false),
     cursorBg:   bgCyan
-  ),
-  Theme(
-    rowNum:     TextColor(fg: fgWhite,   hi: false),
-    rowNumHi:   TextColor(fg: fgWhite,   hi: true),
-    note:       TextColor(fg: fgCyan,    hi: true),
-    noteNone:   TextColor(fg: fgCyan,    hi: false),
-    sample:     TextColor(fg: fgYellow,  hi: true),
-    sampleNone: TextColor(fg: fgYellow,  hi: false),
-    effect:     TextColor(fg: fgGreen,   hi: true),
-    effectNone: TextColor(fg: fgGreen,   hi: false),
-    border:     TextColor(fg: fgBlack,   hi: true),
-    muted:      TextColor(fg: fgBlack,   hi: true),
-    text:       TextColor(fg: fgWhite,   hi: false),
-    textHi:     TextColor(fg: fgGreen,   hi: true),
-    cursor:     TextColor(fg: fgBlack,   hi: false),
-    cursorBg:   bgYellow
   ),
   Theme(
     rowNum:     TextColor(fg: fgMagenta, hi: false),
@@ -81,19 +97,19 @@ let themes = @[
   ),
   Theme(
     rowNum:     TextColor(fg: fgWhite,   hi: false),
-    rowNumHi:   TextColor(fg: fgWhite,   hi: true),
-    note:       TextColor(fg: fgCyan,    hi: true),
-    noteNone:   TextColor(fg: fgBlack,   hi: true),
-    sample:     TextColor(fg: fgCyan,    hi: false),
-    sampleNone: TextColor(fg: fgBlack,   hi: true),
-    effect:     TextColor(fg: fgWhite,   hi: true),
-    effectNone: TextColor(fg: fgBlack,   hi: true),
-    border:     TextColor(fg: fgBlack,   hi: true),
-    muted:      TextColor(fg: fgBlack,   hi: true),
+    rowNumHi:   TextColor(fg: fgWhite,   hi: false),
+    note:       TextColor(fg: fgWhite,   hi: false),
+    noteNone:   TextColor(fg: fgWhite,   hi: false),
+    sample:     TextColor(fg: fgWhite,   hi: false),
+    sampleNone: TextColor(fg: fgWhite,   hi: false),
+    effect:     TextColor(fg: fgWhite,   hi: false),
+    effectNone: TextColor(fg: fgWhite,   hi: false),
+    border:     TextColor(fg: fgWhite,   hi: false),
+    muted:      TextColor(fg: fgBlack,   hi: false),
     text:       TextColor(fg: fgWhite,   hi: false),
-    textHi:     TextColor(fg: fgCyan,    hi: true),
+    textHi:     TextColor(fg: fgWhite,   hi: false),
     cursor:     TextColor(fg: fgBlack,   hi: false),
-    cursorBg:   bgCyan
+    cursorBg:   bgWhite
   )
 ]
 
