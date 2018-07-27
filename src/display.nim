@@ -373,7 +373,7 @@ proc drawSamplesView*(cb: var ConsoleBuffer, ps: PlaybackState,
   if endSample - gStartSample + 1 > maxVisibleSamples:
     endSample = gStartSample + maxVisibleSamples-1
   elif endSample - gStartSample + 1 < maxVisibleSamples:
-    gStartSample = 1 + numSamples - maxVisibleSamples
+    gStartSample = max(1 + numSamples - maxVisibleSamples, 1)
 
   inc(y, 2)
   for sampNo in gStartSample..endSample:
@@ -389,7 +389,8 @@ proc drawSamplesView*(cb: var ConsoleBuffer, ps: PlaybackState,
     else:                            cb.setColor(gCurrTheme.muted)
     cb.write(FINETUNE_X, y, fmt"{sample.signedFinetune():3}")
 
-    cb.setColor(gCurrTheme.sample)
+    if sample.volume != 0: cb.setColor(gCurrTheme.sample)
+    else:                  cb.setColor(gCurrTheme.muted)
     cb.write(VOLUME_X, y, fmt"{sample.volume:3x}")
 
     if sample.repeatOffset > 0: cb.setColor(gCurrTheme.sample)
@@ -400,8 +401,7 @@ proc drawSamplesView*(cb: var ConsoleBuffer, ps: PlaybackState,
     else:                       cb.setColor(gCurrTheme.muted)
     cb.write(REPLEN_X, y, fmt"{sample.repeatLength:6}")
 
-    if sample.length > 0: cb.setColor(gCurrTheme.textHi)
-    else:                 cb.setColor(gCurrTheme.muted)
+    cb.setColor(gCurrTheme.textHi)
     cb.write(NAME_X, y, sample.name)
 
     inc(y)
@@ -432,7 +432,7 @@ proc updateScreen*(ps: PlaybackState, forceRedraw: bool = false) =
     startTrack = 0
     gCurrTrackPage = 0
   elif numTracks - startTrack < maxVisibleTracks:
-    startTrack = numTracks - maxVisibleTracks
+    startTrack = max(numTracks - maxVisibleTracks, 0)
 
   let
     endTrack = min(startTrack + maxVisibleTracks-1, numTracks-1)
