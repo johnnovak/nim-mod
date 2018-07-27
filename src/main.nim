@@ -121,6 +121,8 @@ proc startPlayer(config: Config, module: Module) =
 
     of Key.U:     unmuteAllChannels()
 
+    of Key.Tab:   nextTrackPage()
+
     of Key.Comma: ps.config.ampGain = max(-24.0, ps.config.ampGain - 0.5)
     of Key.Dot:   ps.config.ampGain = min( 24.0, ps.config.ampGain + 0.5)
 

@@ -209,16 +209,11 @@ proc drawTrack(cb: var ConsoleBuffer, x, y: Natural, track: Track,
 
 
 proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
-                      currRow, maxRows, startTrack, maxTracks: int,
+                      currRow: int, maxRows, startTrack, endTrack: Natural,
                       channels: seq[renderer.Channel]) =
   assert currRow < ROWS_PER_PATTERN
-
-  let
-    trackLo = startTrack
-    trackHi = trackLo + maxTracks-1
-
-  assert trackLo <= patt.tracks.high
-  assert trackHi <= patt.tracks.high
+  assert startTrack <= patt.tracks.high
+  assert endTrack <= patt.tracks.high
 
   var bb = newBoxBuffer(cb.width, cb.height)
 
@@ -245,6 +240,7 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
   bb.drawVertLine(x, y1, y2)
   inc(x, 2)
 
+  # Draw row numbers
   var y = firstRowY
   for rowNum in rowLo..rowHi:
     if rowNum mod 4 == 0:
@@ -260,7 +256,8 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
 
   y = firstRowY
 
-  for i in trackLo..trackHi:
+  # Draw tracks
+  for i in startTrack..endTrack:
     let chanState = channels[i].state
     if chanState == csPlaying:
       cb.setColor(gCurrTheme.text)
@@ -282,6 +279,7 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
   cb.setColor(gCurrTheme.border)
   cb.write(bb)
 
+  # Draw cursor line
   let cursorY = y1 + PATTERN_HEADER_HEIGHT + cursorRow
   for x in SCREEN_X_PAD+1..x2-1:
     var c = cb[x, cursorY]
@@ -293,9 +291,19 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
       c.style = {}
     cb[x, cursorY] = c
 
+  # Draw prev/next pattern page indicators
+  cb.setColor(gCurrTheme.text)
+  if startTrack > 0:
+    cb.write(x1+4, y1+1, "<")
+  if endTrack < patt.tracks.high:
+    cb.write(x2, y1+1, ">")
+
 
 proc getPatternViewWidth(numTracks: Natural): Natural =
-  PATTERN_TRACK_WIDTH * numTracks + 6 + numTracks * 3 - 1
+  (PATTERN_TRACK_WIDTH + 3) * numTracks + 5
+
+proc getMaxVisibleTracks(width: Natural): Natural =
+  (width - SCREEN_X_PAD - 5) div (PATTERN_TRACK_WIDTH + 3)
 
 
 proc drawSamplesView*(cb: var ConsoleBuffer, ps: PlaybackState,
@@ -348,6 +356,7 @@ proc drawSamplesView*(cb: var ConsoleBuffer, ps: PlaybackState,
   cb.setColor(gCurrTheme.border)
   cb.write(bb)
 
+  # Draw sample list
   inc(y, 2)
   for sampNo in 1..min(ps.module.numSamples, height - 4):
     let sample = ps.module.samples[sampNo]
@@ -381,6 +390,9 @@ proc drawSamplesView*(cb: var ConsoleBuffer, ps: PlaybackState,
 
 
 var cb: ConsoleBuffer
+var gCurrTrackPage = 0
+
+proc nextTrackPage*() = inc(gCurrTrackPage)
 
 proc updateScreen*(ps: PlaybackState, forceRedraw: bool = false) =
   var (w, h) = terminalSize()
@@ -394,8 +406,19 @@ proc updateScreen*(ps: PlaybackState, forceRedraw: bool = false) =
   drawPlaybackState(cb, ps)
 
   let
+    maxVisibleTracks = getMaxVisibleTracks(w)
     numTracks = ps.module.numChannels
-    viewWidth = getPatternViewWidth(numTracks)
+
+  var startTrack = gCurrTrackPage * maxVisibleTracks
+  if startTrack > numTracks-1:
+    startTrack = 0
+    gCurrTrackPage = 0
+  elif numTracks - startTrack < maxVisibleTracks:
+    startTrack = numTracks - maxVisibleTracks
+
+  let
+    endTrack = min(startTrack + maxVisibleTracks-1, numTracks-1)
+    viewWidth = getPatternViewWidth(maxVisibleTracks)
     viewHeight = h - VIEW_Y - 3
     maxRows = viewHeight - PATTERN_HEADER_HEIGHT - 1
 
@@ -406,9 +429,8 @@ proc updateScreen*(ps: PlaybackState, forceRedraw: bool = false) =
 
     var pattViewWidth = 0
     if maxRows >= 1:
-      drawPatternView(cb, ps.module.patterns[currPattern],
-                      ps.currRow, maxRows, startTrack = 0,
-                      maxTracks = numTracks, ps.channels)
+      drawPatternView(cb, ps.module.patterns[currPattern], ps.currRow, maxRows,
+                      startTrack, endTrack, ps.channels)
   of vtSamples:
     if maxRows >= 1:
       drawSamplesView(cb, ps, viewHeight)
