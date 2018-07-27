@@ -121,7 +121,7 @@ proc periodToExtNote(period: Natural): int =
   if period >= extPeriodTable[0]:
     return EXT_NOTE_MIN
 
-  for i in 1..EXT_NUM_NOTES:
+  for i in 1..EXT_NUM_NOTES-1:
     if extPeriodTable[i] <= period:
       let d1 = period - extPeriodTable[i]
       let d2 = extPeriodTable[i-1] - period
@@ -138,7 +138,7 @@ proc periodToExtNote(period: Natural): int =
 proc read(f: File, dest: pointer, len: Natural) =
   let numBytesRead = f.readBuffer(dest, len)
   if numBytesRead != len:
-    error(fmt"Error: wanted to read {len} bytes " &
+    debug(fmt"Error: wanted to read {len} bytes " &
           fmt"but could read only {numBytesRead}")
     raise newException(ModuleReadError, "Unexpected end of file")
 
