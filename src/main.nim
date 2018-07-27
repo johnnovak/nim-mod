@@ -82,6 +82,12 @@ proc startPlayer(config: Config, module: Module) =
       if   currView() == vtPattern: setCurrView(vtSamples)
       elif currView() == vtSamples: setCurrView(vtPattern)
 
+    of Key.J:
+      if currView() == vtSamples: scrollSamplesViewDown()
+
+    of Key.K:
+      if currView() == vtSamples: scrollSamplesViewUp()
+
     of Key.Space:
       ps.paused = not ps.paused
 

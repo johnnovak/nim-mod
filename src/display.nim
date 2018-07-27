@@ -306,6 +306,11 @@ proc getMaxVisibleTracks(width: Natural): Natural =
   (width - SCREEN_X_PAD - 5) div (PATTERN_TRACK_WIDTH + 3)
 
 
+var gStartSample = 1
+
+proc scrollSamplesViewUp*() = dec(gStartSample)
+proc scrollSamplesViewDown*() = inc(gStartSample)
+
 proc drawSamplesView*(cb: var ConsoleBuffer, ps: PlaybackState,
                       height: Natural) =
   const
@@ -357,8 +362,21 @@ proc drawSamplesView*(cb: var ConsoleBuffer, ps: PlaybackState,
   cb.write(bb)
 
   # Draw sample list
+  if gStartSample < 1:
+    gStartSample = 1
+
+  let
+    numSamples = ps.module.numSamples
+    maxVisibleSamples = min(height-4, numSamples)
+  var
+    endSample = numSamples
+  if endSample - gStartSample + 1 > maxVisibleSamples:
+    endSample = gStartSample + maxVisibleSamples-1
+  elif endSample - gStartSample + 1 < maxVisibleSamples:
+    gStartSample = 1 + numSamples - maxVisibleSamples
+
   inc(y, 2)
-  for sampNo in 1..min(ps.module.numSamples, height - 4):
+  for sampNo in gStartSample..endSample:
     let sample = ps.module.samples[sampNo]
 
     if sample.length > 0: cb.setColor(gCurrTheme.sample)
