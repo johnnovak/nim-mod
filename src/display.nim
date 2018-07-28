@@ -156,26 +156,20 @@ proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
   y = Y1
 
   cb.setColor(gCurrTheme.text)
-  cb.write(COL2_X, y, fmt"Volume:")
+  cb.write(COL2_X, y, fmt"Amp gain:")
   cb.setColor(gCurrTheme.textHi)
   cb.write(COL2_X_VAL-1, y, fmt"{ps.config.ampGain:5.1f}dB")
   inc(y)
 
   cb.setColor(gCurrTheme.text)
-  cb.write(COL2_X, y, fmt"Interpol.:")
+  cb.write(COL2_X, y, fmt"Resampler:")
   cb.setColor(gCurrTheme.textHi)
 
-  var interpol: string
-  case ps.config.interpolation
-  of siNearestNeighbour: interpol = "off"
-  of siLinear:           interpol = "linear"
-  cb.write(COL2_X_VAL, y, fmt"{interpol:>6}")
-  inc(y)
-
-  cb.setColor(gCurrTheme.text)
-  cb.write(COL2_X, y, fmt"De-click:")
-  cb.setColor(gCurrTheme.textHi)
-  cb.write(COL2_X_VAL, y, "   off")
+  var resamp: string
+  case ps.config.resampler
+  of rsNearestNeighbour: resamp = "off"
+  of rsLinear:           resamp = "linear"
+  cb.write(COL2_X_VAL, y, fmt"{resamp:>6}")
   inc(y)
 
   cb.setColor(gCurrTheme.text)

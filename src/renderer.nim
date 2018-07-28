@@ -270,10 +270,10 @@ proc render(ch: var Channel, ps: PlaybackState,
       if ch.period == 0 or ch.samplePos >= (ch.currSample.length).float32:
         s = 0
       else:
-        case ps.config.interpolation
-        of siNearestNeighbour:
+        case ps.config.resampler
+        of rsNearestNeighbour:
           s = ch.currSample.data[ch.samplePos.int].float * ch.volumeScalar
-        of siLinear:
+        of rsLinear:
           let
             posInt = ch.samplePos.int
             s1 = ch.currSample.data[posInt]

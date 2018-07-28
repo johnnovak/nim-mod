@@ -12,8 +12,7 @@ type
     noSoundOutput*:    bool
     ampGain*:          float
     stereoWidth*:      int
-    interpolation*:    SampleInterpolation
-    declick*:          bool
+    resampler*:        Resampler
     outFilename*:      string
     displayUI*:        bool
     refreshRateMs*:    Natural
@@ -23,8 +22,8 @@ type
   OutputType* = enum
     otAudio, otWaveWriter
 
-  SampleInterpolation* = enum
-    siNearestNeighbour, siLinear
+  Resampler* = enum
+    rsNearestNeighbour, rsLinear
 
   BitDepth* = enum
     bd16Bit, bd24Bit, bd32BitFloat
@@ -38,8 +37,7 @@ proc initConfigWithDefaults(): Config =
   result.noSoundOutput    = false
   result.ampGain          = -6.0
   result.stereoWidth      = 50
-  result.interpolation    = siLinear
-  result.declick          = true
+  result.resampler        = rsLinear
   result.outFilename      = nil
   result.displayUI        = true
   result.refreshRateMs    = 20
@@ -71,15 +69,13 @@ Options:
                                    0 = mono
                                  100 = full stereo (hard panned channels)
                                 -100 = full reverse stereo
-  -i, --interpolation=MODE  set the sample interpolation mode; default is 'linear'
-                              off    = no interpolation (nearest-neighbour)
+  -r, --resampler=MODE      set the resampling mode; default is 'linear'
+                              off    = nearest-neighbour (no interpolation)
                               linear = linear interpolation
-  -d, --declick=on|off      turn declicking on or off, on by default
   -f, --outFilename         set the output filename for the file writer
   -U, --noUserInterface     disable the user interface
-  -r, --refreshRate=INTEGER set the UI refresh rate in ms; 20 ms by default
-  -l, --showLength          only print out the estimated non-looped length
-                            of the module
+  -R, --refreshRate=INTEGER set the UI refresh rate in ms; 20 ms by default
+  -l, --showLength          print the non-looped song length and exit
   -h, --help                show this help
   -v, --version             show detailed version information
   -V, --verbose             verbose output, for debugging
@@ -173,22 +169,14 @@ proc parseCommandLine*(): Config =
           invalidOptValue(opt, val, "stereo width must be between -100 and 100")
         config.stereoWidth = w
 
-      of "interpolation", "i":
+      of "resampler", "r":
         case val:
         of "": missingOptValue(opt)
-        of "off": config.interpolation = siNearestNeighbour
-        of "linear":  config.interpolation = siLinear
+        of "off": config.resampler = rsNearestNeighbour
+        of "linear":  config.resampler = rsLinear
         else:
           invalidOptValue(opt, val,
-            "interpolation must be one of 'off' or 'linear'")
-
-      of "declick", "d":
-        case val:
-        of "": missingOptValue(opt)
-        of "on":  config.declick = true
-        of "off": config.declick = false
-        else:
-          invalidOptValue(opt, val, "valid values are 'on' and 'off'")
+            "resampler mode must be one of 'off' or 'linear'")
 
       of "outFilename", "f":
         config.outFilename = val
@@ -196,7 +184,7 @@ proc parseCommandLine*(): Config =
       of "noUserInterface", "U":
         config.displayUI = false
 
-      of "refreshRate", "r":
+      of "refreshRate", "R":
         if val == "": missingOptValue(opt)
         var rate: int
         if parseInt(val, rate) == 0:

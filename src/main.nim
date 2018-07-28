@@ -139,12 +139,12 @@ proc startPlayer(config: Config, module: Module) =
       ps.config.stereoWidth = min( 100, ps.config.stereoWidth + 10)
 
     of Key.I:
-      var i = ps.config.interpolation
-      if i == SampleInterpolation.high:
-        i = SampleInterpolation.low
+      var r = ps.config.resampler
+      if r == Resampler.high:
+        r = Resampler.low
       else:
-        inc(i)
-      ps.config.interpolation = i
+        inc(r)
+      ps.config.resampler = r
 
     of Key.Q: quit(QuitSuccess)
 
