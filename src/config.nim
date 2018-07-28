@@ -8,6 +8,8 @@ type
     outputType*:       OutputType
     sampleRate*:       Natural
     bitDepth*:         BitDepth
+    bufferSize*:       Natural
+    noSoundOutput*:    bool
     ampGain*:          float
     stereoWidth*:      int
     interpolation*:    SampleInterpolation
@@ -32,6 +34,8 @@ proc initConfigWithDefaults(): Config =
   result.outputType       = otAudio
   result.sampleRate       = 44100
   result.bitDepth         = bd16Bit
+  result.bufferSize       = 2048
+  result.noSoundOutput    = false
   result.ampGain          = -6.0
   result.stereoWidth      = 50
   result.interpolation    = siLinear
@@ -58,6 +62,8 @@ Options:
   -s, --sampleRate=INTEGER  set the sample rate; default is 44100
   -b, --bitDepth=16|24|32   set the output bit depth, 32 stands for 32-bit
                             floating point; default is 16
+  -B, --bufferSize=INTEGER  size of the audio buffer in bytes; default is 2048
+  -N, --noSoundOutput       disable sound output
   -a, --ampGain=FLOAT       set the amplifier gain in dB; default is -6.0 dB
   -w, --stereoWidth=INTEGER
                             set the stereo width, must be between
@@ -70,13 +76,13 @@ Options:
                               linear = linear interpolation
   -d, --declick=on|off      turn declicking on or off, on by default
   -f, --outFilename         set the output filename for the file writer
-  -u, --userInterface=on|off  turn the UI on or off; on by default
+  -U, --noUserInterface     disable the user interface
   -r, --refreshRate=INTEGER set the UI refresh rate in ms; 20 ms by default
   -l, --showLength          only print out the estimated non-looped length
                             of the module
   -h, --help                show this help
   -v, --version             show detailed version information
-  -V, --verbose             verbose output, for debugging; off by default
+  -V, --verbose             verbose output, for debugging
 
 """
 
@@ -135,6 +141,18 @@ proc parseCommandLine*(): Config =
           invalidOptValue(opt, val,
             "bit depth must be one of '16', '24 or '32'")
 
+      of "bufferSize", "B":
+        if val == "": missingOptValue(opt)
+        var s: int
+        if parseInt(val, s) == 0:
+          invalidOptValue(opt, val, "buffer size must be a positive integer")
+        if s > 0: config.bufferSize = s
+        else:
+          invalidOptValue(opt, val, "buffer size must be a positive integer")
+
+      of "noSoundOutput", "N":
+        config.noSoundOutput = true
+
       of "ampGain", "a":
         if val == "": missingOptValue(opt)
         var g: float
@@ -175,13 +193,8 @@ proc parseCommandLine*(): Config =
       of "outFilename", "f":
         config.outFilename = val
 
-      of "userInterface", "u":
-        case val:
-        of "": missingOptValue(opt)
-        of "on":  config.displayUI = true
-        of "off": config.displayUI = false
-        else:
-          invalidOptValue(opt, val, "valid values are 'on' and 'off'")
+      of "noUserInterface", "U":
+        config.displayUI = false
 
       of "refreshRate", "r":
         if val == "": missingOptValue(opt)
@@ -199,12 +212,7 @@ proc parseCommandLine*(): Config =
       of "version", "v": printVersion(); quit(QuitSuccess)
 
       of "verbose", "V":
-        case val:
-        of "": missingOptValue(opt)
-        of "on":  config.verboseOutput = true
-        of "off": config.verboseOutput = false
-        else:
-          invalidOptValue(opt, val, "valid values are 'on' and 'off'")
+        config.verboseOutput = true
 
       else: invalidOption(opt)
 

@@ -55,12 +55,16 @@ proc initAudio*(config: Config, audioCb: AudioCallback): bool =
   res = system.init(2, FMOD_INIT_NORMAL, nil)
   checkResult(res)
 
+  if config.noSoundOutput:
+    res = system.setOutput(FMOD_OUTPUTTYPE_NOSOUND)
+    checkResult(res)
+
   gAudioCallback = audioCb
 
   exInfo.cbSize            = sizeof(FmodCreateSoundExInfo).cint
   exInfo.numChannels       = 2                               # Number of channels in the sound.
   exInfo.defaultFrequency  = config.sampleRate.cint          # Default playback rate of sound.
-  exInfo.decodeBufferSize  = 2048                            # Chunk size of stream update in samples. This will be the amount of data passed to the user callback.
+  exInfo.decodeBufferSize  = config.bufferSize.cuint         # Chunk size of stream update in samples. This will be the amount of data passed to the user callback.
   exInfo.length            = (exInfo.defaultfrequency * exInfo.numChannels * sizeof(int16) * 4).uint32 # Length of PCM data in bytes of whole song (for Sound::getLength)
   exInfo.format            = FMOD_SOUND_FORMAT_PCM16         # Data format of sound.
   exInfo.pcmReadCallback   = pcmReadCallback                 # User callback for reading.
