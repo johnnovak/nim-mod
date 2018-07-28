@@ -1,4 +1,4 @@
-import parseopt, parseutils, strformat
+import logging, parseopt, parseutils, strformat
 
 const VERSION = "0.1.0"
 
@@ -18,6 +18,7 @@ type
     refreshRateMs*:    Natural
     showLength*:       bool
     verboseOutput*:    bool
+    suppressWarnings*: bool
 
   OutputType* = enum
     otAudio, otWaveWriter
@@ -42,6 +43,7 @@ proc initConfigWithDefaults(): Config =
   result.displayUI        = true
   result.refreshRateMs    = 20
   result.verboseOutput    = false
+  result.suppressWarnings = false
 
 proc printVersion() =
   echo "nim-mod version " & VERSION
@@ -79,6 +81,7 @@ Options:
   -h, --help                show this help
   -v, --version             show detailed version information
   -V, --verbose             verbose output, for debugging
+  -q, --quiet               suppress warnings
 
 """
 
@@ -202,12 +205,15 @@ proc parseCommandLine*(): Config =
       of "verbose", "V":
         config.verboseOutput = true
 
+      of "quiet", "q":
+        config.suppressWarnings = true
+
       else: invalidOption(opt)
 
     of cmdEnd: assert(false)
 
   if config.inputFile == nil:
-    echo "Error: input file must be specified"
+    error("Error: input file must be specified")
     quit(QuitFailure)
 
   result = config

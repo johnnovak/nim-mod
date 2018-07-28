@@ -2,7 +2,7 @@ import os, strutils, strformat, terminal
 
 const
   TEST_PATH = "./"
-  CMD_OPTS = "-o:wav -s:22050 -b:16 -a:-6 -w:50 -i:off -d:off"
+  CMD_OPTS = "-o:wav -s:22050 -b:16 -a:-6 -w:50 -r:off -q"
   EXPECTED_SUFFIX = "-EXPECTED"
   RESULT_SUFFIX = "-RESULT"
 

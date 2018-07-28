@@ -41,11 +41,11 @@ proc startPlayer(config: Config, module: Module) =
 
   # Init audio stuff
   if not audio.initAudio(config, audioCallback):
-    echo audio.getLastError()
+    error(audio.getLastError())
     quit(QuitFailure)
 
   if not audio.startPlayback():
-    echo audio.getLastError()
+    error(audio.getLastError())
     quit(QuitFailure)
 
   system.addQuitProc(playerQuitProc)
@@ -208,7 +208,7 @@ proc writeWaveFile(config: Config, module: Module) =
 
 
 proc main() =
-  var logger = newConsoleLogger()
+  var logger = newConsoleLogger(fmtStr = "")
   addHandler(logger)
   setLogFilter(lvlNotice)
 
@@ -216,6 +216,8 @@ proc main() =
 
   if config.verboseOutput:
     setLogFilter(lvlDebug)
+  elif config.suppressWarnings:
+    setLogFilter(lvlError)
 
   # Load module
   var module: Module
@@ -223,8 +225,9 @@ proc main() =
     module = readModule(config.inputFile)
   except:
     let ex = getCurrentException()
-    echo "Error loading module: " & ex.msg
-    echo getStackTrace(ex)
+    error("Error loading module: " & ex.msg)
+    when not defined(release):
+      error(getStackTrace(ex))
     quit(QuitFailure)
 
   if config.showLength:
@@ -240,8 +243,9 @@ proc main() =
         writeWaveFile(config, module)
       except:
         let ex = getCurrentException()
-        echo fmt"Error writing output file '{config.outFilename}': " & ex.msg
-        echo getStackTrace(ex)
+        error(fmt"Error writing output file '{config.outFilename}': " & ex.msg)
+        when not defined(release):
+          error(getStackTrace(ex))
         quit(QuitFailure)
 
 
