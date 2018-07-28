@@ -222,6 +222,7 @@ proc readPatternData(f: File, buf: var seq[uint8], pos: Natural,
 
     # pos is at the next byte to be read
     var remainingBytesInBuf = buf.len - pos
+    debug(fmt"  remainingBytesInBuf: {remainingBytesInBuf}")
     copyMem(pattBuf[0].addr, buf[pos].addr, remainingBytesInBuf)
 
     var bytesToRead = bytesInPattern - remainingBytesInBuf
