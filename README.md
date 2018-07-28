@@ -5,6 +5,8 @@ guitars or marry 20 years younger platinum blondes when midlife crisis strikes.
 
 I write modplayers.
 
+![nim-mod running on Windows](nim-mod-1.png)
+
 ### Features
 
 * Pretty accurate **Amiga ProTracker 2.3D** compatible playback
