@@ -7,10 +7,13 @@ const
   SAMPLE_NAME_LEN*           = 22
   MAX_SAMPLES*               = 31
   NUM_SAMPLES_SOUNDTRACKER*  = 15
-  NUM_SONG_POSITIONS*        = 128
+  NUM_SONG_POSITIONS*        = 127
   ROWS_PER_PATTERN*          = 64
+  MAX_PATTERNS*              = 128
 
   NUM_SEMITONES* = 12
+
+  MIN_SAMPLE_REPLEN*  = 2
 
   AMIGA_NUM_OCTAVES*  = 3
   AMIGA_NUM_NOTES*    = AMIGA_NUM_OCTAVES * NUM_SEMITONES
@@ -25,6 +28,7 @@ const
   EXT_NOTE_MAX_AMIGA* = EXT_NOTE_MIN_AMIGA + AMIGA_NUM_NOTES - 1
 
   NOTE_NONE* = -1
+
 
 type
   Module* = ref object

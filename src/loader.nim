@@ -1,4 +1,4 @@
-import algorithm, endians, logging, strformat
+import algorithm, endians, logging, strformat, strutils
 
 import module
 
@@ -202,73 +202,9 @@ proc convertToAmigaNotes(module: Module) =
           assert note >= AMIGA_NOTE_MIN and note <= AMIGA_NOTE_MAX
           module.patterns[patt].tracks[track].rows[row].note = note
 
-proc readModule*(f: File): Module =
-  var module = newModule()
 
-  # We want to check the tag first, but instead of seeking we read ahead so we
-  # can read from streams as well.
-  var buf = newSeq[uint8](TAG_OFFSET + TAG_LEN)
-  var pos: Natural = 0
-
-  read(f, buf[0].addr, buf.len)
-
-  # Try to determine module type from the tag
-  var tagBuf: array[TAG_LEN + 1, uint8]
-  copyMem(tagBuf.addr, buf[TAG_OFFSET].addr, TAG_LEN)
-  let tagString = $cast[cstring](tagBuf[0].addr)
-  debug(fmt"Module tag: {tagString}")
-
-  let tag = mkTag(tagString)
-  (module.moduleType, module.numChannels) = determineModuleType(tag)
-  info(fmt"Detected module type: {module.moduleType}, " &
-       fmt"{module.numChannels} channels")
-
-  # Read song name
-  var songName = cast[cstring](alloc0(SONG_TITLE_LEN + 1))
-  copyMem(songName, buf[pos].addr, SONG_TITLE_LEN)
-  module.songName = $songName
-  nonPrintableCharsToSpace(module.songName)
-  info(fmt"Songname: {songname}")
-  inc(pos, SONG_TITLE_LEN)
-
-  # Read sample info
-  let numSamples = if module.moduleType == mtSoundTracker:
-    NUM_SAMPLES_SOUNDTRACKER
-  else:
-    MAX_SAMPLES
-
-  module.numSamples = numSamples
-  info(fmt"Number of samples: {numSamples}")
-
-  debug(fmt"Reading sample info...")
-  for i in 1..numSamples:
-    module.samples[i] = readSampleInfo(buf, pos)
-    debug(fmt"  Sample {i}: {module.samples[i]}")
-
-  # Read song length
-  module.songLength = buf[pos].int
-  info(fmt"Song length: {module.songLength}")
-  inc(pos)
-
-  # Read song restart position
-  module.songRestartPos = buf[pos].int
-  info(fmt"Song restart position: {module.songRestartPos}")
-  inc(pos)
-
-  # Read song positions
-  for i in 0..<NUM_SONG_POSITIONS:
-    module.songPositions[i] = buf[pos].int
-    inc(pos)
-
-  # Determine the number of patterns:
-  # the pattern with the highest number in the songpos table + 1
-  var numPatterns = 0
-  for sp in module.songPositions:
-    numPatterns = max(sp.int, numPatterns)
-  inc(numPatterns)
-  info(fmt"Number of patterns: {numPatterns}")
-
-  # Read pattern data
+proc readPatternData(f: File, buf: var seq[uint8], pos: Natural,
+                     module: var Module, numPatterns: Natural) =
   debug(fmt"Reading pattern data...")
 
   # For non-SoundTracker modules, we have read everything before the pattern
@@ -321,16 +257,11 @@ proc readModule*(f: File): Module =
       let patt = readPattern(f, module.numChannels)
       module.patterns.add(patt)
 
-  # Detect whether we should use Amiga notes and the ProTracker period table
-  # or extended FT2 notes & periods
-  if allNotesWithinAmigaLimits(module):
-    convertToAmigaNotes(module)
-    module.useAmigaLimits = true
 
-  # Read sample data
+proc readSampleData(f: File, module: var Module) =
   debug(fmt"Reading sample data...")
 
-  for sampNum in 1..numSamples:
+  for sampNum in 1..module.numSamples:
     let sampLen = module.samples[sampNum].length
     if sampLen > 0:
       debug(fmt"  Reading sample {sampNum} ({sampLen} bytes)")
@@ -353,7 +284,136 @@ proc readModule*(f: File): Module =
 
       module.samples[sampNum].data = floatData
 
-  info(fmt"Module loaded successfully")
+
+proc validateSampleInfo(sample: Sample, sampleNum: Natural): seq[string] =
+  result = newSeq[string]()
+
+  if sample.repeatOffset > sample.length:
+    result.add(
+      fmt"Repeat offset {sample.repeatOffset} greater than " &
+      fmt"sample length {sample.length} for sample {sampleNum}")
+
+  if sample.length == 0 and sample.repeatLength != MIN_SAMPLE_REPLEN:
+    warn(fmt"Repeat length of empty sample {sampleNum} is " &
+         fmt"{sample.repeatLength} instead of {MIN_SAMPLE_REPLEN}")
+
+  if sample.length > 0:
+    var repeatEnd = sample.repeatOffset + sample.repeatLength
+    if repeatEnd > sample.length:
+      result.add(
+        "Repeat offset plus repeat length " &
+        fmt"({sample.repeatOffset} + {sample.repeatLength} = {repeatEnd}) " &
+        fmt"greater than sample length {sample.length} for sample {sampleNum}")
+
+
+proc validateModule(module: Module): seq[string] =
+  result = newSeq[string]()
+
+  for i in 1..module.numSamples:
+    result.add(validateSampleInfo(module.samples[i], i))
+
+  if not (module.songLength >= 1 and module.songLength <= NUM_SONG_POSITIONS):
+    result.add(
+      fmt"Invalid song length {module.songLength}, " &
+      fmt"must be between 1 and {NUM_SONG_POSITIONS}")
+
+  if not (module.songRestartPos >= 0 and
+          module.songRestartPos <= NUM_SONG_POSITIONS):
+    result.add(
+      fmt"Invalid song restart position {module.songRestartPos}, " &
+      fmt"must be between 0 and {NUM_SONG_POSITIONS}")
+
+  for songPos, patternNum in module.songPositions.pairs:
+    if patternNum > MAX_PATTERNS:
+      result.add(
+        fmt"Invalid pattern number {patternNum} at song position {songPos}, " &
+        fmt"must be between 0 and {MAX_PATTERNS}")
+
+
+proc readModule*(f: File): Module =
+  var module = newModule()
+
+  # We want to check the tag first, but instead of seeking we read ahead so we
+  # can read from streams as well.
+  var buf = newSeq[uint8](TAG_OFFSET + TAG_LEN)
+  var pos: Natural = 0
+
+  read(f, buf[0].addr, buf.len)
+
+  # Try to determine module type from the tag
+  var tagBuf: array[TAG_LEN + 1, uint8]
+  copyMem(tagBuf.addr, buf[TAG_OFFSET].addr, TAG_LEN)
+  let tagString = $cast[cstring](tagBuf[0].addr)
+  debug(fmt"Module tag: {tagString}")
+
+  let tag = mkTag(tagString)
+  (module.moduleType, module.numChannels) = determineModuleType(tag)
+  info(fmt"Detected module type: {module.moduleType}, " &
+       fmt"{module.numChannels} channels")
+
+  # Read song name
+  var songName = cast[cstring](alloc0(SONG_TITLE_LEN + 1))
+  copyMem(songName, buf[pos].addr, SONG_TITLE_LEN)
+  module.songName = $songName
+  nonPrintableCharsToSpace(module.songName)
+  info(fmt"Songname: {songname}")
+  inc(pos, SONG_TITLE_LEN)
+
+  # Read sample info
+  let numSamples = if module.moduleType == mtSoundTracker:
+    NUM_SAMPLES_SOUNDTRACKER
+  else:
+    MAX_SAMPLES
+
+  module.numSamples = numSamples
+  info(fmt"Number of samples: {numSamples}")
+
+  debug(fmt"Reading sample info...")
+  for i in 1..numSamples:
+    let sample = readSampleInfo(buf, pos)
+    debug(fmt"  Sample {i}: {sample}")
+    module.samples[i] = sample
+
+  # Read song length
+  module.songLength = buf[pos].Natural
+  info(fmt"Song length: {module.songLength}")
+  inc(pos)
+
+  # Read song restart position
+  module.songRestartPos = buf[pos].Natural
+  info(fmt"Song restart position: {module.songRestartPos}")
+  inc(pos)
+
+  # Read song positions
+  for i in 0..<NUM_SONG_POSITIONS:
+    var patternNum = buf[pos].Natural
+    module.songPositions[i] = patternNum
+    inc(pos)
+
+  # Raise exception if the module seems to be invalid
+  let errors = validateModule(module)
+  if errors.len > 0:
+    raise newException(ModuleReadError, errors.join("\n"))
+
+  # Determine the number of patterns:
+  # the pattern with the highest number in the songpos table + 1
+  var numPatterns = 0
+  for sp in module.songPositions:
+    numPatterns = max(sp, numPatterns)
+  inc(numPatterns)
+  info(fmt"Number of patterns: {numPatterns}")
+
+  readPatternData(f, buf, pos, module, numPatterns)
+
+  # Detect whether we should use Amiga notes and the ProTracker period table
+  # or extended FT2 notes & periods
+  if allNotesWithinAmigaLimits(module):
+    convertToAmigaNotes(module)
+    module.useAmigaLimits = true
+
+  readSampleData(f, module)
+
+  info(fmt"Module read successfully")
   result = module
 
 
