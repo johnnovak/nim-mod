@@ -65,10 +65,24 @@ proc initAudio*(config: Config, audioCb: AudioCallback): bool =
   exInfo.numChannels       = 2                               # Number of channels in the sound.
   exInfo.defaultFrequency  = config.sampleRate.cint          # Default playback rate of sound.
   exInfo.decodeBufferSize  = config.bufferSize.cuint         # Chunk size of stream update in samples. This will be the amount of data passed to the user callback.
-  exInfo.length            = (exInfo.defaultfrequency * exInfo.numChannels * sizeof(int16) * 4).uint32 # Length of PCM data in bytes of whole song (for Sound::getLength)
-  exInfo.format            = FMOD_SOUND_FORMAT_PCM16         # Data format of sound.
   exInfo.pcmReadCallback   = pcmReadCallback                 # User callback for reading.
   exInfo.pcmSetPosCallback = pcmSetPosCallback               # User callback for seeking.
+
+  case config.bitDepth
+  of bd16Bit:
+    exInfo.length =
+      (exInfo.defaultfrequency * exInfo.numChannels * sizeof(int16)*4).uint32
+    exInfo.format = FMOD_SOUND_FORMAT_PCM16
+ 
+  of bd24Bit:
+    exInfo.length =
+      (exInfo.defaultfrequency * exInfo.numChannels * 3*4).uint32
+    exInfo.format = FMOD_SOUND_FORMAT_PCM24
+
+  of bd32BitFloat:
+    exInfo.length =
+      (exInfo.defaultfrequency * exInfo.numChannels * sizeof(float32)*4).uint32
+    exInfo.format = FMOD_SOUND_FORMAT_PCMFLOAT
 
   res = system.createSound(nil, mode, exInfo.addr, sound.addr)
   checkResult(res)
