@@ -7,7 +7,7 @@ const
   SAMPLE_NAME_LEN*           = 22
   MAX_SAMPLES*               = 31
   NUM_SAMPLES_SOUNDTRACKER*  = 15
-  NUM_SONG_POSITIONS*        = 127
+  NUM_SONG_POSITIONS*        = 128
   ROWS_PER_PATTERN*          = 64
   MAX_PATTERNS*              = 128
 
