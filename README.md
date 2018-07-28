@@ -13,6 +13,10 @@ I write modplayers.
   StarTrekker etc.)
 * Cross-platform (Windows, Linux & OS X)
 * Kickass console UI
-* Vim-inspired keyboard shortcuts (**SUPR IMPRTANT!!!1**)
+* WAV writer (16/24-bit integer, 32-bit float)
+* Change play position during playback with speed/tempo & pattern jump chasing
+* Song length calculation with loop detection
+* Adjustable stereo width & gain factor
+* Vim-inspired keyboard shortcuts (**SUPR IMPRTANT!!!!!11**)
 * Uses FMOD for audio playback
 

@@ -1,7 +1,6 @@
 UI
 
 * add help screen
-* add sample list view
 
 
 PLAYBACK
@@ -10,22 +9,15 @@ PLAYBACK
 * add auto-volume reduction
 * implement volume ramping, need to decode the next tick in advance?
 
-* set bit depth for audio playback too
-
 
 OTHER
 
 * add command line params
   * write log to file
-  * set audio buffer size
-  * set playback params (all that can be set from the UI)
-  * FMOD force driver (?)
 
 * add config
   * all command line options
   * theme config
-
-* ADD TESTIMONIALS TO README
 
 
 Notes about the test modules
