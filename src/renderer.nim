@@ -80,6 +80,8 @@ type
     # Only used to signal the precalc loop that the end of the song has been
     # found
     hasSongEnded:        bool
+    songRestartType:     SongRestartType
+    songRestartPos:      Natural
 
     # Built in the precalc phase; it's used during playback to obviate the
     # need for tempo/speed/playtime chasing
@@ -139,6 +141,12 @@ type
     tempo*:       Natural
     ticksPerRow*: Natural
     startRow*:    Natural
+
+  SongRestartType* = enum
+    srNoRestart      = (0, "no restart"),
+    srNormalRestart  = (1, "normal restart"),
+    srSongRestartPos = (2, "song restart pos"),
+    srPositionJump   = (3, "position jump")
 
 
 proc resetChannel(ch: var Channel) =
@@ -228,10 +236,13 @@ proc initPlaybackState*(config: Config, module: Module): PlaybackState =
   result = ps
 
 
-proc checkHasSongEnded(ps: var PlaybackState, songPos: Natural, row: Natural) =
+proc checkHasSongEnded(ps: var PlaybackState, songPos: Natural, row: Natural,
+                       restartType: SongRestartType) =
   let p = JumpPos(songPos: ps.currSongPos, row: ps.currRow)
   if ps.jumpHistory.contains(p):
     ps.hasSongEnded = true
+    ps.songRestartType = restartType
+    ps.songRestartPos = p.songPos
   else:
     ps.jumpHistory.add(p)
 
@@ -694,7 +705,7 @@ proc doTick(ps: var PlaybackState) =
     ps.channels[chanIdx] = ch
 
 
-proc setNextSongPos(ps: var PlaybackState) = 
+proc setNextSongPos(ps: var PlaybackState) =
   if ps.nextSongPos == ps.currSongPos:
     ps.nextSongPos = NO_VALUE
   else:
@@ -703,8 +714,7 @@ proc setNextSongPos(ps: var PlaybackState) =
     ps.resetChannels()
     ps.currSongPos = nextSongPos
 
-    # This effectively achieves tempo & speed command chasing in a very
-    # cheap way!
+    # This effectively achieves tempo & speed command chasing very cheaply!
     ps.playPositionFrame = ps.songPosCache[ps.currSongPos].frame
     ps.tempo             = ps.songPosCache[ps.currSongPos].tempo
     ps.ticksPerRow       = ps.songPosCache[ps.currSongPos].ticksPerRow
@@ -712,8 +722,8 @@ proc setNextSongPos(ps: var PlaybackState) =
     # This is important! The current tick will be advanced by one below, so we
     # need to start from the last tick of the previous row to then just
     # "slide" into the correct row position (it's ok to have -1 in currRow)
-    ps.currRow     = ps.songPosCache[ps.currSongPos].startRow-1
-    ps.currTick    = ps.ticksPerRow-1
+    ps.currRow  = ps.songPosCache[ps.currSongPos].startRow-1
+    ps.currTick = ps.ticksPerRow-1
 
 
 proc advancePlayPosition(ps: var PlaybackState) =
@@ -726,7 +736,7 @@ proc advancePlayPosition(ps: var PlaybackState) =
 
   if ps.ticksPerRow == 0:  # zero speed
     ps.hasSongEnded = true
-    # TODO handle differently?
+    ps.songRestartType = srNoRestart
     return
 
   if ps.currTick > ps.ticksPerRow-1:
@@ -746,7 +756,7 @@ proc advancePlayPosition(ps: var PlaybackState) =
         ps.jumpRow = NO_VALUE
 
         if ps.mode == rmPrecalc:
-          checkHasSongEnded(ps, ps.currSongPos, ps.currRow)
+          checkHasSongEnded(ps, ps.currSongPos, ps.currRow, srPositionJump)
           storeSongPosInfo(ps)
         elif ps.currSongPos != prevSongPos:
           ps.playPositionFrame = ps.songPosCache[ps.currSongPos].frame
@@ -762,6 +772,8 @@ proc advancePlayPosition(ps: var PlaybackState) =
             break
 
         if not loopFound:  # move to next row normally
+          var restartType: SongRestartType
+
           inc(ps.currRow, 1)
           if ps.currRow > ROWS_PER_PATTERN-1:
             inc(ps.currSongPos, 1)
@@ -769,13 +781,16 @@ proc advancePlayPosition(ps: var PlaybackState) =
               ps.currSongPos = ps.module.songRestartPos
               if ps.currSongPos >= ps.module.songLength:
                 ps.currSongPos = 0
+                restartType = srNormalRestart
+              else:
+                restartType = srSongRestartPos
             ps.currRow = 0
             for i in 0..ps.channels.high:
               ps.channels[i].loopStartRow = 0
               ps.channels[i].loopCount = 0
 
             if ps.mode == rmPrecalc:
-              checkHasSongEnded(ps, ps.currSongPos, ps.currRow)
+              checkHasSongEnded(ps, ps.currSongPos, ps.currRow, restartType)
               storeSongPosInfo(ps)
             else:
               ps.playPositionFrame = ps.songPosCache[ps.currSongPos].frame
@@ -905,7 +920,9 @@ proc render*(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
   of bd32BitFloat: render32BitFloat(ps, buf, bufLen)
 
 
-proc precalcSongPosCacheAndSongLength*(ps: var PlaybackState): Natural =
+proc precalcSongPosCacheAndSongLength*(ps: var PlaybackState):
+    (Natural, SongRestartType, Natural) =
+
   ps.mode = rmPrecalc
   while not ps.hasSongEnded:
     advancePlayPosition(ps)
@@ -914,7 +931,7 @@ proc precalcSongPosCacheAndSongLength*(ps: var PlaybackState): Natural =
       inc(ps.playPositionFrame, framesPerTick(ps))
 
   # Store result and reset state for the real playback
-  result = ps.playPositionFrame
+  result = (ps.playPositionFrame, ps.songRestartType, ps.songRestartPos)
   ps.songLengthFrames = ps.playPositionFrame
   ps.resetPlaybackState()
   ps.resetChannels()

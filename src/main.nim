@@ -14,13 +14,26 @@ import wavewriter
 proc showLength(config: Config, module: Module) =
   var ps = initPlaybackState(config, module)
   let
-    lengthFractSeconds = precalcSongPosCacheAndSongLength(ps) / ps.config.sampleRate
-    (lengthSeconds, millis) = splitDecimal(lengthFractSeconds)
-    mins = lengthSeconds.int div 60
-    secs = lengthSeconds.int mod 60
+    (lenFrames, restartType, restartPos) = precalcSongPosCacheAndSongLength(ps)
+    lenFractSeconds = lenFrames / ps.config.sampleRate
+    (lenSecs, millis) = splitDecimal(lenFractSeconds)
+    mins = lenSecs.int div 60
+    secs = lenSecs.int mod 60
     ms = round(millis * 1000).int
+    lengthStr = fmt"{mins:02}:{secs:02}.{ms:03}"
 
-  echo fmt"Song length: {mins:02}:{secs:02}.{ms:03}"
+  case restartType 
+  of srNoRestart:
+    echo fmt"Song length: {lengthStr}"
+
+  of srNormalRestart:
+    echo fmt"Song length:  {lengthStr} (non-looped)"
+    echo fmt"Restart type: {restartType}"
+
+  of srSongRestartPos, srPositionJump:
+    echo fmt"Song length:     {lengthStr} (non-looped)"
+    echo fmt"Restart type:    {restartType}"
+    echo fmt"Restart songpos: {restartPos}"
 
 
 var displayUI = false
@@ -168,7 +181,7 @@ proc writeWaveFile(config: Config, module: Module) =
     NUM_CHANNELS = 2
 
   var ps = initPlaybackState(config, module)
-  var framesToWrite = precalcSongPosCacheAndSongLength(ps)
+  var (framesToWrite, _, _) = precalcSongPosCacheAndSongLength(ps)
   debug(fmt"framesToWrite: {framesToWrite}")
 
   var
