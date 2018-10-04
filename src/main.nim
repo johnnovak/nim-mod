@@ -22,7 +22,7 @@ proc showLength(config: Config, module: Module) =
     ms = round(millis * 1000).int
     lengthStr = fmt"{mins:02}:{secs:02}.{ms:03}"
 
-  case restartType 
+  case restartType
   of srNoRestart:
     echo fmt"Song length: {lengthStr}"
 
@@ -36,11 +36,11 @@ proc showLength(config: Config, module: Module) =
     echo fmt"Restart songpos: {restartPos}"
 
 
-var displayUI = false
+var gDisplayUI = false
 
 proc playerQuitProc() {.noconv.} =
   consoleDeinit()
-  if displayUI:
+  if gDisplayUI:
     exitFullscreen()
     showCursor()
   discard audio.closeAudio()
@@ -66,7 +66,7 @@ proc startPlayer(config: Config, module: Module) =
   consoleInit()
 
   if config.displayUI:
-    displayUI = true
+    gDisplayUI = true
     enterFullscreen()
     hideCursor()
 
@@ -91,15 +91,28 @@ proc startPlayer(config: Config, module: Module) =
   while true:
     let key = getKey()
     case key:
+    of Key.QuestionMark: toggleHelpView()
+
+    of Key.Escape:
+      if currView() == vtHelp: toggleHelpView()
+
     of Key.V:
-      if   currView() == vtPattern: setCurrView(vtSamples)
-      elif currView() == vtSamples: setCurrView(vtPattern)
+      case currView()
+      of vtPattern: setCurrView(vtSamples)
+      of vtSamples: setCurrView(vtPattern)
+      of vtHelp:    discard
 
-    of Key.J:
-      if currView() == vtSamples: scrollSamplesViewDown()
+    of Key.Up, Key.K:
+      case currView()
+      of vtPattern: discard
+      of vtSamples: scrollSamplesViewUp()
+      of vtHelp:    scrollHelpViewUp()
 
-    of Key.K:
-      if currView() == vtSamples: scrollSamplesViewUp()
+    of Key.Down, Key.J:
+      case currView()
+      of vtPattern: discard
+      of vtSamples: scrollSamplesViewDown()
+      of vtHelp:    scrollHelpViewDown()
 
     of Key.Space:
       ps.paused = not ps.paused

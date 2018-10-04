@@ -10,16 +10,6 @@ PLAYBACK
 * implement volume ramping, need to decode the next tick in advance?
 
 
-OTHER
-
-* add command line params
-  * write log to file
-
-* add config
-  * all command line options
-  * theme config
-
-
 Notes about the test modules
 ----------------------------
 
@@ -41,3 +31,4 @@ living insanity - lots of delay note and retrigger note commands
 kaviar - the intro turns the filter on
 
 melon - nested pattern loops at songpos 40
+

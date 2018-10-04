@@ -10,11 +10,6 @@ type
   ViewType* = enum
     vtPattern, vtSamples, vtHelp
 
-var gCurrView = vtPattern
-
-proc setCurrView*(view: ViewType) = gCurrView = view
-proc currView*: ViewType = gCurrView
-
 
 type
   TextColor = object
@@ -302,8 +297,11 @@ proc getMaxVisibleTracks(width: Natural): Natural =
 
 var gStartSample = 1
 
-proc scrollSamplesViewUp*() = dec(gStartSample)
-proc scrollSamplesViewDown*() = inc(gStartSample)
+proc scrollSamplesViewUp*() =
+  gStartSample = max(gStartSample - 1, 1)
+
+proc scrollSamplesViewDown*() =
+  inc(gStartSample)
 
 proc drawSamplesView*(cb: var ConsoleBuffer, ps: PlaybackState,
                       height: Natural) =
@@ -356,18 +354,14 @@ proc drawSamplesView*(cb: var ConsoleBuffer, ps: PlaybackState,
   cb.write(bb)
 
   # Draw sample list
-  if gStartSample < 1:
-    gStartSample = 1
-
   let
     numSamples = ps.module.numSamples
-    maxVisibleSamples = min(height-4, numSamples)
-  var
-    endSample = numSamples
-  if endSample - gStartSample + 1 > maxVisibleSamples:
-    endSample = gStartSample + maxVisibleSamples-1
-  elif endSample - gStartSample + 1 < maxVisibleSamples:
-    gStartSample = max(1 + numSamples - maxVisibleSamples, 1)
+    numVisibleSamples = height-4
+
+  if gStartSample + numVisibleSamples - 1 > numSamples:
+    gStartSample = max(numSamples - (numVisibleSamples - 1), 1)
+
+  let endSample = min(gStartSample + numVisibleSamples - 1, numSamples)
 
   inc(y, 2)
   for sampNo in gStartSample..endSample:
@@ -401,21 +395,144 @@ proc drawSamplesView*(cb: var ConsoleBuffer, ps: PlaybackState,
     inc(y)
 
 
-var cb: ConsoleBuffer
+var gHelpViewText: ConsoleBuffer
+
+var gStartHelpLine = 0
+
+proc scrollHelpViewUp*() =
+  gStartHelpLine = max(gStartHelpLine - 1, 0)
+
+proc scrollHelpViewDown*() =
+  inc(gStartHelpLine)
+
+proc createHelpViewText() =
+  var
+    y = 0
+    xPad = 15
+
+  proc writeEntry(key: string, desc: string) =
+    gHelpViewText.setColor(gCurrTheme.textHi)
+    gHelpViewText.write(0, y, key)
+    gHelpViewText.setColor(gCurrTheme.text)
+    gHelpViewText.write(xPad, y, desc)
+    inc(y)
+
+  gHelpViewText.setColor(gCurrTheme.note)
+  gHelpViewText.write(0, y, "GENERAL")
+  inc(y, 2)
+
+  writeEntry("?", "toggle help view")
+  writeEntry("ESC", "exit help view")
+  writeEntry("UpArrow, K", "scroll view up (sample & help view)")
+  writeEntry("DownArrow, J", "scroll view down (sample & help view)")
+  writeEntry("V", "toggle pattern/sample view")
+  writeEntry("Tab", "next track page (pattern view)")
+  writeEntry("F1-F7", "set theme")
+  writeEntry("R", "force redraw screen")
+  writeEntry("Q", "quit")
+  inc(y)
+
+  gHelpViewText.setColor(gCurrTheme.note)
+  gHelpViewText.write(0, y, "PLAYBACK")
+  inc(y, 2)
+
+  writeEntry("SPACE", "pause playback")
+  writeEntry("LeftArrow, H", "jump 1 song position backward")
+  writeEntry("Shift+H", "jump 10 song positions backward")
+  writeEntry("RightArrow, L", "jump 1 song position forward")
+  writeEntry("Shift+L", "jump 10 song positions forward")
+  writeEntry("G", "jump to first song position")
+  writeEntry("Shift+G", "jump to last song position")
+  inc(y)
+
+  gHelpViewText.setColor(gCurrTheme.note)
+  gHelpViewText.write(0, y, "SOUND OUTPUT")
+  inc(y, 2)
+
+  xPad = 6
+  writeEntry("1-9", "toggle mute channels 1-9")
+  writeEntry("0", "toggle mute channel 10")
+  writeEntry("U", "unmute all channels")
+  writeEntry(",", "decrease amp gain")
+  writeEntry(".", "increase amp gain")
+  writeEntry("[", "decrease stereo width")
+  writeEntry("]", "increase stereo width")
+  writeEntry("I", "toggle resampler algorithm")
+  inc(y)
+
+
+proc drawHelpView*(cb: var ConsoleBuffer, ps: PlaybackState, height: Natural) =
+  const
+    WIDTH = 56
+    x1 = SCREEN_X_PAD
+    y1 = VIEW_Y
+    x2 = x1 + WIDTH
+
+  let
+    y2 = y1 + height-1
+
+  var bb = newBoxBuffer(cb.width, cb.height)
+
+  # Draw border
+  bb.drawVertLine(x1, y1, y2)
+  bb.drawVertLine(x2, y1, y2)
+  bb.drawHorizLine(x1, x2, y1)
+  bb.drawHorizLine(x1, x2, y2)
+
+  cb.setColor(gCurrTheme.border)
+  cb.write(bb)
+
+  var x = x1+2
+  var y = y1+1
+
+  gHelpViewText = newConsoleBuffer(WIDTH-2, 32)
+  createHelpViewText()  # could be suboptimal with long texts, but in reality
+                        # doesn't really matter...
+  let
+    numLines = gHelpViewText.height
+    numVisibleLines = height-2
+
+  if gStartHelpLine + numVisibleLines >= numLines:
+    gStartHelpLine = max(numLines - numVisibleLines, 0)
+
+  cb.copyFrom(gHelpViewText, 0, gStartHelpLine, WIDTH, numVisibleLines, x, y)
+
+
 var gCurrTrackPage = 0
 
 proc nextTrackPage*() = inc(gCurrTrackPage)
+
+
+var
+  gCurrView = vtPattern
+  gLastView: ViewType
+
+proc setCurrView*(view: ViewType) =
+  gCurrView = view
+
+proc currView*: ViewType = gCurrView
+
+proc toggleHelpView*() =
+  if gCurrView == vtHelp:
+    gCurrView = gLastView
+  else:
+    gLastView = gCurrView
+    gCurrView = vtHelp
+
+
+var gConsoleBuffer: ConsoleBuffer
 
 proc updateScreen*(ps: PlaybackState, forceRedraw: bool = false) =
   var (w, h) = terminalSize()
   dec(w)
 
-  if cb == nil or cb.width != w or cb.height != h:
-    cb = newConsoleBuffer(w, h)
+  if gConsoleBuffer == nil or gConsoleBuffer.width != w or
+                              gConsoleBuffer.height != h:
+    gConsoleBuffer = newConsoleBuffer(w, h)
   else:
-    cb.clear()
+    gConsoleBuffer.clear()
 
-  drawPlaybackState(cb, ps)
+  drawPlaybackState(gConsoleBuffer, ps)
 
   let
     maxVisibleTracks = getMaxVisibleTracks(w)
@@ -441,42 +558,43 @@ proc updateScreen*(ps: PlaybackState, forceRedraw: bool = false) =
 
     var pattViewWidth = 0
     if maxRows >= 1:
-      drawPatternView(cb, ps.module.patterns[currPattern], ps.currRow, maxRows,
-                      startTrack, endTrack, ps.channels)
+      drawPatternView(gConsoleBuffer, ps.module.patterns[currPattern],
+                      ps.currRow, maxRows, startTrack, endTrack, ps.channels)
   of vtSamples:
     if maxRows >= 1:
-      drawSamplesView(cb, ps, viewHeight)
+      drawSamplesView(gConsoleBuffer, ps, viewHeight)
 
   of vtHelp:
-    discard
+    drawHelpView(gConsoleBuffer, ps, viewHeight)
 
   # Status line
   if h >= 9:
-    cb.setColor(gCurrTheme.text)
-    cb.write(SCREEN_X_PAD+1, h - SCREEN_Y_PAD-1, "Press ")
-    cb.setColor(gCurrTheme.textHi)
-    cb.write("?")
-    cb.setColor(gCurrTheme.text)
-    cb.write(" for help, ")
-    cb.setColor(gCurrTheme.textHi)
-    cb.write("Q")
-    cb.setColor(gCurrTheme.text)
-    cb.write(" to quit")
+    gConsoleBuffer.setColor(gCurrTheme.text)
+    gConsoleBuffer.write(SCREEN_X_PAD+1, h - SCREEN_Y_PAD-1, "Press ")
+    gConsoleBuffer.setColor(gCurrTheme.textHi)
+    gConsoleBuffer.write("?")
+    gConsoleBuffer.setColor(gCurrTheme.text)
+    gConsoleBuffer.write(" for help, ")
+    gConsoleBuffer.setColor(gCurrTheme.textHi)
+    gConsoleBuffer.write("Q")
+    gConsoleBuffer.setColor(gCurrTheme.text)
+    gConsoleBuffer.write(" to quit")
 
   # Pause overlay
   if ps.paused:
     var y = VIEW_Y + PATTERN_HEADER_HEIGHT + (maxRows-1) div 2 - 1
     var txt = "P A U S E D"
-    cb.setColor(gCurrTheme.text)
-    cb.write(SCREEN_X_PAD, y, "─".repeat(viewWidth))
-    cb.write(SCREEN_X_PAD, y+1, " ".repeat(viewWidth))
-    cb.write(SCREEN_X_PAD + (viewWidth - txt.len) div 2, y+1, "P A U S E D")
-    cb.write(SCREEN_X_PAD, y+2, "─".repeat(viewWidth))
+    gConsoleBuffer.setColor(gCurrTheme.text)
+    gConsoleBuffer.write(SCREEN_X_PAD, y, "─".repeat(viewWidth))
+    gConsoleBuffer.write(SCREEN_X_PAD, y+1, " ".repeat(viewWidth))
+    gConsoleBuffer.write(SCREEN_X_PAD + (viewWidth - txt.len) div 2, y+1,
+                         "P A U S E D")
+    gConsoleBuffer.write(SCREEN_X_PAD, y+2, "─".repeat(viewWidth))
 
   if forceRedraw:
     setDoubleBuffering(false)
-    cb.display()
+    gConsoleBuffer.display()
     setDoubleBuffering(true)
   else:
-    cb.display()
+    gConsoleBuffer.display()
 
