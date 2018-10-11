@@ -36,13 +36,8 @@ proc showLength(config: Config, module: Module) =
     echo fmt"Restart songpos: {restartPos}"
 
 
-var gDisplayUI = false
-
 proc playerQuitProc() {.noconv.} =
-  consoleDeinit()
-  if gDisplayUI:
-    exitFullscreen()
-    showCursor()
+  illwillDeinit()
   discard audio.closeAudio()
 
 proc startPlayer(config: Config, module: Module) =
@@ -63,12 +58,12 @@ proc startPlayer(config: Config, module: Module) =
 
   system.addQuitProc(playerQuitProc)
 
-  consoleInit()
 
   if config.displayUI:
-    gDisplayUI = true
-    enterFullscreen()
+    illwillInit(fullscreen = true)
     hideCursor()
+  else:
+    illwillInit(fullscreen = false)
 
   var
     currPattern = 0
@@ -175,8 +170,7 @@ proc startPlayer(config: Config, module: Module) =
     of Key.Q: quit(QuitSuccess)
 
     of Key.R:
-      consoleInit()
-      enterFullscreen()
+      illwillInit()
       hideCursor()
       updateScreen(ps, forceRedraw = true)
 

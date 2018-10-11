@@ -40,15 +40,15 @@ proc setTheme*(n: Natural) =
   if n <= themes.high:
     gCurrTheme = themes[n]
 
-template setColor(cb: var ConsoleBuffer, t: TextColor) =
-  cb.setForegroundColor(t.fg)
+template setColor(tb: var TerminalBuffer, t: TextColor) =
+  tb.setForegroundColor(t.fg)
   if t.hi:
-    cb.setStyle({styleBright})
+    tb.setStyle({styleBright})
   else:
-    cb.setStyle({})
+    tb.setStyle({})
 
 
-proc drawCell(cb: var ConsoleBuffer, x, y: Natural, cell: Cell, muted: bool) =
+proc drawCell(tb: var TerminalBuffer, x, y: Natural, cell: Cell, muted: bool) =
   var
     note = noteToStr(cell.note)
     effect = effectToStr(cell.effect.int)
@@ -58,31 +58,31 @@ proc drawCell(cb: var ConsoleBuffer, x, y: Natural, cell: Cell, muted: bool) =
     sampleNum = nibbleToChar(s1.int) & nibbleToChar(s2.int)
 
   if muted:
-    cb.setColor(gCurrTheme.muted)
+    tb.setColor(gCurrTheme.muted)
 
   if not muted:
     if cell.note == NOTE_NONE:
-      cb.setColor(gCurrTheme.noteNone)
+      tb.setColor(gCurrTheme.noteNone)
     else:
-      cb.setColor(gCurrTheme.note)
+      tb.setColor(gCurrTheme.note)
 
-  cb.write(x, y, note)
+  tb.write(x, y, note)
 
   if not muted:
     if cell.sampleNum == 0:
-      cb.setColor(gCurrTheme.sampleNone)
+      tb.setColor(gCurrTheme.sampleNone)
     else:
-      cb.setColor(gCurrTheme.sample)
+      tb.setColor(gCurrTheme.sample)
 
-  cb.write(x+4, y, sampleNum)
+  tb.write(x+4, y, sampleNum)
 
   if not muted:
     if cell.effect == 0:
-      cb.setColor(gCurrTheme.effectNone)
+      tb.setColor(gCurrTheme.effectNone)
     else:
-      cb.setColor(gCurrTheme.effect)
+      tb.setColor(gCurrTheme.effect)
 
-  cb.write(x+7, y, effect)
+  tb.write(x+7, y, effect)
 
 
 const
@@ -93,7 +93,7 @@ const
   PATTERN_HEADER_HEIGHT = 3
   PATTERN_TRACK_WIDTH = 10
 
-proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
+proc drawPlaybackState*(tb: var TerminalBuffer, ps: PlaybackState) =
   const
     X1 = SCREEN_X_PAD + 1
     Y1 = SCREEN_Y_PAD + 0
@@ -106,35 +106,35 @@ proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
   # Left column
   var y = Y1
 
-  cb.setColor(gCurrTheme.text)
-  cb.write(COL1_X, y, fmt"Songname:")
-  cb.setColor(gCurrTheme.textHi)
-  cb.write(COL1_X_VAL, y, ps.module.songName)
+  tb.setColor(gCurrTheme.text)
+  tb.write(COL1_X, y, fmt"Songname:")
+  tb.setColor(gCurrTheme.textHi)
+  tb.write(COL1_X_VAL, y, ps.module.songName)
   inc(y)
 
-  cb.setColor(gCurrTheme.text)
-  cb.write(COL1_X, y, fmt"Type:")
-  cb.setColor(gCurrTheme.textHi)
-  cb.write(COL1_X_VAL, y, fmt"{ps.module.moduleType.toString} {ps.module.numChannels}chn")
+  tb.setColor(gCurrTheme.text)
+  tb.write(COL1_X, y, fmt"Type:")
+  tb.setColor(gCurrTheme.textHi)
+  tb.write(COL1_X_VAL, y, fmt"{ps.module.moduleType.toString} {ps.module.numChannels}chn")
   if not ps.module.useAmigaLimits:
-    cb.write(fmt" [ext]")
+    tb.write(fmt" [ext]")
   inc(y)
 
-  cb.setColor(gCurrTheme.text)
-  cb.write(COL1_X, y, fmt"Songpos:")
-  cb.setColor(gCurrTheme.textHi)
-  cb.write(COL1_X_VAL, y, fmt"{ps.currSongPos:03} / {ps.module.songLength-1:03}")
+  tb.setColor(gCurrTheme.text)
+  tb.write(COL1_X, y, fmt"Songpos:")
+  tb.setColor(gCurrTheme.textHi)
+  tb.write(COL1_X_VAL, y, fmt"{ps.currSongPos:03} / {ps.module.songLength-1:03}")
   inc(y)
 
-  cb.setColor(gCurrTheme.text)
-  cb.write(COL1_X, y, fmt"Pattern:")
-  cb.setColor(gCurrTheme.textHi)
-  cb.write(COL1_X_VAL, y, fmt"{ps.module.songPositions[ps.currSongPos]:03}")
+  tb.setColor(gCurrTheme.text)
+  tb.write(COL1_X, y, fmt"Pattern:")
+  tb.setColor(gCurrTheme.textHi)
+  tb.write(COL1_X_VAL, y, fmt"{ps.module.songPositions[ps.currSongPos]:03}")
   inc(y)
 
-  cb.setColor(gCurrTheme.text)
-  cb.write(COL1_X, y, fmt"Time:")
-  cb.setColor(gCurrTheme.textHi)
+  tb.setColor(gCurrTheme.text)
+  tb.write(COL1_X, y, fmt"Time:")
+  tb.setColor(gCurrTheme.textHi)
   let
     currSecsFract = (ps.playPositionFrame / ps.config.sampleRate).int
     currMins = currSecsFract div 60
@@ -143,68 +143,68 @@ proc drawPlaybackState*(cb: var ConsoleBuffer, ps: PlaybackState) =
     totalMins = totalSecsFract div 60
     totalSecs = totalSecsFract mod 60
 
-  cb.write(COL1_X_VAL, y, fmt"{currMins:02}:{currSecs:02} / " &
+  tb.write(COL1_X_VAL, y, fmt"{currMins:02}:{currSecs:02} / " &
                           fmt"{totalMins:02}:{totalSecs:02}")
   inc(y)
 
   # Right column
   y = Y1
 
-  cb.setColor(gCurrTheme.text)
-  cb.write(COL2_X, y, fmt"Amp gain:")
-  cb.setColor(gCurrTheme.textHi)
-  cb.write(COL2_X_VAL-1, y, fmt"{ps.config.ampGain:5.1f}dB")
+  tb.setColor(gCurrTheme.text)
+  tb.write(COL2_X, y, fmt"Amp gain:")
+  tb.setColor(gCurrTheme.textHi)
+  tb.write(COL2_X_VAL-1, y, fmt"{ps.config.ampGain:5.1f}dB")
   inc(y)
 
-  cb.setColor(gCurrTheme.text)
-  cb.write(COL2_X, y, fmt"Resampler:")
-  cb.setColor(gCurrTheme.textHi)
+  tb.setColor(gCurrTheme.text)
+  tb.write(COL2_X, y, fmt"Resampler:")
+  tb.setColor(gCurrTheme.textHi)
 
   var resamp: string
   case ps.config.resampler
   of rsNearestNeighbour: resamp = "off"
   of rsLinear:           resamp = "linear"
-  cb.write(COL2_X_VAL, y, fmt"{resamp:>6}")
+  tb.write(COL2_X_VAL, y, fmt"{resamp:>6}")
   inc(y)
 
-  cb.setColor(gCurrTheme.text)
-  cb.write(COL2_X, y, fmt"Stereo width:")
-  cb.setColor(gCurrTheme.textHi)
-  cb.write(COL2_X_VAL+1, y, fmt"{ps.config.stereoWidth:4}%")
+  tb.setColor(gCurrTheme.text)
+  tb.write(COL2_X, y, fmt"Stereo width:")
+  tb.setColor(gCurrTheme.textHi)
+  tb.write(COL2_X_VAL+1, y, fmt"{ps.config.stereoWidth:4}%")
   inc(y)
 
   # Tempo & speed
 
-  cb.setColor(gCurrTheme.text)
-  cb.write(COL3_X, Y1+2, fmt"Tempo:")
-  cb.setColor(gCurrTheme.textHi)
-  cb.write(COL3_X+7, Y1+2, fmt"{ps.tempo:3}")
+  tb.setColor(gCurrTheme.text)
+  tb.write(COL3_X, Y1+2, fmt"Tempo:")
+  tb.setColor(gCurrTheme.textHi)
+  tb.write(COL3_X+7, Y1+2, fmt"{ps.tempo:3}")
 
-  cb.setColor(gCurrTheme.text)
-  cb.write(COL3_X, Y1+3, fmt"Speed:")
-  cb.setColor(gCurrTheme.textHi)
-  cb.write(COL3_X+7, Y1+3, fmt"{ps.ticksPerRow:3}")
+  tb.setColor(gCurrTheme.text)
+  tb.write(COL3_X, Y1+3, fmt"Speed:")
+  tb.setColor(gCurrTheme.textHi)
+  tb.write(COL3_X+7, Y1+3, fmt"{ps.ticksPerRow:3}")
 
 
-proc drawTrack(cb: var ConsoleBuffer, x, y: Natural, track: Track,
+proc drawTrack(tb: var TerminalBuffer, x, y: Natural, track: Track,
                rowLo: Natural, rowHi: Natural, state: ChannelState) =
   assert rowLo < track.rows.len
   assert rowHi < track.rows.len
 
   var currY = y
   for i in rowLo..rowHi:
-    cb.drawCell(x, currY, track.rows[i], state != csPlaying)
+    tb.drawCell(x, currY, track.rows[i], state != csPlaying)
     inc(currY)
 
 
-proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
+proc drawPatternView*(tb: var TerminalBuffer, patt: Pattern,
                       currRow: int, maxRows, startTrack, endTrack: Natural,
                       channels: seq[renderer.Channel]) =
   assert currRow < ROWS_PER_PATTERN
   assert startTrack <= patt.tracks.high
   assert endTrack <= patt.tracks.high
 
-  var bb = newBoxBuffer(cb.width, cb.height)
+  var bb = newBoxBuffer(tb.width, tb.height)
 
   let rowsInPattern = patt.tracks[0].rows.len
 
@@ -233,10 +233,10 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
   var y = firstRowY
   for rowNum in rowLo..rowHi:
     if rowNum mod 4 == 0:
-      cb.setColor(gCurrTheme.rowNumHi)
+      tb.setColor(gCurrTheme.rowNumHi)
     else:
-      cb.setColor(gCurrTheme.rowNum)
-    cb.write(x, y, fmt"{rowNum:2}")
+      tb.setColor(gCurrTheme.rowNum)
+    tb.write(x, y, fmt"{rowNum:2}")
     inc(y)
 
   inc(x, 2)
@@ -249,11 +249,11 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
   for i in startTrack..endTrack:
     let chanState = channels[i].state
     if chanState == csPlaying:
-      cb.setColor(gCurrTheme.text)
+      tb.setColor(gCurrTheme.text)
     else:
-      cb.setColor(gCurrTheme.muted)
-    cb.write(x, y1+1, fmt"Channel {i+1:2}")
-    cb.drawTrack(x, y, patt.tracks[i], rowLo, rowHi, chanState)
+      tb.setColor(gCurrTheme.muted)
+    tb.write(x, y1+1, fmt"Channel {i+1:2}")
+    tb.drawTrack(x, y, patt.tracks[i], rowLo, rowHi, chanState)
 
     inc(x, PATTERN_TRACK_WIDTH + 1)
     bb.drawVertLine(x, y1, y2)
@@ -265,27 +265,27 @@ proc drawPatternView*(cb: var ConsoleBuffer, patt: Pattern,
   bb.drawHorizLine(x1, x2, y2)
   bb.drawHorizLine(x1, x2, y1 + PATTERN_HEADER_HEIGHT-1)
 
-  cb.setColor(gCurrTheme.border)
-  cb.write(bb)
+  tb.setColor(gCurrTheme.border)
+  tb.write(bb)
 
   # Draw cursor line
   let cursorY = y1 + PATTERN_HEADER_HEIGHT + cursorRow
   for x in SCREEN_X_PAD+1..x2-1:
-    var c = cb[x, cursorY]
+    var c = tb[x, cursorY]
     c.fg = gCurrTheme.cursor.fg
     c.bg = gCurrTheme.cursorBg
     if gCurrTheme.cursor.hi:
       c.style = {styleBright}
     else:
       c.style = {}
-    cb[x, cursorY] = c
+    tb[x, cursorY] = c
 
   # Draw prev/next pattern page indicators
-  cb.setColor(gCurrTheme.text)
+  tb.setColor(gCurrTheme.text)
   if startTrack > 0:
-    cb.write(x1+4, y1+1, "<")
+    tb.write(x1+4, y1+1, "<")
   if endTrack < patt.tracks.high:
-    cb.write(x2, y1+1, ">")
+    tb.write(x2, y1+1, ">")
 
 
 proc getPatternViewWidth(numTracks: Natural): Natural =
@@ -303,7 +303,7 @@ proc scrollSamplesViewUp*() =
 proc scrollSamplesViewDown*() =
   inc(gStartSample)
 
-proc drawSamplesView*(cb: var ConsoleBuffer, ps: PlaybackState,
+proc drawSamplesView*(tb: var TerminalBuffer, ps: PlaybackState,
                       height: Natural) =
   const
     x1 = SCREEN_X_PAD
@@ -322,7 +322,7 @@ proc drawSamplesView*(cb: var ConsoleBuffer, ps: PlaybackState,
   let
     y2 = y1 + height-1
 
-  var bb = newBoxBuffer(cb.width, cb.height)
+  var bb = newBoxBuffer(tb.width, tb.height)
 
   # Draw border
   bb.drawVertLine(x1, y1, y2)
@@ -333,14 +333,14 @@ proc drawSamplesView*(cb: var ConsoleBuffer, ps: PlaybackState,
   # Draw headers
   var y = y1+1
   bb.drawHorizLine(x1, x2, y+1)
-  cb.setColor(gCurrTheme.text)
-  cb.write(NUM_X, y, "  #")
-  cb.write(NAME_X, y, "Samplename")
-  cb.write(LENGTH_X, y, "Length")
-  cb.write(FINETUNE_X, y, "Tun")
-  cb.write(VOLUME_X, y, "Vol")
-  cb.write(REPEAT_X, y, "Repeat")
-  cb.write(REPLEN_X, y, "Replen")
+  tb.setColor(gCurrTheme.text)
+  tb.write(NUM_X, y, "  #")
+  tb.write(NAME_X, y, "Samplename")
+  tb.write(LENGTH_X, y, "Length")
+  tb.write(FINETUNE_X, y, "Tun")
+  tb.write(VOLUME_X, y, "Vol")
+  tb.write(REPEAT_X, y, "Repeat")
+  tb.write(REPLEN_X, y, "Replen")
 
   # Draw column separators
   bb.drawVertLine(NAME_X-1, y1, y2)
@@ -350,8 +350,8 @@ proc drawSamplesView*(cb: var ConsoleBuffer, ps: PlaybackState,
   bb.drawVertLine(REPEAT_X-1, y1, y2)
   bb.drawVertLine(REPLEN_X-1, y1, y2)
 
-  cb.setColor(gCurrTheme.border)
-  cb.write(bb)
+  tb.setColor(gCurrTheme.border)
+  tb.write(bb)
 
   # Draw sample list
   let
@@ -367,35 +367,35 @@ proc drawSamplesView*(cb: var ConsoleBuffer, ps: PlaybackState,
   for sampNo in gStartSample..endSample:
     let sample = ps.module.samples[sampNo]
 
-    if sample.length > 0: cb.setColor(gCurrTheme.sample)
-    else:                 cb.setColor(gCurrTheme.muted)
+    if sample.length > 0: tb.setColor(gCurrTheme.sample)
+    else:                 tb.setColor(gCurrTheme.muted)
 
-    cb.write(NUM_X, y, fmt"{sampNo:3}")
-    cb.write(LENGTH_X, y, fmt"{sample.length:6}")
+    tb.write(NUM_X, y, fmt"{sampNo:3}")
+    tb.write(LENGTH_X, y, fmt"{sample.length:6}")
 
-    if sample.signedFinetune() != 0: cb.setColor(gCurrTheme.sample)
-    else:                            cb.setColor(gCurrTheme.muted)
-    cb.write(FINETUNE_X, y, fmt"{sample.signedFinetune():3}")
+    if sample.signedFinetune() != 0: tb.setColor(gCurrTheme.sample)
+    else:                            tb.setColor(gCurrTheme.muted)
+    tb.write(FINETUNE_X, y, fmt"{sample.signedFinetune():3}")
 
-    if sample.volume != 0: cb.setColor(gCurrTheme.sample)
-    else:                  cb.setColor(gCurrTheme.muted)
-    cb.write(VOLUME_X, y, fmt"{sample.volume:3x}")
+    if sample.volume != 0: tb.setColor(gCurrTheme.sample)
+    else:                  tb.setColor(gCurrTheme.muted)
+    tb.write(VOLUME_X, y, fmt"{sample.volume:3x}")
 
-    if sample.repeatOffset > 0: cb.setColor(gCurrTheme.sample)
-    else:                       cb.setColor(gCurrTheme.muted)
-    cb.write(REPEAT_X, y, fmt"{sample.repeatOffset:6}")
+    if sample.repeatOffset > 0: tb.setColor(gCurrTheme.sample)
+    else:                       tb.setColor(gCurrTheme.muted)
+    tb.write(REPEAT_X, y, fmt"{sample.repeatOffset:6}")
 
-    if sample.repeatLength > 2: cb.setColor(gCurrTheme.sample)
-    else:                       cb.setColor(gCurrTheme.muted)
-    cb.write(REPLEN_X, y, fmt"{sample.repeatLength:6}")
+    if sample.repeatLength > 2: tb.setColor(gCurrTheme.sample)
+    else:                       tb.setColor(gCurrTheme.muted)
+    tb.write(REPLEN_X, y, fmt"{sample.repeatLength:6}")
 
-    cb.setColor(gCurrTheme.textHi)
-    cb.write(NAME_X, y, sample.name)
+    tb.setColor(gCurrTheme.textHi)
+    tb.write(NAME_X, y, sample.name)
 
     inc(y)
 
 
-var gHelpViewText: ConsoleBuffer
+var gHelpViewText: TerminalBuffer
 
 var gStartHelpLine = 0
 
@@ -461,7 +461,7 @@ proc createHelpViewText() =
   inc(y)
 
 
-proc drawHelpView*(cb: var ConsoleBuffer, ps: PlaybackState, height: Natural) =
+proc drawHelpView*(tb: var TerminalBuffer, ps: PlaybackState, height: Natural) =
   const
     WIDTH = 56
     x1 = SCREEN_X_PAD
@@ -471,7 +471,7 @@ proc drawHelpView*(cb: var ConsoleBuffer, ps: PlaybackState, height: Natural) =
   let
     y2 = y1 + height-1
 
-  var bb = newBoxBuffer(cb.width, cb.height)
+  var bb = newBoxBuffer(tb.width, tb.height)
 
   # Draw border
   bb.drawVertLine(x1, y1, y2)
@@ -479,13 +479,13 @@ proc drawHelpView*(cb: var ConsoleBuffer, ps: PlaybackState, height: Natural) =
   bb.drawHorizLine(x1, x2, y1)
   bb.drawHorizLine(x1, x2, y2)
 
-  cb.setColor(gCurrTheme.border)
-  cb.write(bb)
+  tb.setColor(gCurrTheme.border)
+  tb.write(bb)
 
   var x = x1+2
   var y = y1+1
 
-  gHelpViewText = newConsoleBuffer(WIDTH-2, 32)
+  gHelpViewText = newTerminalBuffer(WIDTH-2, 32)
   createHelpViewText()  # could be suboptimal with long texts, but in reality
                         # doesn't really matter...
   let
@@ -495,7 +495,7 @@ proc drawHelpView*(cb: var ConsoleBuffer, ps: PlaybackState, height: Natural) =
   if gStartHelpLine + numVisibleLines >= numLines:
     gStartHelpLine = max(numLines - numVisibleLines, 0)
 
-  cb.copyFrom(gHelpViewText, 0, gStartHelpLine, WIDTH, numVisibleLines, x, y)
+  tb.copyFrom(gHelpViewText, 0, gStartHelpLine, WIDTH, numVisibleLines, x, y)
 
 
 var gCurrTrackPage = 0
@@ -520,19 +520,19 @@ proc toggleHelpView*() =
     gCurrView = vtHelp
 
 
-var gConsoleBuffer: ConsoleBuffer
+var gTerminalBuffer: TerminalBuffer
 
 proc updateScreen*(ps: PlaybackState, forceRedraw: bool = false) =
   var (w, h) = terminalSize()
   dec(w)
 
-  if gConsoleBuffer == nil or gConsoleBuffer.width != w or
-                              gConsoleBuffer.height != h:
-    gConsoleBuffer = newConsoleBuffer(w, h)
+  if gTerminalBuffer == nil or gTerminalBuffer.width != w or
+                               gTerminalBuffer.height != h:
+    gTerminalBuffer = newTerminalBuffer(w, h)
   else:
-    gConsoleBuffer.clear()
+    gTerminalBuffer.clear()
 
-  drawPlaybackState(gConsoleBuffer, ps)
+  drawPlaybackState(gTerminalBuffer, ps)
 
   let
     maxVisibleTracks = getMaxVisibleTracks(w)
@@ -558,43 +558,43 @@ proc updateScreen*(ps: PlaybackState, forceRedraw: bool = false) =
 
     var pattViewWidth = 0
     if maxRows >= 1:
-      drawPatternView(gConsoleBuffer, ps.module.patterns[currPattern],
+      drawPatternView(gTerminalBuffer, ps.module.patterns[currPattern],
                       ps.currRow, maxRows, startTrack, endTrack, ps.channels)
   of vtSamples:
     if maxRows >= 1:
-      drawSamplesView(gConsoleBuffer, ps, viewHeight)
+      drawSamplesView(gTerminalBuffer, ps, viewHeight)
 
   of vtHelp:
-    drawHelpView(gConsoleBuffer, ps, viewHeight)
+    drawHelpView(gTerminalBuffer, ps, viewHeight)
 
   # Status line
   if h >= 9:
-    gConsoleBuffer.setColor(gCurrTheme.text)
-    gConsoleBuffer.write(SCREEN_X_PAD+1, h - SCREEN_Y_PAD-1, "Press ")
-    gConsoleBuffer.setColor(gCurrTheme.textHi)
-    gConsoleBuffer.write("?")
-    gConsoleBuffer.setColor(gCurrTheme.text)
-    gConsoleBuffer.write(" for help, ")
-    gConsoleBuffer.setColor(gCurrTheme.textHi)
-    gConsoleBuffer.write("Q")
-    gConsoleBuffer.setColor(gCurrTheme.text)
-    gConsoleBuffer.write(" to quit")
+    gTerminalBuffer.setColor(gCurrTheme.text)
+    gTerminalBuffer.write(SCREEN_X_PAD+1, h - SCREEN_Y_PAD-1, "Press ")
+    gTerminalBuffer.setColor(gCurrTheme.textHi)
+    gTerminalBuffer.write("?")
+    gTerminalBuffer.setColor(gCurrTheme.text)
+    gTerminalBuffer.write(" for help, ")
+    gTerminalBuffer.setColor(gCurrTheme.textHi)
+    gTerminalBuffer.write("Q")
+    gTerminalBuffer.setColor(gCurrTheme.text)
+    gTerminalBuffer.write(" to quit")
 
   # Pause overlay
   if ps.paused:
     var y = VIEW_Y + PATTERN_HEADER_HEIGHT + (maxRows-1) div 2 - 1
     var txt = "P A U S E D"
-    gConsoleBuffer.setColor(gCurrTheme.text)
-    gConsoleBuffer.write(SCREEN_X_PAD, y, "─".repeat(viewWidth))
-    gConsoleBuffer.write(SCREEN_X_PAD, y+1, " ".repeat(viewWidth))
-    gConsoleBuffer.write(SCREEN_X_PAD + (viewWidth - txt.len) div 2, y+1,
+    gTerminalBuffer.setColor(gCurrTheme.text)
+    gTerminalBuffer.write(SCREEN_X_PAD, y, "─".repeat(viewWidth))
+    gTerminalBuffer.write(SCREEN_X_PAD, y+1, " ".repeat(viewWidth))
+    gTerminalBuffer.write(SCREEN_X_PAD + (viewWidth - txt.len) div 2, y+1,
                          "P A U S E D")
-    gConsoleBuffer.write(SCREEN_X_PAD, y+2, "─".repeat(viewWidth))
+    gTerminalBuffer.write(SCREEN_X_PAD, y+2, "─".repeat(viewWidth))
 
   if forceRedraw:
     setDoubleBuffering(false)
-    gConsoleBuffer.display()
+    gTerminalBuffer.display()
     setDoubleBuffering(true)
   else:
-    gConsoleBuffer.display()
+    gTerminalBuffer.display()
 
