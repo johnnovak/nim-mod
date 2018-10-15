@@ -621,7 +621,7 @@ proc doTick(ps: var PlaybackState) =
 
       if sampleNum > 0:
         var sample = ps.module.samples[sampleNum]
-        if sample.data == nil:  # empty sample
+        if sample.data == @[]:  # empty sample
           setVolume(ch, 0)
 
         else: # valid sample

@@ -39,7 +39,7 @@ proc initConfigWithDefaults(): Config =
   result.ampGain          = -6.0
   result.stereoWidth      = 50
   result.resampler        = rsLinear
-  result.outFilename      = nil
+  result.outFilename      = ""
   result.displayUI        = true
   result.refreshRateMs    = 20
   result.verboseOutput    = false
@@ -212,7 +212,7 @@ proc parseCommandLine*(): Config =
 
     of cmdEnd: assert(false)
 
-  if config.inputFile == nil:
+  if config.inputFile == "":
     error("Error: input file must be specified")
     quit(QuitFailure)
 
