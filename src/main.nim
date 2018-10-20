@@ -170,9 +170,10 @@ proc startPlayer(config: Config, module: Module) =
     of Key.Q: quit(QuitSuccess)
 
     of Key.R:
-      illwillInit()
-      hideCursor()
-      updateScreen(ps, forceRedraw = true)
+      if config.displayUI:
+        illwillInit(fullscreen = true)
+        hideCursor()
+        updateScreen(ps, forceRedraw = true)
 
     else: discard
 
