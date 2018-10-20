@@ -62,6 +62,7 @@ proc startPlayer(config: Config, module: Module) =
   if config.displayUI:
     illwillInit(fullscreen = true)
     hideCursor()
+    setTheme(config.theme)
   else:
     illwillInit(fullscreen = false)
 
@@ -255,7 +256,7 @@ proc main() =
     showLength(config, module)
   else:
     case config.outputType
-    of otAudio:
+    of otAudio, otOff:
       # TODO exception handling?
       startPlayer(config, module)
 

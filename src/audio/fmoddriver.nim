@@ -55,7 +55,7 @@ proc initAudio*(config: Config, audioCb: AudioCallback): bool =
   res = system.init(2, FMOD_INIT_NORMAL, nil)
   checkResult(res)
 
-  if config.noSoundOutput:
+  if config.outputType == otOff:
     res = system.setOutput(FMOD_OUTPUTTYPE_NOSOUND)
     checkResult(res)
 

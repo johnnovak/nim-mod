@@ -1,19 +1,19 @@
 import logging, parseopt, parseutils, strformat
 
-const VERSION = "0.1.0"
+const VERSION = "1.0.0"
 
 type
   Config* = object
     inputFile*:        string
     outputType*:       OutputType
+    outFilename*:      string
     sampleRate*:       Natural
     bitDepth*:         BitDepth
     bufferSize*:       Natural
-    noSoundOutput*:    bool
     ampGain*:          float
     stereoWidth*:      int
     resampler*:        Resampler
-    outFilename*:      string
+    theme*:            Natural
     displayUI*:        bool
     refreshRateMs*:    Natural
     showLength*:       bool
@@ -21,7 +21,7 @@ type
     suppressWarnings*: bool
 
   OutputType* = enum
-    otAudio, otWaveWriter
+    otAudio, otWaveWriter, otOff
 
   Resampler* = enum
     rsNearestNeighbour, rsLinear
@@ -32,14 +32,14 @@ type
 
 proc initConfigWithDefaults(): Config =
   result.outputType       = otAudio
+  result.outFilename      = ""
   result.sampleRate       = 44100
   result.bitDepth         = bd16Bit
   result.bufferSize       = 2048
-  result.noSoundOutput    = false
   result.ampGain          = -6.0
   result.stereoWidth      = 50
   result.resampler        = rsLinear
-  result.outFilename      = ""
+  result.theme            = 1
   result.displayUI        = true
   result.refreshRateMs    = 20
   result.verboseOutput    = false
@@ -56,32 +56,44 @@ proc printHelp() =
 Usage: nim-mod [OPTIONS] FILENAME
 
 Options:
-  -o, --output=audio|wav    select output to use; default is 'audio'
-                              audio = normal audio output
-                              wav   = write output to a WAV file
-  -s, --sampleRate=INTEGER  set the sample rate; default is 44100
-  -b, --bitDepth=16|24|32   set the output bit depth, 32 stands for 32-bit
-                            floating point; default is 16
-  -B, --bufferSize=INTEGER  size of the audio buffer in bytes; default is 2048
-  -N, --noSoundOutput       disable sound output
-  -a, --ampGain=FLOAT       set the amplifier gain in dB; default is -6.0 dB
-  -w, --stereoWidth=INTEGER
-                            set the stereo width, must be between
-                            -100 and 100; default is 50
-                                   0 = mono
-                                 100 = full stereo (hard panned channels)
-                                -100 = full reverse stereo
-  -r, --resampler=MODE      set the resampling mode; default is 'linear'
-                              off    = nearest-neighbour (no interpolation)
-                              linear = linear interpolation
-  -f, --outFilename         set the output filename for the file writer
-  -U, --noUserInterface     disable the user interface
-  -R, --refreshRate=INTEGER set the UI refresh rate in ms; 20 ms by default
-  -l, --showLength          print the non-looped song length and exit
-  -h, --help                show this help
-  -v, --version             show detailed version information
-  -V, --verbose             verbose output, for debugging
-  -q, --quiet               suppress warnings
+  OUTPUT
+    -o, --output=audio|wav|off
+                              select output mode; default is 'audio'
+                                audio = normal audio output
+                                wav   = write output to a WAV file
+                                off   = disable sound output
+    -f, --outFilename         set output filename for the file writer
+    -s, --sampleRate=INTEGER  set sample rate; default is 44100
+    -b, --bitDepth=16|24|32   set output bit depth; 16 and 24 are integer
+                              formats, 32 is 32-bit floating point;
+                              default is 16
+    -B, --bufferSize=INTEGER  size of the audio buffer in bytes;
+                              default is 2048
+    -a, --ampGain=FLOAT       set the amplifier gain in dB, must be between
+                              -36.0 and 36.0; default is -6.0
+    -w, --stereoWidth=INTEGER
+                              set stereo width, must be between
+                              -100 and 100; default is 50
+                                     0 = mono
+                                   100 = full stereo (hard panning)
+                                  -100 = full reverse stereo
+    -r, --resampler=off|linear
+                              set resampling mode; default is 'linear'
+                                off    = nearest-neighbour (no interpolation)
+                                linear = linear interpolation
+
+  USER INTERFACE
+    -t, --theme=INTEGER       select theme, must be between 1 and 7;
+                              default is 1
+    -u, --noUserInterface     do not show the user interface
+    -R, --refreshRate=INTEGER set UI refresh rate in millis; default is 20
+
+  MISC
+    -l, --showLength          show non-looped song length and exit
+    -h, --help                show this help
+    -v, --version             show version information
+    -V, --verbose             verbose output (for debugging)
+    -q, --quiet               suppress warnings
 
 """
 
@@ -117,9 +129,13 @@ proc parseCommandLine*(): Config =
         of "": missingOptValue(opt)
         of "audio": config.outputType = otAudio
         of "wav":   config.outputType = otWaveWriter
+        of "off":   config.outputType = otOff
         else:
           invalidOptValue(opt, val,
-            "output type must be either 'audio' or 'wav'")
+            "output type must be either 'audio', 'wav' or 'off'")
+
+      of "outFilename", "f":
+        config.outFilename = val
 
       of "sampleRate", "s":
         if val == "": missingOptValue(opt)
@@ -149,16 +165,13 @@ proc parseCommandLine*(): Config =
         else:
           invalidOptValue(opt, val, "buffer size must be a positive integer")
 
-      of "noSoundOutput", "N":
-        config.noSoundOutput = true
-
       of "ampGain", "a":
         if val == "": missingOptValue(opt)
         var g: float
         if parseFloat(val, g) == 0:
           invalidOptValue(opt, val,
             "amplification gain must be a floating point number")
-        if g < -24.0 or g > 24.0:
+        if g < -36.0 or g > 36.0:
           invalidOptValue(opt, val,
             "amplification gain must be between -36 and +36 dB")
         config.ampGain = g
@@ -181,10 +194,16 @@ proc parseCommandLine*(): Config =
           invalidOptValue(opt, val,
             "resampler mode must be one of 'off' or 'linear'")
 
-      of "outFilename", "f":
-        config.outFilename = val
+      of "theme", "t":
+        if val == "": missingOptValue(opt)
+        var t: int
+        if parseInt(val, t) == 0:
+          invalidOptValue(opt, val, "invalid theme number")
+        if t < 1 or t > 7:
+          invalidOptValue(opt, val, "theme number must be between 1 and 7")
+        config.theme = t-1
 
-      of "noUserInterface", "U":
+      of "noUserInterface", "u":
         config.displayUI = false
 
       of "refreshRate", "R":
