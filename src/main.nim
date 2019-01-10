@@ -62,6 +62,7 @@ proc startPlayer(config: Config, module: Module) =
   if config.displayUI:
     illwillInit(fullscreen = true)
     hideCursor()
+    setTheme(config.theme)
   else:
     illwillInit(fullscreen = false)
 
@@ -170,9 +171,10 @@ proc startPlayer(config: Config, module: Module) =
     of Key.Q: quit(QuitSuccess)
 
     of Key.R:
-      illwillInit()
-      hideCursor()
-      updateScreen(ps, forceRedraw = true)
+      if config.displayUI:
+        illwillInit(fullscreen = true)
+        hideCursor()
+        updateScreen(ps, forceRedraw = true)
 
     else: discard
 
@@ -258,7 +260,7 @@ proc main() =
     showLength(config, module)
   else:
     case config.outputType
-    of otAudio:
+    of otAudio, otOff:
       # TODO exception handling?
       startPlayer(config, module)
 

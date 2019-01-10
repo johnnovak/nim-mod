@@ -10,8 +10,6 @@ type
   ViewType* = enum
     vtPattern, vtSamples, vtHelp
 
-
-type
   TextColor = object
     fg: ForegroundColor
     hi: bool
@@ -197,12 +195,25 @@ proc drawTrack(tb: var TerminalBuffer, x, y: Natural, track: Track,
     inc(currY)
 
 
-proc drawPatternView*(tb: var TerminalBuffer, patt: Pattern,
-                      currRow: int, maxRows, startTrack, endTrack: Natural,
-                      channels: seq[renderer.Channel]) =
+proc getPatternViewWidth(numTracks: Natural): Natural =
+  result = (PATTERN_TRACK_WIDTH + 3) * numTracks + 5
+
+proc getPatternMaxVisibleTracks(screenWidth: Natural): Natural =
+  result = max(screenWidth - SCREEN_X_PAD-7, 0) div (PATTERN_TRACK_WIDTH + 3)
+
+proc getPatternMaxVisibleRows(viewHeight: Natural): Natural =
+  result = max(viewHeight - PATTERN_HEADER_HEIGHT - 1, 0)
+
+
+proc drawPattern*(tb: var TerminalBuffer, patt: Pattern,
+                  currRow: int, maxRows, startTrack, endTrack: Natural,
+                  channels: seq[renderer.Channel]) =
+
   assert currRow < ROWS_PER_PATTERN
   assert startTrack <= patt.tracks.high
   assert endTrack <= patt.tracks.high
+
+  if maxRows < 1: return
 
   var bb = newBoxBuffer(tb.width, tb.height)
 
@@ -288,13 +299,6 @@ proc drawPatternView*(tb: var TerminalBuffer, patt: Pattern,
     tb.write(x2, y1+1, ">")
 
 
-proc getPatternViewWidth(numTracks: Natural): Natural =
-  (PATTERN_TRACK_WIDTH + 3) * numTracks + 5
-
-proc getMaxVisibleTracks(width: Natural): Natural =
-  (width - SCREEN_X_PAD - 5) div (PATTERN_TRACK_WIDTH + 3)
-
-
 var gStartSample = 1
 
 proc scrollSamplesViewUp*() =
@@ -304,7 +308,10 @@ proc scrollSamplesViewDown*() =
   inc(gStartSample)
 
 proc drawSamplesView*(tb: var TerminalBuffer, ps: PlaybackState,
-                      height: Natural) =
+                      viewHeight: Natural) =
+
+  if viewHeight < 5: return
+
   const
     x1 = SCREEN_X_PAD
     y1 = VIEW_Y
@@ -320,7 +327,7 @@ proc drawSamplesView*(tb: var TerminalBuffer, ps: PlaybackState,
     x2 = REPLEN_X + 5 + 2 - 1
 
   let
-    y2 = y1 + height-1
+    y2 = y1 + viewHeight-1
 
   var bb = newBoxBuffer(tb.width, tb.height)
 
@@ -356,7 +363,7 @@ proc drawSamplesView*(tb: var TerminalBuffer, ps: PlaybackState,
   # Draw sample list
   let
     numSamples = ps.module.numSamples
-    numVisibleSamples = height-4
+    numVisibleSamples = viewHeight-4
 
   if gStartSample + numVisibleSamples - 1 > numSamples:
     gStartSample = max(numSamples - (numVisibleSamples - 1), 1)
@@ -461,7 +468,9 @@ proc createHelpViewText() =
   inc(y)
 
 
-proc drawHelpView*(tb: var TerminalBuffer, ps: PlaybackState, height: Natural) =
+proc drawHelpView*(tb: var TerminalBuffer, viewHeight: Natural) =
+  if viewHeight < 2: return
+
   const
     WIDTH = 56
     x1 = SCREEN_X_PAD
@@ -469,7 +478,7 @@ proc drawHelpView*(tb: var TerminalBuffer, ps: PlaybackState, height: Natural) =
     x2 = x1 + WIDTH
 
   let
-    y2 = y1 + height-1
+    y2 = y1 + viewHeight-1
 
   var bb = newBoxBuffer(tb.width, tb.height)
 
@@ -490,7 +499,7 @@ proc drawHelpView*(tb: var TerminalBuffer, ps: PlaybackState, height: Natural) =
                         # doesn't really matter...
   let
     numLines = gHelpViewText.height
-    numVisibleLines = height-2
+    numVisibleLines = max(viewHeight-2, 0)
 
   if gStartHelpLine + numVisibleLines >= numLines:
     gStartHelpLine = max(numLines - numVisibleLines, 0)
@@ -522,21 +531,14 @@ proc toggleHelpView*() =
 
 var gTerminalBuffer: TerminalBuffer
 
-proc updateScreen*(ps: PlaybackState, forceRedraw: bool = false) =
-  var (w, h) = terminalSize()
-  dec(w)
 
-  if gTerminalBuffer == nil or gTerminalBuffer.width != w or
-                               gTerminalBuffer.height != h:
-    gTerminalBuffer = newTerminalBuffer(w, h)
-  else:
-    gTerminalBuffer.clear()
-
-  drawPlaybackState(gTerminalBuffer, ps)
+proc drawPatternView(tb: var TerminalBuffer, ps: PlaybackState,
+                     viewHeight: Natural) =
 
   let
-    maxVisibleTracks = getMaxVisibleTracks(w)
+    maxVisibleTracks = getPatternMaxVisibleTracks(tb.width)
     numTracks = ps.module.numChannels
+    maxRows = getPatternMaxVisibleRows(viewHeight)
 
   var startTrack = gCurrTrackPage * maxVisibleTracks
   if startTrack > numTracks-1:
@@ -546,52 +548,83 @@ proc updateScreen*(ps: PlaybackState, forceRedraw: bool = false) =
     startTrack = max(numTracks - maxVisibleTracks, 0)
 
   let
-    endTrack = min(startTrack + maxVisibleTracks-1, numTracks-1)
-    viewWidth = getPatternViewWidth(maxVisibleTracks)
-    viewHeight = h - VIEW_Y - 3
-    maxRows = viewHeight - PATTERN_HEADER_HEIGHT - 1
+    endTrack = max(min(startTrack + maxVisibleTracks-1, numTracks-1), 0)
+    currPattern = ps.module.songPositions[ps.currSongPos]
 
+  drawPattern(gTerminalBuffer, ps.module.patterns[currPattern],
+              ps.currRow, maxRows, startTrack, endTrack, ps.channels)
+
+
+proc drawStatusLine(tb: var TerminalBuffer) =
+  if tb.height >= 9:
+    tb.setColor(gCurrTheme.text)
+    tb.write(SCREEN_X_PAD+1, tb.height - SCREEN_Y_PAD-1, "Press ")
+    tb.setColor(gCurrTheme.textHi)
+    tb.write("?")
+    tb.setColor(gCurrTheme.text)
+    tb.write(" for help, ")
+    tb.setColor(gCurrTheme.textHi)
+    tb.write("Q")
+    tb.setColor(gCurrTheme.text)
+    tb.write(" to quit")
+
+proc drawPauseOverlay(tb: var TerminalBuffer, ps: PlaybackState,
+                      viewHeight: Natural) =
+
+  if viewHeight < 5: return
+
+  var viewWidth: Natural
   case gCurrView
   of vtPattern:
-    let
-      currPattern = ps.module.songPositions[ps.currSongPos]
+    let maxVisibleTracks = getPatternMaxVisibleTracks(tb.width)
+    let numTracks = max(min(maxVisibleTracks, ps.module.numChannels), 1)
+    viewWidth = getPatternViewWidth(numTracks)
 
-    var pattViewWidth = 0
-    if maxRows >= 1:
-      drawPatternView(gTerminalBuffer, ps.module.patterns[currPattern],
-                      ps.currRow, maxRows, startTrack, endTrack, ps.channels)
-  of vtSamples:
-    if maxRows >= 1:
-      drawSamplesView(gTerminalBuffer, ps, viewHeight)
+  of vtSamples, vtHelp:
+    viewWidth = 57
 
-  of vtHelp:
-    drawHelpView(gTerminalBuffer, ps, viewHeight)
+  let
+    maxRows = getPatternMaxVisibleRows(viewHeight)
 
-  # Status line
-  if h >= 9:
-    gTerminalBuffer.setColor(gCurrTheme.text)
-    gTerminalBuffer.write(SCREEN_X_PAD+1, h - SCREEN_Y_PAD-1, "Press ")
-    gTerminalBuffer.setColor(gCurrTheme.textHi)
-    gTerminalBuffer.write("?")
-    gTerminalBuffer.setColor(gCurrTheme.text)
-    gTerminalBuffer.write(" for help, ")
-    gTerminalBuffer.setColor(gCurrTheme.textHi)
-    gTerminalBuffer.write("Q")
-    gTerminalBuffer.setColor(gCurrTheme.text)
-    gTerminalBuffer.write(" to quit")
+  var y = VIEW_Y + PATTERN_HEADER_HEIGHT + (maxRows-1) div 2 - 1
+  var txt = "P A U S E D"
+  tb.setColor(gCurrTheme.text)
+  tb.write(SCREEN_X_PAD, y, "─".repeat(viewWidth))
+  tb.write(SCREEN_X_PAD, y+1, " ".repeat(viewWidth))
 
-  # Pause overlay
+  var x = SCREEN_X_PAD + max(viewWidth - txt.len, 0) div 2
+  tb.write(x, y+1,
+                       "P A U S E D")
+  tb.write(SCREEN_X_PAD, y+2, "─".repeat(viewWidth))
+
+
+proc drawScreen(tb: var TerminalBuffer, ps: PlaybackState) =
+  drawPlaybackState(tb, ps)
+  drawStatusLine(tb)
+
+  let viewHeight = max(tb.height - VIEW_Y - 3, 0)
+
+  case gCurrView
+  of vtPattern: drawPatternView(tb, ps, viewHeight)
+  of vtSamples: drawSamplesView(tb, ps, viewHeight)
+  of vtHelp:    drawHelpView(tb, viewHeight)
+
   if ps.paused:
-    var y = VIEW_Y + PATTERN_HEADER_HEIGHT + (maxRows-1) div 2 - 1
-    var txt = "P A U S E D"
-    gTerminalBuffer.setColor(gCurrTheme.text)
-    gTerminalBuffer.write(SCREEN_X_PAD, y, "─".repeat(viewWidth))
-    gTerminalBuffer.write(SCREEN_X_PAD, y+1, " ".repeat(viewWidth))
-    gTerminalBuffer.write(SCREEN_X_PAD + (viewWidth - txt.len) div 2, y+1,
-                         "P A U S E D")
-    gTerminalBuffer.write(SCREEN_X_PAD, y+2, "─".repeat(viewWidth))
+    drawPauseOverlay(tb, ps, viewHeight)
 
-  if forceRedraw:
+
+proc updateScreen*(ps: PlaybackState, forceRedraw: bool = false) =
+  var (w, h) = terminalSize()
+
+  if gTerminalBuffer == nil or gTerminalBuffer.width != w or
+                               gTerminalBuffer.height != h:
+    gTerminalBuffer = newTerminalBuffer(w, h)
+  else:
+    gTerminalBuffer.clear()
+
+  drawScreen(gTerminalBuffer, ps)
+
+  if forceRedraw and hasDoubleBuffering():
     setDoubleBuffering(false)
     gTerminalBuffer.display()
     setDoubleBuffering(true)
