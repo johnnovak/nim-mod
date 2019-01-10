@@ -1,8 +1,9 @@
 import os, strutils, strformat, terminal
 
 const
+  SAMPLE_RATE = 22050
   TEST_PATH = "./"
-  CMD_OPTS = "-o:wav -s:22050 -b:16 -a:-6 -w:50 -r:off -q"
+  CMD_OPTS = fmt"-o:wav -s:{SAMPLE_RATE} -b:16 -a:-6 -w:50 -r:off -q"
   EXPECTED_SUFFIX = "-EXPECTED"
   RESULT_SUFFIX = "-RESULT"
 
@@ -50,10 +51,12 @@ proc diff(resultPath, expectedPath: string): bool =
 
   const BUFSIZE = 8192
   var buf1, buf2: array[BUFSIZE, uint8]
-  var bytesRemaining = resultSize
+  var currPos = 0'i64
 
-  while bytesRemaining > 0:
-    let len = min(bytesRemaining, BUFSIZE)
+  while currPos < resultSize:
+    let
+      bytesRemaining = resultSize - currPos
+      len = min(bytesRemaining, BUFSIZE)
     if f1.readBytes(buf1, 0, len) != len:
       displayError(fmt"Error reading file '{resultPath}'")
       return false
@@ -62,9 +65,20 @@ proc diff(resultPath, expectedPath: string): bool =
       return false
 
     if not equalMem(buf1[0].addr, buf2[0].addr, len):
+      # TODO use easywav and display the position where the diff failed
+#      let
+#        (lenFrames, restartType, restartPos) = precalcSongPosCacheAndSongLength(ps)
+#        lenFractSeconds = lenFrames / ps.config.sampleRate
+#        (lenSecs, millis) = splitDecimal(lenFractSeconds)
+#        mins = lenSecs.int div 60
+#        secs = lenSecs.int mod 60
+#        ms = round(millis * 1000).int
+#        time = fmt"{mins:02}:{secs:02}.{ms:03}"
+
+#      displayError(fmt"Expected and result WAV files differ at {time}")
       displayError(fmt"Expected and result WAV files differ")
       return false
-    bytesRemaining -= len
+    currPos += len
 
   result = true
 

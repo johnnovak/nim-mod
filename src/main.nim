@@ -8,7 +8,7 @@ import display
 import loader
 import module
 import renderer
-import wavewriter
+import easywave
 
 
 proc showLength(config: Config, module: Module) =
@@ -198,11 +198,11 @@ proc writeWaveFile(config: Config, module: Module) =
 
   case config.bitDepth
   of bd16Bit:
-    sampleFormat = sf16Bit
+    sampleFormat = sf16BitInteger
     newSeq(buf, BUFLEN_SAMPLES * 2)
     bytesToWrite = framesToWrite * NUM_CHANNELS * 2
   of bd24Bit:
-    sampleFormat = sf24Bit
+    sampleFormat = sf24BitInteger
     newSeq(buf, BUFLEN_SAMPLES * 3)
     bytesToWrite = framesToWrite * NUM_CHANNELS * 3
   of bd32BitFloat:
@@ -210,21 +210,25 @@ proc writeWaveFile(config: Config, module: Module) =
     newSeq(buf, BUFLEN_SAMPLES * 4)
     bytesToWrite = framesToWrite * NUM_CHANNELS * 4
 
-  var ww = initWaveWriter(
+  var ww = writeWaveFile(
     config.outFilename, sampleFormat, config.sampleRate, NUM_CHANNELS)
 
-  ww.writeHeaders()
+  ww.writeFormatChunk()
+  ww.startDataChunk()
 
   debug(fmt"bytesToWrite: {bytesToWrite}")
 
   while bytesToWrite > 0:
     let numBytes = min(bytesToWrite, buf.len)
     render(ps, buf[0].addr, numBytes)
-    ww.writeData(buf, numBytes)
-    dec(bytesToWrite, numBytes)
 
-  ww.updateHeaders()
-  ww.close()
+    case config.bitDepth
+    of bd16Bit:      ww.writeData16(buf[0].addr, numBytes)
+    of bd24Bit:      ww.writeData24Packed(buf[0].addr, numBytes)
+    of bd32BitFloat: ww.writeData32(buf[0].addr, numBytes)
+
+  ww.endChunk()
+  ww.endFile()
 
 
 proc main() =
