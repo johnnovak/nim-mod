@@ -94,7 +94,6 @@ Options:
     -v, --version             show version information
     -V, --verbose             verbose output (for debugging)
     -q, --quiet               suppress warnings
-
 """
 
 

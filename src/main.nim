@@ -229,6 +229,8 @@ proc writeWaveFile(config: Config, module: Module) =
     of bd24Bit:      ww.writeData24Packed(buf[0].addr, numBytes)
     of bd32BitFloat: ww.writeData32(buf[0].addr, numBytes)
 
+    dec(bytesToWrite, numBytes)
+
   ww.endChunk()
   ww.endFile()
 
