@@ -92,38 +92,42 @@ type
 
   Channel* = object
     # Can be set from the outside to mute/unmute channels
-    state*:         ChannelState
+    state*:          ChannelState
 
-    currSample:     Sample
-    period:         Natural  # TODO use Natural and 0 for no value
-    pan:            float32
-    volume:         Natural
+    currSample:      Sample
+    period:          Natural
+    pan:             float32
+    volume:          Natural
 
     # Per-channel effect memory
-    portaToNote:    int
-    portaSpeed:     Natural
-    vibratoSpeed:   Natural
-    vibratoDepth:   Natural
-    offset:         Natural
-    delaySample:    Sample
+    portaToNote:     int
+    portaSpeed:      Natural
+    vibratoSpeed:    Natural
+    vibratoDepth:    Natural
+    vibratoWaveform: WaveformType
+    tremoloSpeed:    Natural
+    tremoloDepth:    Natural
+    tremoloWaveform: WaveformType
+    offset:          Natural
+    delaySample:     Sample
 
     delaySampleNextRowNote:  int  # kind of a special case...
 
-    loopStartRow:   Natural
-    loopRow:        int
-    loopCount:      Natural
+    loopStartRow:    Natural
+    loopRow:         int
+    loopCount:       Natural
 
     # Used by the audio renderer
-    samplePos:      float32
-    volumeScalar:   float32
-    sampleStep:     float32
+    samplePos:       float32
+    volumeScalar:    float32
+    sampleStep:      float32
 
-    # Vibrate state
-    vibratoPos:     Natural
-    vibratoSign:    int
+    # Vibrato state
+    vibratoPos:      Natural
+    vibratoSign:     int
 
     # For emulating the ProTracker swap sample quirk
-    swapSample:     Sample
+    swapSample:      Sample
 
   ChannelState* = enum
     csPlaying, csMuted, csDimmed
@@ -148,6 +152,17 @@ type
     srSongRestartPos = (2, "song restart pos"),
     srPositionJump   = (3, "position jump")
 
+  WaveformType* = enum
+    wfSine             = (0, "sine"),
+    wfRampDown         = (1, "ramp down"),
+    wfSquare           = (2, "square")
+    # These are not supported in ProTracker classic
+#    wfRandom           = (3, "random"),
+#    wfSineNoRetrig     = (4, "sine (no retrig)"),
+#    wfRampDownNoRetrig = (5, "ramp down (no retrig)"),
+#    wfSquareNoRetrig   = (6, "square (no retrig)"),
+#    wfRandomNoRetrig   = (7, "random (no retrig)")
+
 
 proc resetChannel(ch: var Channel) =
   # mute state & panning doesn't get reset
@@ -159,6 +174,10 @@ proc resetChannel(ch: var Channel) =
   ch.portaSpeed = 0
   ch.vibratoSpeed = 0
   ch.vibratoDepth = 0
+  ch.vibratoWaveform = wfSine
+  ch.tremoloSpeed = 0
+  ch.tremoloDepth = 0
+  ch.tremoloWaveform = wfSine
   ch.offset = 0
   ch.delaySample = nil
   ch.delaySampleNextRowNote = NOTE_NONE
@@ -419,14 +438,21 @@ proc doTonePortamento(ps: PlaybackState, ch: var Channel,
 
 
 proc vibrato(ps: PlaybackState, ch: var Channel) =
+  var vibratoValue = 0
+
   inc(ch.vibratoPos, ch.vibratoSpeed)
   if ch.vibratoPos > vibratoTable.high:
     dec(ch.vibratoPos, vibratoTable.len)
     ch.vibratoSign *= -1
 
-  let vibratoPeriod = ch.vibratoSign * ((vibratoTable[ch.vibratoPos] *
-                                         ch.vibratoDepth) div 128)
-  setSampleStep(ch, ch.period + vibratoPeriod, ps.config.sampleRate)
+  case ch.vibratoWaveform:
+  of wfSine:     vibratoValue = vibratoTable[ch.vibratoPos]
+  of wfRampDown: vibratoValue = 256 # TODO
+  of wfSquare:   vibratoValue = 256
+
+  let periodOffs = ch.vibratoSign * (vibratoValue * ch.vibratoDepth div 128)
+  setSampleStep(ch, ch.period + periodOffs, ps.config.sampleRate)
+
 
 proc doVibrato(ps: PlaybackState, ch: var Channel, speed,
                depth: int, note: int) =
@@ -528,8 +554,11 @@ proc doFineSlideDown(ps: PlaybackState, ch: var Channel, value: int) =
 proc doGlissandoControl(ps: PlaybackState, ch: Channel, state: int) =
   discard
 
-proc doSetVibratoWaveform(ps: PlaybackState, ch: Channel, value: int) =
-  discard
+proc doSetVibratoWaveform(ps: PlaybackState, ch: var Channel, value: int) =
+  if value <= WaveformType.high.ord:
+    ch.vibratoWaveform = WaveformType(value)
+    ch.vibratoPos = 0
+    ch.vibratoSign = 1
 
 proc doSetFinetune(ps: PlaybackState, ch: Channel, value: int) =
   if isFirstTick(ps):
@@ -549,8 +578,9 @@ proc doPatternLoop(ps: var PlaybackState, ch: var Channel, numRepeats: int) =
         ch.loopCount = 0
 
 
-proc doSetTremoloWaveform(ps: PlaybackState, ch: Channel, value: int) =
-  discard
+proc doSetTremoloWaveform(ps: PlaybackState, ch: var Channel, value: int) =
+  if value <= WaveformType.high.ord:
+    ch.tremoloWaveform = WaveformType(value)
 
 proc doRetrigNote(ps: PlaybackState, ch: var Channel, ticks, note: int) =
   if not isFirstTick(ps):
