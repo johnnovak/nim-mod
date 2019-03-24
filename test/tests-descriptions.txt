@@ -4,7 +4,7 @@ TEST DESCRIPTIONS
 It is indicated next to each test case whether the current behaviour of the
 renderer is accurate compared to the ProTracker v2.3D playroutine or not.
 
-  [OK]   - behaviour is the same as in ProTracker
+  [OK]   - behaviour is the same as in ProTracker v2.3D
   [FAIL] - behaviour is NOT the same as in ProTracker (see further
            comments)
 
@@ -26,36 +26,36 @@ The arpeggio command should be performed on every tick:
   ...
 
 
-## Test 1:   arpeggio-1.mod
+## Test 1:   arpeggio.mod
 
-row 0     [OK]
-Do nothing if note and sample num are empty, and no note was previously played
+rows 0-1    [OK]
+Do nothing if note and samplenum are empty, and no note was previously played
 on the channel.
 
-row 2     [OK]
-Do nothing if note is provided, sample num is empty, and no note was
+rows 2-3    [OK]
+Do nothing if note is provided, samplenum is empty, and no note was
 previously played on the channel.
 
-row 4     [FAIL]
+rows 4-17   [FAIL]
 Do sample swap, start playing the arpeggio from the loop start position,
 ignoring the finetune setting. Keep playing the non-finetuned note from row
 8 after the arpeggio ended. The fine tuned note can be heard on row 12 for
 pitch reference.
 *NOTE* This is probably due to a sample swapping bug.
 
-row 18    [OK]
+row 18-20   [OK]
 Play an arpeggio really slowly.
 
-row 21    [OK]
+row 21-25   [OK]
 Increase pich then continue playing the arpeggio.
 
-row 26    [OK]
+row 26-30   [OK]
 Both arpeggio notes are the same.
 
-row 31    [OK]
+row 31-35   [OK]
 Only the first arpeggio note is used, the second one is zero.
 
-row 36    [OK]
+row 36-55   [OK]
 Test different speed (ticks per row) settings.
 
 
@@ -65,25 +65,25 @@ Slide up (1xy)
 The slide up command should be performed on every tick but the very first.
 
 
-## Test 1:         slide-up-1.mod
+## Test 1:         slide-up.mod
 
-row 0     [OK]
-Do nothing if note and sample num are empty, speed is empty, and no note was
+row 0       [OK]
+Do nothing if note and samplenum are empty, speed is empty, and no note was
 previously played on the channel.
 
-row 1     [OK]
-Do nothing if note and sample num are empty, speed is provided, and no note
+row 1       [OK]
+Do nothing if note and samplenum are empty, speed is provided, and no note
 was previously played on the channel.
 
-row 2     [OK]
-Do nothing if note is provided, sample num is empty, and no note was
+rows 2-3    [OK]
+Do nothing if note is provided, samplenum is empty, and no note was
 previously played on the channel.
 
-row 4     [FAIL]
+rows 4-11   [FAIL]
 Do sample swap, start playing from the loop start position and do the slide.
 *NOTE* This is probably due to a sample swapping bug.
 
-row 12    [OK*]
+rows 12-19  [OK*]
 Do the slide up and clamp period to Amiga limits.
 
 * When playing a sample at B-3 with finetune 0, a strange distortion starts to
@@ -93,17 +93,17 @@ Do the slide up and clamp period to Amiga limits.
   not emulated in the player, but I don't think it's too important (or even
   desirable).
 
-row 20    [OK]
-Slide up should not have effect memory.
+rows 20-25  [OK]
+Slide up should have NO effect memory.
 
-row 26    [OK]
+rows 26-30  [OK]
 Slide up should be performed on every tick but the very first when there's
 a pattern delay (EEx) command on the same row.
 
-row 31    [OK]
+rows 31-35  [OK]
 Do nothing if no slide speed is provided.
 
-row 36    [FAIL]
+rows 36-48  [FAIL]
 First a B-3 note with finetune +7 is played, then two slide up that should be
 clamped to the same period as the first note.
 *NOTE* The slides are clamped fine, but the first note is not clamped
@@ -116,49 +116,49 @@ Slide down (2xy)
 The slide up command should be performed on every tick but the very first.
 
 
-## Test 1:         slide-down-1.mod
+## Test 1:         slide-down.mod
 
-row 0     [OK]
-Do nothing if note and sample num are empty, speed is empty, and no note was
+row 0       [OK]
+Do nothing if note and samplenum are empty, speed is empty, and no note was
 previously played on the channel.
 
-row 1     [OK]
-Do nothing if note and sample num are empty, speed is provided, and no note
+row 1       [OK]
+Do nothing if note and samplenum are empty, speed is provided, and no note
 was previously played on the channel.
 
-row 2     [OK]
-Do nothing if note is provided, sample num is empty, and no note was
+rows 2-3    [OK]
+Do nothing if note is provided, samplenum is empty, and no note was
 previously played on the channel.
 
-row 4     [FAIL]
+rows 4-11   [FAIL]
 Do sample swap, start playing from the loop start position and do the slide.
 *NOTE* This is probably due to a sample swapping bug.
 
-row 12    [OK]
+rows 12-25  [OK]
 Do the slide down and clamp period to Amiga limits. Note that the lower limit
 is C-1 with finetune 0. A C-1 note with finetune -7 is played next for
 reference.
 
-row 26    [OK]
+rows 26-32  [OK]
 Due to the clamp period limits, sliding down from a C-1 note with a negative
 finetune value (-7 in this case) will set the period to C-1 with finetune
 0 immediately, regardless of the slide down speed setting.
 
-row 33    [OK]
-Slide down should not have effect memory.
+rows 33-38  [OK]
+Slide down should have NO effect memory.
 
-row 39    [OK]
+rows 39-43  [OK]
 Slide up should be performed on every tick but the very first when there's
 a pattern delay (EEx) command on the same row.
 
-row 44    [OK]
+rows 44-48  [OK]
 Do nothing if no slide speed is provided.
 
 
 ------------------------------------------------------------------------------
 Tone portamento (3xy)
 ------------------------------------------------------------------------------
-Test 1:         tone-portamento-1.mod
+Test 1:         tone-portamento.mod
 
 TODO
 
@@ -166,86 +166,182 @@ TODO
 ------------------------------------------------------------------------------
 Vibrato (4xy)
 ------------------------------------------------------------------------------
-Test 1:         vibrato-1.mod
+Vibrato should be only performed on non-first ticks. This results in a pretty
+funky vibrato on lower vibrato speeds.
 
-TODO
+
+## Test 1:         vibrato-general.mod
+
+row 0       [OK]
+Do nothing if note and samplenum are empty, speed and depth are empty, and no
+note was previously played on the channel.
+
+row 1       [OK]
+Do nothing if note and samplenum are empty, speed is empty, and no note was
+previously played on the channel.
+
+row 2       [OK]
+Do nothing if note and samplenum are empty, depth is empty, and no note was
+previously played on the channel.
+
+row 3       [OK]
+Do nothing if note and samplenum are empty, and no note was previously played
+on the channel.
+
+rows 4-5    [OK]
+Do nothing if note is provided, samplenum is empty, and no note was
+previously played on the channel.
+
+rows 7-8    [OK]
+Default vibrato waveform should be sine, vibrato should have effect memory.
+
+rows 9-17   [OK]
+Each channel should have its own vibrato effect memory.
+
+rows 18-33  [OK]
+Vibrato should not be performed only on non-first ticks.
+
+rows 34-48  [OK]
+It should be possible to set only vibrato speed or depth; the other parameter
+value should be remembered.
+
+rows 51-63  [OK]
+Vibrato should be performed on every tick but the very first when there's
+a pattern delay (EEx) command on the same row.
+
+
+## Test 2:         vibrato-retrigger.mod
+
+row 0-8     [OK]
+Just the samplenum without a note should not retrigger the vibrato
+position
+
+row 0-23    [OK]
+A new note should retrigger the vibrato position.
+
+rows 10-23  [OK]
+Changing the vibrato parameters should not change the vibrato position.
+
+rows 25-35  [OK]
+Other effects should not affect the vibrato position.
+
 
 ------------------------------------------------------------------------------
 Tone portamento and volume slide (5xy)
 ------------------------------------------------------------------------------
-Test 1:         tone-port-and-vol-slide-1.mod
+Test 1:         tone-port-and-vol-slide.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Vibrato and volume slide (6xy)
 ------------------------------------------------------------------------------
-Test 1:         vibrato-and-vol-slide-1.mod
+Test 1:         vibrato-and-vol-slide.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Tremolo (7xy)
 ------------------------------------------------------------------------------
-Test 1:         tremolo-1.mod
+Test 1:         tremolo.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Set panning (fine) (8xy)
 ------------------------------------------------------------------------------
-Test 1:         set-pan-fine-1.mod
+Test 1:         set-pan-fine.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Set sample offset (9xy)
 ------------------------------------------------------------------------------
-Test 1:         set-sample-offset-1.mod
+Test 1:         set-sample-offset.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Volume slide (Axy)
 ------------------------------------------------------------------------------
-Test 1:         volume-slide-1.mod
+Test 1:         volume-slide.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Position jump (Bxy)
 ------------------------------------------------------------------------------
-Test 1:         position-jump-1.mod
+Test 1:         position-jump.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Set volume (Cxy)
 ------------------------------------------------------------------------------
-Test 1:         set-volume-1.mod
+Test 1:         set-volume.mod
 
-TODO
+row 0       [OK]
+Do nothing if note and samplenum are empty and no note was previously played
+on the channel.
+
+row 1       [OK]
+Do nothing if note is empty, the samplenum of a non-empty sample is provided,
+and no note was previously played on the channel.
+
+row 2       [OK]
+Do nothing if note is empty, the samplenum of an empty sample is provided,
+and no note was previously played on the channel.
+
+rows 4-11   [OK]
+Set volume should override the default sample volume.
+
+rows 12-16  [OK]
+Set volume should have no effect memory; new notes should always use the
+default sample volume if the samplenum of a non-empty sample is provided.
+
+rows 12-16  [OK]
+New notes should use the default sample volume if the samplenum of a
+non-empty sample is provided.
+
+rows 16-22  [OK]
+New notes should use the last set volume if no samplenum was is provided.
+
+rows 23-32  [OK]
+Set volume should not retrigger samples.
+
+rows 33-41  [OK]
+Samplenum without a note should set the default volume of the sample if the
+samplenum is of the currently playing sample. If the samplenum of an empty
+sample if provided, the volume should be set to zero.
+
+rows 42-46  [OK]
+Volume values above 40 should be clamped to 40.
+
+rows 48-51  [OK]
+Sample-swapping should set the default volume of the swapped sample.
+
 
 ------------------------------------------------------------------------------
 Pattern break (Dxy)
 ------------------------------------------------------------------------------
-Test 1:         pattern-break-1.mod
+Test 1:         pattern-break.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Set filter (E0x)
 ------------------------------------------------------------------------------
-Test 1:         set-filter-1.mod
+Test 1:         set-filter.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Set tempo/speed (Fxy)
 ------------------------------------------------------------------------------
-Test 1:         set-speed-1.mod
+Test 1:         set-speed.mod
 
 TODO
+
 
 EXTENDED EFFECTS
 ================
@@ -253,105 +349,171 @@ EXTENDED EFFECTS
 ------------------------------------------------------------------------------
 Fine slide up (E1x)
 ------------------------------------------------------------------------------
-Test 1:         fine-slide-up-1.mod
+Test 1:         fine-slide-up.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Fine slide down (E2x)
 ------------------------------------------------------------------------------
-Test 1:         fine-slide-down-1.mod
+Test 1:         fine-slide-down.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Glissando control (E3x)
 ------------------------------------------------------------------------------
-Test 1:         glissando-1.mod
+Test 1:         glissando.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Set vibrato waveform (E4x)
 ------------------------------------------------------------------------------
-Test 1:         set-vibrato-waveform-1.mod
+Set the vibrato waveform to one of these three waveforms for the channel:
 
-TODO
+  x MOD 3 = 0  - sine
+  x MOD 3 = 1  - ramp down
+  x MOD 3 = 2  - square
+
+
+## Test 1:         vibrato-waveform.mod
+
+rows 0-3    [OK]
+Default vibrato waveform should be sine.
+
+rows 4-16   [OK]
+E40 should set vibrato waveform to sine.
+
+rows 16-24  [OK]
+E41 should set vibrato waveform to ramp.
+
+rows 25-35  [OK]
+E42 should set vibrato waveform to square.
+
+rows 36-37  [OK]
+E43 should set vibrato waveform to square.
+
+rows 38-39  [OK]
+E44 should set vibrato waveform to sine.
+
+rows 40-41  [OK]
+E45 should set vibrato waveform to ramp.
+
+rows 42-43  [OK]
+E46 should set vibrato waveform to square.
+
+rows 44-45  [OK]
+E47 should set vibrato waveform to square.
+
+rows 46-47  [OK]
+E48 should set vibrato waveform to sine.
+
+rows 48-49  [OK]
+E49 should set vibrato waveform to ramp.
+
+rows 50-51  [OK]
+E4A should set vibrato waveform to square.
+
+rows 52-53  [OK]
+E4B should set vibrato waveform to square.
+
+rows 54-55  [OK]
+E4C should set vibrato waveform to sine.
+
+rows 56-57  [OK]
+E4D should set vibrato waveform to ramp.
+
+rows 58-59  [OK]
+E4E should set vibrato waveform to square.
+
+rows 60-59  [OK]
+E4E should set vibrato waveform to square.
+
 
 ------------------------------------------------------------------------------
 Set finetune (E5x)
 ------------------------------------------------------------------------------
-Test 1:         set-finetune-1.mod
+Test 1:         set-finetune.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Pattern loop (E6x)
 ------------------------------------------------------------------------------
-Test 1:         pattern-loop-1.mod
+Test 1:         pattern-loop.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Set tremolo waveform (E7x)
 ------------------------------------------------------------------------------
-Test 1:         set-tremolo-waveform-1.mod
+Test 1:         set-tremolo-waveform.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Set Panning (coarse) (E8x)
 ------------------------------------------------------------------------------
-Test 1:         set-pan-coarse-1.mod
+Test 1:         set-pan-coarse.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Retrig note (E9x)
 ------------------------------------------------------------------------------
-Test 1:         retrig-note-1.mod
+Test 1:         retrig-note.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Fine volume slide up (EAx)
 ------------------------------------------------------------------------------
-Test 1:         fine-vol-slide-up-1.mod
+Test 1:         fine-vol-slide-up.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Fine volume slide down (EBx)
 ------------------------------------------------------------------------------
-Test 1:         fine-vol-slide-down-1.mod
+Test 1:         fine-vol-slide-down.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Note cut (ECx)
 ------------------------------------------------------------------------------
-Test 1:         note-cut-1.mod
+Test 1:         note-cut.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Note delay (EDx)
 ------------------------------------------------------------------------------
-Test 1:         note-delay-1.mod
+Test 1:         note-delay.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Pattern delay (EEx)
 ------------------------------------------------------------------------------
-Test 1:         pattern-delay-1.mod
+Test 1:         pattern-delay.mod
 
 TODO
 
 ------------------------------------------------------------------------------
 Invert loop (EFx)
 ------------------------------------------------------------------------------
-Test 1:         invert-loop-1.mod
+Test 1:         invert-loop.mod
 
-TODO
+Not implemented.
+
+
+
+NOTES
+=====
+
+## Test 1:   extended-ft2-notes.mod      [OK]
+
+Test that extended FastTracker 2 notes are handled correctly.
 

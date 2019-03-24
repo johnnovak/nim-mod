@@ -43,6 +43,7 @@ proc playerQuitProc() {.noconv.} =
 proc startPlayer(config: Config, module: Module) =
   var ps = initPlaybackState(config, module)
   discard ps.precalcSongPosCacheAndSongLength()
+  ps.setStartPos(config.startPos, config.startRow)
 
   proc audioCallback(buf: pointer, bufLen: Natural) =
     render(ps, buf, bufLen)

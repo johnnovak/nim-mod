@@ -124,7 +124,6 @@ type
 
     # Vibrato state
     vibratoPos:      Natural
-    vibratoSign:     int
 
     # For emulating the ProTracker swap sample quirk
     swapSample:      Sample
@@ -155,13 +154,14 @@ type
   WaveformType* = enum
     wfSine             = (0, "sine"),
     wfRampDown         = (1, "ramp down"),
-    wfSquare           = (2, "square")
+    wfSquare           = (2, "square"),
+    # Random is the same as square in ProTracker classic
+    wfRandom           = (3, "random"),
     # These are not supported in ProTracker classic
-#    wfRandom           = (3, "random"),
-#    wfSineNoRetrig     = (4, "sine (no retrig)"),
-#    wfRampDownNoRetrig = (5, "ramp down (no retrig)"),
-#    wfSquareNoRetrig   = (6, "square (no retrig)"),
-#    wfRandomNoRetrig   = (7, "random (no retrig)")
+    wfSineNoRetrig     = (4, "sine (no retrig)"),
+    wfRampDownNoRetrig = (5, "ramp down (no retrig)"),
+    wfSquareNoRetrig   = (6, "square (no retrig)"),
+    wfRandomNoRetrig   = (7, "random (no retrig)")
 
 
 proc resetChannel(ch: var Channel) =
@@ -190,7 +190,6 @@ proc resetChannel(ch: var Channel) =
   ch.sampleStep = 0
 
   ch.vibratoPos = 0
-  ch.vibratoSign = 1
 
   ch.swapSample = nil
 
@@ -209,8 +208,8 @@ proc resetPlaybackState(ps: var PlaybackState) =
 
   # These initial values ensure that the very first row & tick of the playback
   # are handled correctly
-  ps.currRow = -1
-  ps.currTick = ps.ticksPerRow-1
+  ps.currRow = 0
+  ps.currTick = 0
 
   ps.ellapsedTicks = 0
   ps.jumpSongPos = NO_VALUE
@@ -253,6 +252,12 @@ proc initPlaybackState*(config: Config, module: Module): PlaybackState =
 
   ps.resetPlaybackState()
   result = ps
+
+
+proc setStartPos*(ps: var PlaybackState, startPos, startRow: Natural) =
+  ps.currSongPos = startPos
+  ps.currRow = startRow.int
+  # TODO fake precalc until currRow?
 
 
 proc checkHasSongEnded(ps: var PlaybackState, songPos: Natural, row: Natural,
@@ -440,18 +445,31 @@ proc doTonePortamento(ps: PlaybackState, ch: var Channel,
 proc vibrato(ps: PlaybackState, ch: var Channel) =
   var vibratoValue = 0
 
-  inc(ch.vibratoPos, ch.vibratoSpeed)
-  if ch.vibratoPos > vibratoTable.high:
-    dec(ch.vibratoPos, vibratoTable.len)
-    ch.vibratoSign *= -1
-
   case ch.vibratoWaveform:
-  of wfSine:     vibratoValue = vibratoTable[ch.vibratoPos]
-  of wfRampDown: vibratoValue = 256 # TODO
-  of wfSquare:   vibratoValue = 256
+  of wfSine:
+    vibratoValue = vibratoTable[ch.vibratoPos mod vibratoTable.len]
 
-  let periodOffs = ch.vibratoSign * (vibratoValue * ch.vibratoDepth div 128)
-  setSampleStep(ch, ch.period + periodOffs, ps.config.sampleRate)
+  of wfRampDown:
+    if ch.vibratoPos < vibratoTable.len:
+      vibratoValue = ((ch.vibratoPos mod vibratoTable.len) * 8)
+    else:
+      vibratoValue = 255 - (ch.vibratoPos mod vibratoTable.len) * 8
+
+  of wfSquare, wfRandom:
+    vibratoValue = 255
+
+  else: discard   # not supported in ProTracker classic
+
+  let periodOffs = vibratoValue * ch.vibratoDepth div 128
+
+  if ch.vibratoPos < vibratoTable.len:
+    setSampleStep(ch, ch.period + periodOffs, ps.config.sampleRate)
+  else:
+    setSampleStep(ch, ch.period - periodOffs, ps.config.sampleRate)
+
+  inc(ch.vibratoPos, ch.vibratoSpeed)
+  if ch.vibratoPos >= vibratoTable.len * 2:
+    dec(ch.vibratoPos, vibratoTable.len * 2)
 
 
 proc doVibrato(ps: PlaybackState, ch: var Channel, speed,
@@ -459,7 +477,6 @@ proc doVibrato(ps: PlaybackState, ch: var Channel, speed,
   if isFirstTick(ps):
     if note != NOTE_NONE:
       ch.vibratoPos = 0
-      ch.vibratoSign = 1
     if speed > 0: ch.vibratoSpeed = speed
     if depth > 0: ch.vibratoDepth = depth
   else:
@@ -555,10 +572,7 @@ proc doGlissandoControl(ps: PlaybackState, ch: Channel, state: int) =
   discard
 
 proc doSetVibratoWaveform(ps: PlaybackState, ch: var Channel, value: int) =
-  if value <= WaveformType.high.ord:
-    ch.vibratoWaveform = WaveformType(value)
-    ch.vibratoPos = 0
-    ch.vibratoSign = 1
+  ch.vibratoWaveform = WaveformType(value and 3)
 
 proc doSetFinetune(ps: PlaybackState, ch: Channel, value: int) =
   if isFirstTick(ps):
@@ -696,7 +710,7 @@ proc doTick(ps: var PlaybackState) =
     of 0x1: doSlideUp(ps, ch, xy)
     of 0x2: doSlideDown(ps, ch, xy)
     of 0x3: doTonePortamento(ps, ch, xy, note)
-    of 0x4: doVibrato(ps, ch, x, y, note) # TODO waveforms
+    of 0x4: doVibrato(ps, ch, x, y, note)
     of 0x5: doTonePortamentoAndVolumeSlide(ps, ch, x, y, note)
     of 0x6: doVibratoAndVolumeSlide(ps, ch, x, y)
     of 0x7: doTremolo(ps, ch, x, y) # TODO implement
@@ -715,7 +729,7 @@ proc doTick(ps: var PlaybackState) =
       of 0x1: doFineSlideUp(ps, ch, y)
       of 0x2: doFineSlideDown(ps, ch, y)
       of 0x3: doGlissandoControl(ps, ch, y) # TODO implement
-      of 0x4: doSetVibratoWaveform(ps, ch, y) # TODO implement
+      of 0x4: doSetVibratoWaveform(ps, ch, y)
       of 0x5: doSetFinetune(ps, ch, y)
       of 0x6: doPatternLoop(ps, ch, y)
       of 0x7: doSetTremoloWaveform(ps, ch, y) # TODO implement
@@ -748,19 +762,11 @@ proc setNextSongPos(ps: var PlaybackState) =
     ps.playPositionFrame = ps.songPosCache[ps.currSongPos].frame
     ps.tempo             = ps.songPosCache[ps.currSongPos].tempo
     ps.ticksPerRow       = ps.songPosCache[ps.currSongPos].ticksPerRow
-
-    # This is important! The current tick will be advanced by one below, so we
-    # need to start from the last tick of the previous row to then just
-    # "slide" into the correct row position (it's ok to have -1 in currRow)
-    ps.currRow  = ps.songPosCache[ps.currSongPos].startRow-1
-    ps.currTick = ps.ticksPerRow-1
+    ps.currRow           = ps.songPosCache[ps.currSongPos].startRow
+    ps.currTick          = 0
 
 
 proc advancePlayPosition(ps: var PlaybackState) =
-  # The user has changed the play position, let's do something about it :)
-  if ps.nextSongPos != NO_VALUE:
-    setNextSongPos(ps)
-
   inc(ps.currTick)
   inc(ps.ellapsedTicks)
 
@@ -838,6 +844,12 @@ proc framesPerTick(ps: PlaybackState): Natural =
   result = (millisPerTick * framesPerMilli).int
 
 
+proc handleChangeSongPosRequested(ps: var PlaybackState) =
+  # The user has changed the play position, let's do something about it :)
+  if ps.nextSongPos != NO_VALUE:
+    setNextSongPos(ps)
+
+
 proc renderInternal(ps: var PlaybackState, mixBuffer: var openArray[float32],
                     numFrames: int) =
   # Clear mixbuffer
@@ -847,17 +859,16 @@ proc renderInternal(ps: var PlaybackState, mixBuffer: var openArray[float32],
 
   # Just return silence if paused
   if ps.paused:
-    # The user has changed the play position, let's do something about it :)
-    if ps.nextSongPos != NO_VALUE:
-      setNextSongPos(ps)
+    handleChangeSongPosRequested(ps)
     return
 
   # Otherwise render some audio
   var framePos = 0
   while framePos < numFrames:
     if ps.tickFramesRemaining == 0:
-      advancePlayPosition(ps)
+      handleChangeSongPosRequested(ps)
       doTick(ps)
+      advancePlayPosition(ps)
       ps.tickFramesRemaining = framesPerTick(ps)
 
     let frameCount = min(numFrames - framePos, ps.tickFramesRemaining)
@@ -955,14 +966,13 @@ proc precalcSongPosCacheAndSongLength*(ps: var PlaybackState):
 
   ps.mode = rmPrecalc
   while not ps.hasSongEnded:
-    advancePlayPosition(ps)
     doTick(ps)
-    if not ps.hasSongEnded:
-      inc(ps.playPositionFrame, framesPerTick(ps))
+    advancePlayPosition(ps)
+    inc(ps.playPositionFrame, framesPerTick(ps))
 
   # Store result and reset state for the real playback
-  result = (ps.playPositionFrame, ps.songRestartType, ps.songRestartPos)
   ps.songLengthFrames = ps.playPositionFrame
+  result = (ps.playPositionFrame, ps.songRestartType, ps.songRestartPos)
   ps.resetPlaybackState()
   ps.resetChannels()
 

@@ -1,4 +1,4 @@
-import logging, parseopt, parseutils, strformat
+import logging, parseopt, parseutils, strformat, strutils
 
 const VERSION = "1.0.0"
 
@@ -10,6 +10,8 @@ type
     sampleRate*:       Natural
     bitDepth*:         BitDepth
     bufferSize*:       Natural
+    startPos*:         Natural
+    startRow*:         Natural
     ampGain*:          float
     stereoWidth*:      int
     resampler*:        Resampler
@@ -36,6 +38,8 @@ proc initConfigWithDefaults(): Config =
   result.sampleRate       = 44100
   result.bitDepth         = bd16Bit
   result.bufferSize       = 2048
+  result.startPos         = 0
+  result.startRow         = 0
   result.ampGain          = -6.0
   result.stereoWidth      = 50
   result.resampler        = rsLinear
@@ -68,7 +72,7 @@ Options:
                               formats, 32 is 32-bit floating point;
                               default is 16
     -B, --bufferSize=INTEGER  size of the audio buffer in bytes;
-                              default is 2048
+
     -a, --ampGain=FLOAT       set the amplifier gain in dB, must be between
                               -36.0 and 36.0; default is -6.0
     -w, --stereoWidth=INTEGER
@@ -163,6 +167,23 @@ proc parseCommandLine*(): Config =
         if s > 0: config.bufferSize = s
         else:
           invalidOptValue(opt, val, "buffer size must be a positive integer")
+
+      # "Hidden" feature for testing & debuggin only
+      # (it doesn't do channel/pattern state chasing)
+      of "startPos", "p":
+        if val == "": missingOptValue(opt)
+        else:
+          var
+            pos = val.split(':')
+            startPos, startRow: int
+
+          if pos.len != 2 or
+             parseInt(pos[0], startPos) == 0 or
+             parseInt(pos[1], startRow) == 0:
+            invalidOptValue(opt, val,
+                            "song position must be in INT:INT format")
+          config.startPos = startPos
+          config.startRow = startRow
 
       of "ampGain", "a":
         if val == "": missingOptValue(opt)
