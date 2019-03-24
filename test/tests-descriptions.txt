@@ -340,7 +340,26 @@ Set tempo/speed (Fxy)
 ------------------------------------------------------------------------------
 Test 1:         set-speed.mod
 
-TODO
+rows 0-3    [OK]
+Default speed should be 6 and default tempo should be 125.
+
+rows 4-29   [OK]
+Test set speed.
+
+rows 30-41  [OK]
+Test set tempo.
+
+rows 42-45  [OK]
+If there are multiple set speed commands on the same row, the rightmost one
+should take effect.
+
+rows 46-49  [OK]
+If there are multiple set tempo commands on the same row, the rightmost one
+should take precedence.
+
+rows 50     [OK]
+If there are multiple set tempo/speed commands on the same row, the stop
+playback (F00) command should take precedence (regardless the channel).
 
 
 EXTENDED EFFECTS

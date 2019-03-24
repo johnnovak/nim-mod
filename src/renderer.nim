@@ -637,10 +637,11 @@ proc doInvertLoop(ps: PlaybackState, ch: Channel, speed: int) =
 
 proc doSetSpeed(ps: var PlaybackState, value: int) =
   if isFirstTick(ps):
-    if value < 0x20:
-      ps.ticksPerRow = value
-    else:
-      ps.tempo = value
+    if ps.ticksPerRow > 0:
+      if value < 0x20:
+        ps.ticksPerRow = value
+      else:
+        ps.tempo = value
 
 
 proc doTick(ps: var PlaybackState) =
