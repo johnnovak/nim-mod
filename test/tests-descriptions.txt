@@ -26,7 +26,7 @@ The arpeggio command should be performed on every tick:
   ...
 
 
-## Test 1:   arpeggio.mod
+## Test 1:         arpeggio.mod
 
 rows 0      [OK]
 Do nothing if note and samplenum are empty, and no note was previously played
@@ -71,6 +71,7 @@ Test different speed (ticks per row) settings.
 Slide up (1xy)
 ------------------------------------------------------------------------------
 The slide up command should be performed on every tick but the very first.
+It should not have effect memory.
 
 
 ## Test 1:         slide-up.mod
@@ -130,6 +131,7 @@ correctly.
 Slide down (2xy)
 ------------------------------------------------------------------------------
 The slide up command should be performed on every tick but the very first.
+It should not have effect memory.
 
 
 ## Test 1:         slide-down.mod
@@ -182,16 +184,70 @@ Do nothing if no slide speed is provided.
 ------------------------------------------------------------------------------
 Tone portamento (3xy)
 ------------------------------------------------------------------------------
-Test 1:         tone-portamento.mod
+The tone portamento command should be performed on every tick but the very
+first. It should have per-channel effect memory.
 
-TODO
 
+## Test 1:         tone-portamento.mod
+
+row 0       [OK]
+Do nothing if note and samplenum are empty, speed and depth are empty, and no
+note was previously played on the channel.
+
+row 1       [OK]
+Do nothing if note and samplenum are empty, speed is empty, and no note was
+previously played on the channel.
+
+row 2       [OK]
+Do nothing if note is empty, the samplenum of a non-empty sample is provided,
+and no note was previously played on the channel.
+
+row 3       [OK]
+Do nothing if note is empty, the samplenum of an empty sample is provided,
+and no note was previously played on the channel.
+
+rows 4-5    [OK]
+Do nothing if the samplenum is empty and no note was previously played on the
+channel.
+
+rows 6-14   [OK]
+Perform normal portamento.
+
+rows 15-18  [OK]
+Portamento should be performed on every tick but the very first when there's
+a pattern delay (EEx) command on the same row.
+
+rows 19-22  [OK]
+Portamento should have per-channel effect memory.
+
+rows 23-26  [OK]
+Portamento should work when the samplenum of the destination note is empty.
+
+rows 27-30  [OK]
+Sample-swapping should work with portamento.
+
+rows 31-34  [OK]
+Portamento up should respect Amiga limits.
+
+rows 35-38  [OK]
+Portamento down should respect Amiga limits.
+
+rows 39-42  [OK]
+Portamento to the same not should have no effect.
+
+rows 43-46  [OK]
+Portamento should work correctly if the pitch was changed by some other effect
+(e.g. slide up).
+
+rows 47-63  [OK]
+Each channel should have its own portamento effect memory.
 
 ------------------------------------------------------------------------------
 Vibrato (4xy)
 ------------------------------------------------------------------------------
 Vibrato should be only performed on non-first ticks. This results in a pretty
-funky vibrato on lower vibrato speeds.
+funky vibrato on lower vibrato speeds. It should have per-channel effect
+memory.
 
 
 ## Test 1:         vibrato-general.mod
@@ -302,7 +358,7 @@ TODO
 ------------------------------------------------------------------------------
 Set volume (Cxy)
 ------------------------------------------------------------------------------
-Test 1:         set-volume.mod
+## Test 1:         set-volume.mod
 
 row 0       [OK]
 Do nothing if note and samplenum are empty and no note was previously played
@@ -362,7 +418,8 @@ TODO
 ------------------------------------------------------------------------------
 Set tempo/speed (Fxy)
 ------------------------------------------------------------------------------
-Test 1:         set-speed.mod
+
+## Test 1:         set-speed.mod
 
 rows 0-3    [OK]
 Default speed should be 6 and default tempo should be 125.
@@ -419,8 +476,10 @@ Set the vibrato waveform to one of these three waveforms for the channel:
   x MOD 3 = 1  - ramp down
   x MOD 3 = 2  - square
 
+The waveform should be set per-channel.
 
-## Test 1:         vibrato-waveform.mod
+
+## Test 1:         set-vibrato-waveform.mod
 
 rows 0-3    [OK]
 Default vibrato waveform should be sine.
