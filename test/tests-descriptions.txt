@@ -205,12 +205,12 @@ Do nothing if note and samplenum are empty, speed is empty, and no note was
 previously played on the channel.
 
 row 2       [OK]
-Do nothing if note and samplenum are empty, depth is empty, and no note was
-previously played on the channel.
+Do nothing if note is empty, the samplenum of a non-empty sample is provided,
+and no note was previously played on the channel.
 
 row 3       [OK]
-Do nothing if note and samplenum are empty, and no note was previously played
-on the channel.
+Do nothing if note is empty, the samplenum of an empty sample is provided,
+and no note was previously played on the channel.
 
 rows 4-5    [OK]
 Do nothing if note is provided, samplenum is empty, and no note was
