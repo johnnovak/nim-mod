@@ -28,34 +28,42 @@ The arpeggio command should be performed on every tick:
 
 ## Test 1:   arpeggio.mod
 
-rows 0-1    [OK]
+rows 0      [OK]
 Do nothing if note and samplenum are empty, and no note was previously played
 on the channel.
 
-rows 2-3    [OK]
+row 1       [OK]
+Do nothing if note is empty, the samplenum of a non-empty sample is provided,
+and no note was previously played on the channel.
+
+row 2       [OK]
+Do nothing if note is empty, the samplenum of an empty sample is provided,
+and no note was previously played on the channel.
+
+rows 3-4    [OK]
 Do nothing if note is provided, samplenum is empty, and no note was
 previously played on the channel.
 
-rows 4-17   [FAIL]
+rows 5-18   [FAIL]
 Do sample swap, start playing the arpeggio from the loop start position,
 ignoring the finetune setting. Keep playing the non-finetuned note from row
 8 after the arpeggio ended. The fine tuned note can be heard on row 12 for
 pitch reference.
 *NOTE* This is probably due to a sample swapping bug.
 
-row 18-20   [OK]
+row 19-21   [OK]
 Play an arpeggio really slowly.
 
-row 21-25   [OK]
+row 22-26   [OK]
 Increase pich then continue playing the arpeggio.
 
-row 26-30   [OK]
+row 27-31   [OK]
 Both arpeggio notes are the same.
 
-row 31-35   [OK]
+row 32-36   [OK]
 Only the first arpeggio note is used, the second one is zero.
 
-row 36-55   [OK]
+row 37-56   [OK]
 Test different speed (ticks per row) settings.
 
 
