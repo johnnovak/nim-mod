@@ -83,15 +83,23 @@ row 1       [OK]
 Do nothing if note and samplenum are empty, speed is provided, and no note
 was previously played on the channel.
 
-rows 2-3    [OK]
+row 2       [OK]
+Do nothing if note is empty, the samplenum of a non-empty sample is provided,
+and no note was previously played on the channel.
+
+row 3       [OK]
+Do nothing if note is empty, the samplenum of an empty sample is provided,
+and no note was previously played on the channel.
+
+rows 4-5    [OK]
 Do nothing if note is provided, samplenum is empty, and no note was
 previously played on the channel.
 
-rows 4-11   [FAIL]
+rows 6-13   [FAIL]
 Do sample swap, start playing from the loop start position and do the slide.
 *NOTE* This is probably due to a sample swapping bug.
 
-rows 12-19  [OK*]
+rows 14-21  [OK*]
 Do the slide up and clamp period to Amiga limits.
 
 * When playing a sample at B-3 with finetune 0, a strange distortion starts to
@@ -101,17 +109,17 @@ Do the slide up and clamp period to Amiga limits.
   not emulated in the player, but I don't think it's too important (or even
   desirable).
 
-rows 20-25  [OK]
+rows 22-27  [OK]
 Slide up should have NO effect memory.
 
-rows 26-30  [OK]
+rows 28-32  [OK]
 Slide up should be performed on every tick but the very first when there's
 a pattern delay (EEx) command on the same row.
 
-rows 31-35  [OK]
+rows 33-37  [OK]
 Do nothing if no slide speed is provided.
 
-rows 36-48  [FAIL]
+rows 38-50  [FAIL]
 First a B-3 note with finetune +7 is played, then two slide up that should be
 clamped to the same period as the first note.
 *NOTE* The slides are clamped fine, but the first note is not clamped
@@ -134,32 +142,40 @@ row 1       [OK]
 Do nothing if note and samplenum are empty, speed is provided, and no note
 was previously played on the channel.
 
-rows 2-3    [OK]
+row 2       [OK]
+Do nothing if note is empty, the samplenum of a non-empty sample is provided,
+and no note was previously played on the channel.
+
+row 3       [OK]
+Do nothing if note is empty, the samplenum of an empty sample is provided,
+and no note was previously played on the channel.
+
+rows 4-5    [OK]
 Do nothing if note is provided, samplenum is empty, and no note was
 previously played on the channel.
 
-rows 4-11   [FAIL]
+rows 6-13   [FAIL]
 Do sample swap, start playing from the loop start position and do the slide.
 *NOTE* This is probably due to a sample swapping bug.
 
-rows 12-25  [OK]
+rows 14-27  [OK]
 Do the slide down and clamp period to Amiga limits. Note that the lower limit
 is C-1 with finetune 0. A C-1 note with finetune -7 is played next for
 reference.
 
-rows 26-32  [OK]
+rows 28-34  [OK]
 Due to the clamp period limits, sliding down from a C-1 note with a negative
 finetune value (-7 in this case) will set the period to C-1 with finetune
 0 immediately, regardless of the slide down speed setting.
 
-rows 33-38  [OK]
+rows 35-40  [OK]
 Slide down should have NO effect memory.
 
-rows 39-43  [OK]
+rows 41-45  [OK]
 Slide up should be performed on every tick but the very first when there's
 a pattern delay (EEx) command on the same row.
 
-rows 44-48  [OK]
+rows 46-50  [OK]
 Do nothing if no slide speed is provided.
 
 
