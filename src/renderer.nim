@@ -102,6 +102,7 @@ type
     # Per-channel effect memory
     portaToNote:     int
     portaSpeed:      Natural
+    glissando:       bool
     vibratoSpeed:    Natural
     vibratoDepth:    Natural
     vibratoWaveform: WaveformType
@@ -172,6 +173,7 @@ proc resetChannel(ch: var Channel) =
 
   ch.portaToNote = NOTE_NONE
   ch.portaSpeed = 0
+  ch.glissando = false
   ch.vibratoSpeed = 0
   ch.vibratoDepth = 0
   ch.vibratoWaveform = wfSine
@@ -372,18 +374,18 @@ proc isFirstTick(ps: PlaybackState): bool =
 
 # Effects
 
+proc findClosestPeriodIndex(finetune, period: int): int =
+  result = 0
+  let offs = finetune * AMIGA_FINETUNE_PAD
+  for idx in (offs + AMIGA_NOTE_MIN)..(offs + AMIGA_NOTE_MAX):
+    if period >= amigaPeriodTable[idx]:
+      result = idx
+      break
+  assert result > 0
+
 proc doArpeggio(ps: PlaybackState, ch: var Channel, note1, note2: int) =
   # TODO implement arpeggio for extended octaves
   if ps.module.useAmigaLimits:
-
-    proc findClosestPeriodIndex(finetune, period: int): int =
-      result = 0
-      let offs = finetune * AMIGA_FINETUNE_PAD
-      for idx in (offs + AMIGA_NOTE_MIN)..(offs + AMIGA_NOTE_MAX):
-        if period >= amigaPeriodTable[idx]:
-          result = idx
-          break
-      assert result > 0
 
     if not isFirstTick(ps):
       if ch.currSample != nil and ch.volume > 0:
@@ -421,11 +423,19 @@ proc tonePortamento(ps: PlaybackState, ch: var Channel) =
     let toPeriod = getPeriod(ps, ch.currSample, ch.portaToNote)
     if ch.period < toPeriod:
       ch.period = min(ch.period + ch.portaSpeed, toPeriod)
-      setSampleStep(ch, ps.config.sampleRate)
-
     elif ch.period > toPeriod:
       ch.period = max(ch.period - ch.portaSpeed, toPeriod)
-      setSampleStep(ch, ps.config.sampleRate)
+
+    var tempPeriod: Natural
+    if ch.glissando:
+      tempPeriod = ch.period 
+      let idx = findClosestPeriodIndex(ch.currSample.finetune, ch.period)
+      ch.period = amigaPeriodTable[idx]
+
+    setSampleStep(ch, ps.config.sampleRate)
+
+    if ch.glissando:
+      ch.period = tempPeriod
 
     if ch.period == toPeriod:
       ch.portaToNote = NOTE_NONE
@@ -518,7 +528,7 @@ proc doSetSampleOffset(ps: PlaybackState, ch: var Channel, offset: int,
           if ch.currSample.isLooped():
             ch.samplePos = ch.currSample.repeatOffset.float32
           else:
-            ch.currSample = nil   # TODO should never set the currSample to nil!
+            ch.currSample = nil
 
 proc doVolumeSlide(ps: PlaybackState, ch: var Channel,
                    upSpeed, downSpeed: int) =
@@ -568,8 +578,8 @@ proc doFineSlideDown(ps: PlaybackState, ch: var Channel, value: int) =
     ch.period = min(ch.period + value, AMIGA_MAX_PERIOD)
     setSampleStep(ch, ps.config.sampleRate)
 
-proc doGlissandoControl(ps: PlaybackState, ch: Channel, state: int) =
-  discard
+proc doGlissandoControl(ps: PlaybackState, ch: var Channel, state: int) =
+  ch.glissando = state != 0
 
 proc doSetVibratoWaveform(ps: PlaybackState, ch: var Channel, value: int) =
   ch.vibratoWaveform = WaveformType(value and 3)
@@ -729,7 +739,7 @@ proc doTick(ps: var PlaybackState) =
       # Extended effects
       of 0x1: doFineSlideUp(ps, ch, y)
       of 0x2: doFineSlideDown(ps, ch, y)
-      of 0x3: doGlissandoControl(ps, ch, y) # TODO implement
+      of 0x3: doGlissandoControl(ps, ch, y)
       of 0x4: doSetVibratoWaveform(ps, ch, y)
       of 0x5: doSetFinetune(ps, ch, y)
       of 0x6: doPatternLoop(ps, ch, y)
