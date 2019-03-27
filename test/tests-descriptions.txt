@@ -210,37 +210,49 @@ rows 4-5    [OK]
 Do nothing if the samplenum is empty and no note was previously played on the
 channel.
 
-rows 6-14   [OK]
+rows 6-12   [OK]
 Perform normal portamento.
 
-rows 15-18  [OK]
+rows 13-15  [OK]
 Portamento should be performed on every tick but the very first when there's
 a pattern delay (EEx) command on the same row.
 
-rows 19-22  [OK]
+rows 16-18  [OK]
 Portamento should have per-channel effect memory.
 
-rows 23-26  [OK]
+rows 19-21  [OK]
 Portamento should work when the samplenum of the destination note is empty.
 
-rows 27-30  [OK]
+rows 19-24  [OK]
+If the destination note is not specified, and the preceeding portamento
+command has reached the desination note on the channel (rows 19-21), no
+portamento should be performed.
+
+rows 25-31  [OK]
+If the destination note is not specified, and the preceeding portamento
+command has NOT reached the desination note on the channel (rows 25-28),
+portamento should be performed to the preceeding destination note from the
+current note (so the portamento "restarts").
+
+rows 32-34  [OK]
 Sample-swapping should work with portamento.
 
-rows 31-34  [OK]
+rows 35-37  [OK]
 Portamento up should respect Amiga limits.
 
-rows 35-38  [OK]
+rows 38-40  [OK]
 Portamento down should respect Amiga limits.
 
-rows 39-42  [OK]
+rows 41-43  [OK]
 Portamento to the same not should have no effect.
 
-rows 43-46  [OK]
+rows 44-46  [OK]
 Portamento should work correctly if the pitch was changed by some other effect
 (e.g. slide up).
 
 rows 47-63  [OK]
 Each channel should have its own portamento effect memory.
+
 
 ------------------------------------------------------------------------------
 Vibrato (4xy)
@@ -480,6 +492,7 @@ TODO
 ------------------------------------------------------------------------------
 Glissando control (E3x)
 ------------------------------------------------------------------------------
+TODO per channel tests
 
 ## Test 1:         glissando.mod
 
