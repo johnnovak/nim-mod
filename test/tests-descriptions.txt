@@ -344,9 +344,25 @@ TODO
 ------------------------------------------------------------------------------
 Volume slide (Axy)
 ------------------------------------------------------------------------------
-Test 1:         volume-slide.mod
 
-TODO
+## Test 1:         volume-slide.mod
+
+row 0       [OK]
+Do nothing if note and samplenum are empty, speed and depth are empty, and no
+note was previously played on the channel.
+
+row 1       [OK]
+Do nothing if note and samplenum are empty, speed is empty, and no note was
+previously played on the channel.
+
+row 2       [OK]
+Do nothing if note is empty, the samplenum of a non-empty sample is provided,
+and no note was previously played on the channel.
+
+row 3       [OK]
+Do nothing if note is empty, the samplenum of an empty sample is provided,
+and no note was previously played on the channel.
+
 
 ------------------------------------------------------------------------------
 Position jump (Bxy)
@@ -419,6 +435,7 @@ TODO
 Set tempo/speed (Fxy)
 ------------------------------------------------------------------------------
 
+
 ## Test 1:         set-speed.mod
 
 rows 0-3    [OK]
@@ -463,9 +480,37 @@ TODO
 ------------------------------------------------------------------------------
 Glissando control (E3x)
 ------------------------------------------------------------------------------
-Test 1:         glissando.mod
 
-TODO
+## Test 1:         glissando.mod
+
+rows 0-2    [OK]
+Glissando control should be off by default.
+
+rows 3-5    [OK]
+E31 should turn glissando control on.
+
+rows 6-8    [OK]
+E30 should turn glissando control off.
+
+rows 9-16   [OK]
+When glissando control is on, the "rounding down" to the closest semitone
+below the actual pitch should only happen during the tone portamento effect
+(so the tone portamento effect always calculates the "unrounded" pitch first,
+stores that as the current channel pitch so subsequent pitch manipulation
+effects will use that, but the "rounded" pitch is sent to the output). If no
+tone portamento is being processed, the pitch should return to the original
+"unrounded" pitch (the current channel pitch).
+
+rows 17-26  [OK]
+A more complicated case of the previous example: a long pitch slide starts
+with a smooth portamento, then a slight slide down, then another portamento
+with glissando control on.
+
+rows 27-33  [OK]
+Downwards tone portamento with glissando control on.
+
+rows 34-62  [OK]
+E30 should turn glissando control off, any other value should turn it on.
 
 ------------------------------------------------------------------------------
 Set vibrato waveform (E4x)
