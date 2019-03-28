@@ -18,7 +18,7 @@ EFFECTS
 ------------------------------------------------------------------------------
 Arpeggio (0xy)
 ------------------------------------------------------------------------------
-The arpeggio command should be performed on every tick:
+The arpeggio effect should be performed on every tick:
 
   tick MOD 3 = 0  -> original note (only retrigger on the first tick)
   tick MOD 3 = 1  -> x semitone up (without retriggering)
@@ -70,7 +70,7 @@ Test different speed (ticks per row) settings.
 ------------------------------------------------------------------------------
 Slide up (1xy)
 ------------------------------------------------------------------------------
-The slide up command should be performed on every tick but the very first.
+The slide up effect should be performed on every tick but the very first.
 It should not have effect memory.
 
 
@@ -130,7 +130,7 @@ correctly.
 ------------------------------------------------------------------------------
 Slide down (2xy)
 ------------------------------------------------------------------------------
-The slide up command should be performed on every tick but the very first.
+The slide up effect should be performed on every tick but the very first.
 It should not have effect memory.
 
 
@@ -184,7 +184,7 @@ Do nothing if no slide speed is provided.
 ------------------------------------------------------------------------------
 Tone portamento (3xy)
 ------------------------------------------------------------------------------
-The tone portamento command should be performed on every tick but the very
+The tone portamento effect should be performed on every tick but the very
 first. It should have per-channel effect memory.
 
 
