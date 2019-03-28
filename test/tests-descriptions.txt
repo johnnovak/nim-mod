@@ -353,9 +353,13 @@ Test 1:         set-sample-offset.mod
 
 TODO
 
+
 ------------------------------------------------------------------------------
 Volume slide (Axy)
 ------------------------------------------------------------------------------
+Volume slide should be performed on non-first tick ticks. It should not have
+effect memory.
+
 
 ## Test 1:         volume-slide.mod
 
@@ -374,6 +378,26 @@ and no note was previously played on the channel.
 row 3       [OK]
 Do nothing if note is empty, the samplenum of an empty sample is provided,
 and no note was previously played on the channel.
+
+rows 4-9    [OK]
+Fade out test.
+
+rows 10-16  [OK]
+Fade in test.
+
+rows 17-19  [OK]
+Volume slide should be performed on every tick but the very first when there's
+a pattern delay (EEx) command on the same row.
+
+rows 20-24  [OK]
+Volume slide should not have effect memory.
+
+rows 25-32  [OK]
+Just the samplenum without a note should restore the start volume to the
+default volume of the sample and the volume slide should start from there.
+
+rows 33-44  [OK]
+The volume slide effect should manipulate the current volume of the channel.
 
 
 ------------------------------------------------------------------------------
