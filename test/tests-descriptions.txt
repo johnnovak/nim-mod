@@ -44,12 +44,11 @@ and no note was previously played on the channel.
 Do nothing if note is provided, samplenum is empty, and no note was
 previously played on the channel.
 
-#05: rows 5-18   [FAIL]
+#05: rows 5-18   [OK]
 Do sample swap, start playing the arpeggio from the loop start position,
 ignoring the finetune setting. Keep playing the non-finetuned note from row
 8 after the arpeggio ended. The fine tuned note can be heard on row 12 for
 pitch reference.
-*NOTE* This is probably due to a sample swapping bug.
 
 #06: row 19-21   [OK]
 Play an arpeggio really slowly.
