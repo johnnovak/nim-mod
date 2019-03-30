@@ -68,13 +68,13 @@ Test different speed (ticks per row) settings.
 
 
 ------------------------------------------------------------------------------
-Slide up (1xy)
+Pitch slide up (1xy)
 ------------------------------------------------------------------------------
-The slide up effect should be performed on every tick but the very first.
-It should not have effect memory.
+The pitch slide up effect should be performed on every tick but the very
+first. It should not have effect memory.
 
 
-## Test 1:         slide-up.mod
+## Test 1:         pitch-slide-up.mod
 
 #01: row 0       [OK]
 Do nothing if note and samplenum are empty, speed is empty, and no note was
@@ -97,10 +97,11 @@ Do nothing if note is provided, samplenum is empty, and no note was
 previously played on the channel.
 
 #06: rows 6-13   [OK]
-Do sample swap, start playing from the loop start position and do the slide.
+Do sample swap, start playing from the loop start position and do the pitch
+slide.
 
 #07: rows 14-21  [OK*]
-Do the slide up and clamp period to Amiga limits.
+Do the pitch slide up and clamp period to Amiga limits.
 
 * When playing a sample at B-3 with finetune 0, a strange distortion starts to
   appear on a real Amiga because the DMA cannot fetch the samples quickly
@@ -110,28 +111,28 @@ Do the slide up and clamp period to Amiga limits.
   desirable).
 
 #08: rows 22-27  [OK]
-Slide up should have NO effect memory.
+Pitch slide up should have NO effect memory.
 
 #09: rows 28-32  [OK]
-Slide up should be performed on every tick but the very first when there's
+Pitch slide up should be performed on every tick but the very first when there's
 a pattern delay (EEx) command on the same row.
 
 #10: rows 33-37  [OK]
-Do nothing if no slide speed is provided.
+Do nothing if no pitch slide speed is provided.
 
 #11: rows 38-50  [OK*]
-First a B-3 note with finetune +7 is played, then two slide up that should be
-clamped to the same period as the first note.
+First a B-3 note with finetune +7 is played, then two pitch slide up that
+should be clamped to the same period as the first note.
 
 
 ------------------------------------------------------------------------------
-Slide down (2xy)
+Pitch slide down (2xy)
 ------------------------------------------------------------------------------
-The slide up effect should be performed on every tick but the very first.
-It should not have effect memory.
+The pitch slide up effect should be performed on every tick but the very
+first.  It should not have effect memory.
 
 
-## Test 1:         slide-down.mod
+## Test 1:         pitch-slide-down.mod
 
 #01: row 0       [OK]
 Do nothing if note and samplenum are empty, speed is empty, and no note was
@@ -464,8 +465,10 @@ Test 1:         set-filter.mod
 TODO
 
 ------------------------------------------------------------------------------
-Set tempo/speed (Fxy)
+Set speed (Fxy)
 ------------------------------------------------------------------------------
+Values 01-1F should set the speed of the song (ticks per row), values 20-FF
+should set the tempo (BPM). 00 should stop the playback.
 
 
 ## Test 1:         set-speed.mod
@@ -496,14 +499,14 @@ EXTENDED EFFECTS
 ================
 
 ------------------------------------------------------------------------------
-Fine slide up (E1x)
+Fine pitch slide up (E1x)
 ------------------------------------------------------------------------------
 Test 1:         fine-slide-up.mod
 
 TODO
 
 ------------------------------------------------------------------------------
-Fine slide down (E2x)
+Fine pitch slide down (E2x)
 ------------------------------------------------------------------------------
 Test 1:         fine-slide-down.mod
 
@@ -640,7 +643,7 @@ Test 1:         set-pan-coarse.mod
 TODO
 
 ------------------------------------------------------------------------------
-Retrig note (E9x)
+Note retrig (E9x)
 ------------------------------------------------------------------------------
 The sample should be retriggered at every xth tick in the simple case, but
 there are lots of weird quirks in more complicated cases (e.g. samplenum or
@@ -648,7 +651,7 @@ note is missing, when used in conjunction with the pattern delay (EEx)
 command, etc.)
 
 
-## Test 1:         retrig-note.mod
+## Test 1:         note-retrig.mod
 
 #01: row 0       [OK]
 Do nothing if note and samplenum are empty, retrig speed is empty, and no

@@ -413,12 +413,12 @@ proc doArpeggio(ps: PlaybackState, ch: var Channel, note1, note2: int) =
   else:
     discard
 
-proc doSlideUp(ps: PlaybackState, ch: var Channel, speed: int) =
+proc doPitchSlideUp(ps: PlaybackState, ch: var Channel, speed: int) =
   if not isFirstTick(ps):
     ch.period = max(ch.period - speed, AMIGA_MIN_PERIOD)
     setSampleStep(ch, ps.config.sampleRate)
 
-proc doSlideDown(ps: PlaybackState, ch: var Channel, speed: int) =
+proc doPitchSlideDown(ps: PlaybackState, ch: var Channel, speed: int) =
   if not isFirstTick(ps):
     ch.period = min(ch.period + speed, AMIGA_MAX_PERIOD)
     setSampleStep(ch, ps.config.sampleRate)
@@ -614,7 +614,7 @@ proc doSetTremoloWaveform(ps: PlaybackState, ch: var Channel, value: int) =
   if value <= WaveformType.high.ord:
     ch.tremoloWaveform = WaveformType(value)
 
-proc doRetrigNote(ps: PlaybackState, ch: var Channel, ticks: int) =
+proc doNoteRetrig(ps: PlaybackState, ch: var Channel, ticks: int) =
   if (ch.sample != nil and ticks > 0) and
      (isFirstTick(ps) or (ps.currTick > 0 and ps.currTick mod ticks == 0)):
     ch.samplePos = 0
@@ -754,8 +754,8 @@ proc doTick(ps: var PlaybackState) =
 
     case cmd:
     of 0x0: doArpeggio(ps, ch, x, y)
-    of 0x1: doSlideUp(ps, ch, xy)
-    of 0x2: doSlideDown(ps, ch, xy)
+    of 0x1: doPitchSlideUp(ps, ch, xy)
+    of 0x2: doPitchSlideDown(ps, ch, xy)
     of 0x3: doTonePortamento(ps, ch, xy, note)
     of 0x4: doVibrato(ps, ch, x, y, note)
     of 0x5: doTonePortamentoAndVolumeSlide(ps, ch, x, y, note)
@@ -781,7 +781,7 @@ proc doTick(ps: var PlaybackState) =
       of 0x6: doPatternLoop(ps, ch, y)
       of 0x7: doSetTremoloWaveform(ps, ch, y) # TODO implement
       of 0x8: discard  # TODO implement set panning (coarse)
-      of 0x9: doRetrigNote(ps, ch, y)
+      of 0x9: doNoteRetrig(ps, ch, y)
       of 0xA: doFineVolumeSlideUp(ps, ch, y)
       of 0xB: doFineVolumeSlideDown(ps, ch, y)
       of 0xC: doNoteCut(ps, ch, y)
