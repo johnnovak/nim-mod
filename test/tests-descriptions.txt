@@ -28,42 +28,42 @@ The arpeggio effect should be performed on every tick:
 
 ## Test 1:         arpeggio.mod
 
-rows 0      [OK]
+#01: rows 0      [OK]
 Do nothing if note and samplenum are empty, and no note was previously played
 on the channel.
 
-row 1       [OK]
+#02: row 1       [OK]
 Do nothing if note is empty, the samplenum of a non-empty sample is provided,
 and no note was previously played on the channel.
 
-row 2       [OK]
+#03: row 2       [OK]
 Do nothing if note is empty, the samplenum of an empty sample is provided,
 and no note was previously played on the channel.
 
-rows 3-4    [OK]
+#04: rows 3-4    [OK]
 Do nothing if note is provided, samplenum is empty, and no note was
 previously played on the channel.
 
-rows 5-18   [FAIL]
+#05: rows 5-18   [FAIL]
 Do sample swap, start playing the arpeggio from the loop start position,
 ignoring the finetune setting. Keep playing the non-finetuned note from row
 8 after the arpeggio ended. The fine tuned note can be heard on row 12 for
 pitch reference.
 *NOTE* This is probably due to a sample swapping bug.
 
-row 19-21   [OK]
+#06: row 19-21   [OK]
 Play an arpeggio really slowly.
 
-row 22-26   [OK]
+#07: row 22-26   [OK]
 Increase pich then continue playing the arpeggio.
 
-row 27-31   [OK]
+#08: row 27-31   [OK]
 Both arpeggio notes are the same.
 
-row 32-36   [OK]
+#09: row 32-36   [OK]
 Only the first arpeggio note is used, the second one is zero.
 
-row 37-56   [OK]
+#10: row 37-56   [OK]
 Test different speed (ticks per row) settings.
 
 
@@ -76,31 +76,30 @@ It should not have effect memory.
 
 ## Test 1:         slide-up.mod
 
-row 0       [OK]
+#01: row 0       [OK]
 Do nothing if note and samplenum are empty, speed is empty, and no note was
 previously played on the channel.
 
-row 1       [OK]
+#02: row 1       [OK]
 Do nothing if note and samplenum are empty, speed is provided, and no note
 was previously played on the channel.
 
-row 2       [OK]
+#03: row 2       [OK]
 Do nothing if note is empty, the samplenum of a non-empty sample is provided,
 and no note was previously played on the channel.
 
-row 3       [OK]
+#04: row 3       [OK]
 Do nothing if note is empty, the samplenum of an empty sample is provided,
 and no note was previously played on the channel.
 
-rows 4-5    [OK]
+#05: rows 4-5    [OK]
 Do nothing if note is provided, samplenum is empty, and no note was
 previously played on the channel.
 
-rows 6-13   [FAIL]
+#06: rows 6-13   [OK]
 Do sample swap, start playing from the loop start position and do the slide.
-*NOTE* This is probably due to a sample swapping bug.
 
-rows 14-21  [OK*]
+#07: rows 14-21  [OK*]
 Do the slide up and clamp period to Amiga limits.
 
 * When playing a sample at B-3 with finetune 0, a strange distortion starts to
@@ -110,21 +109,19 @@ Do the slide up and clamp period to Amiga limits.
   not emulated in the player, but I don't think it's too important (or even
   desirable).
 
-rows 22-27  [OK]
+#08: rows 22-27  [OK]
 Slide up should have NO effect memory.
 
-rows 28-32  [OK]
+#09: rows 28-32  [OK]
 Slide up should be performed on every tick but the very first when there's
 a pattern delay (EEx) command on the same row.
 
-rows 33-37  [OK]
+#10: rows 33-37  [OK]
 Do nothing if no slide speed is provided.
 
-rows 38-50  [FAIL]
+#11: rows 38-50  [OK*]
 First a B-3 note with finetune +7 is played, then two slide up that should be
 clamped to the same period as the first note.
-*NOTE* The slides are clamped fine, but the first note is not clamped
-correctly.
 
 
 ------------------------------------------------------------------------------

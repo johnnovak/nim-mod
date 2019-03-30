@@ -94,10 +94,11 @@ type
     # Can be set from the outside to mute/unmute channels
     state*:          ChannelState
 
-    currSample:      Sample
+    sample:          Sample
     period:          Natural
     pan:             float32
     volume:          Natural
+    finetune:        int
 
     # Per-channel effect memory
     portaToNote:     int
@@ -167,9 +168,10 @@ type
 
 proc resetChannel(ch: var Channel) =
   # mute state & panning doesn't get reset
-  ch.currSample = nil
+  ch.sample = nil
   ch.period = 0
   ch.volume = 0
+  ch.finetune = 0
 
   ch.portaToNote = NOTE_NONE
   ch.portaSpeed = 0
@@ -285,7 +287,7 @@ proc storeSongPosInfo(ps: var PlaybackState) =
 
 proc swapSample(ch: var Channel) =
   if ch.swapSample != nil:
-    ch.currSample = ch.swapSample
+    ch.sample = ch.swapSample
     ch.swapSample = nil
 
 proc linearPanLeft (p: float32): float32 = -0.5 * p + 0.5
@@ -301,20 +303,20 @@ proc render(ch: var Channel, ps: PlaybackState,
 
   for i in 0..<numFrames:
     var s: float32
-    if ch.currSample == nil:
+    if ch.sample == nil:
       s = 0
     else:
-      if ch.period == 0 or ch.samplePos >= (ch.currSample.length).float32:
+      if ch.period == 0 or ch.samplePos >= (ch.sample.length).float32:
         s = 0
       else:
         case ps.config.resampler
         of rsNearestNeighbour:
-          s = ch.currSample.data[ch.samplePos.int].float * ch.volumeScalar
+          s = ch.sample.data[ch.samplePos.int].float * ch.volumeScalar
         of rsLinear:
           let
             posInt = ch.samplePos.int
-            s1 = ch.currSample.data[posInt]
-            s2 = ch.currSample.data[posInt + 1]
+            s1 = ch.sample.data[posInt]
+            s2 = ch.sample.data[posInt + 1]
             f = ch.samplePos - posInt.float32
           s = (s1*(1.0-f) + s2*f) * ch.volumeScalar
 
@@ -323,16 +325,16 @@ proc render(ch: var Channel, ps: PlaybackState,
         # Advance sample position
         ch.samplePos += ch.sampleStep
 
-        if ch.currSample.isLooped():
-          if ch.samplePos >= (ch.currSample.repeatOffset +
-                              ch.currSample.repeatLength).float32:
+        if ch.sample.isLooped():
+          if ch.samplePos >= (ch.sample.repeatOffset +
+                              ch.sample.repeatLength).float32:
             swapSample(ch)
-            ch.samplePos = ch.currSample.repeatOffset.float32
+            ch.samplePos = ch.sample.repeatOffset.float32
         else:
-          if ch.samplePos >= (ch.currSample.length).float32 and
+          if ch.samplePos >= (ch.sample.length).float32 and
              ch.swapSample != nil and ch.swapSample.isLooped():
             swapSample(ch)
-            ch.samplePos = ch.currSample.repeatOffset.float32
+            ch.samplePos = ch.sample.repeatOffset.float32
 
     var
       panLeft = linearPanLeft(ch.pan * width)
@@ -344,25 +346,29 @@ proc render(ch: var Channel, ps: PlaybackState,
     mixBuffer[pos+1] += s * panRight
 
 
-proc finetunedNote(s: Sample, note: int): int =
-  result = s.finetune * AMIGA_FINETUNE_PAD + note
+proc finetunedNote(note: int, finetune: int): int =
+  result = finetune * AMIGA_FINETUNE_PAD + note
 
-proc getPeriod(ps: PlaybackState, sample: Sample, note: int): Natural =
+proc signedFinetune(finetune: int): int =
+  result = finetune
+  if result > 7: dec(result, 16)
+
+proc getPeriod(ps: PlaybackState, note: int, finetune: int): Natural =
   if ps.module.useAmigaLimits:
-    result = amigaPeriodTable[finetunedNote(sample, note)]
+    result = amigaPeriodTable[finetunedNote(note, finetune)]
   else:
     # convert signed nibble to signed int
     result = round(extPeriodTable[note].float32 *
-                   pow(2, -sample.signedFinetune()/(12*8))).Natural
+                   pow(2, -signedFinetune(finetune)/(12*8))).Natural
 
 proc periodToFreq(period: int): float32 =
   result = AMIGA_PAL_CLOCK / period
 
-proc setSampleStep(ch: var Channel, sampleRate: int) =
-  ch.sampleStep = periodToFreq(ch.period) / sampleRate.float32
-
 proc setSampleStep(ch: var Channel, period, sampleRate: int) =
   ch.sampleStep = periodToFreq(period) / sampleRate.float32
+
+proc setSampleStep(ch: var Channel, sampleRate: int) =
+  setSampleStep(ch, ch.period, sampleRate)
 
 proc setVolume(ch: var Channel, vol: int) =
   ch.volume = vol
@@ -388,18 +394,18 @@ proc doArpeggio(ps: PlaybackState, ch: var Channel, note1, note2: int) =
   if ps.module.useAmigaLimits:
 
     if not isFirstTick(ps):
-      if ch.currSample != nil and ch.volume > 0:
+      if ch.sample != nil and ch.volume > 0:
         var period = ch.period
         case ps.currTick mod 3:
         of 0: discard
         of 1:
           if note1 > 0:
-            let idx = findClosestPeriodIndex(ch.currSample.finetune, ch.period)
+            let idx = findClosestPeriodIndex(ch.finetune, ch.period)
             period = amigaPeriodTable[idx + note1]
 
         of 2:
           if note2 > 0:
-            let idx = findClosestPeriodIndex(ch.currSample.finetune, ch.period)
+            let idx = findClosestPeriodIndex(ch.finetune, ch.period)
             period = amigaPeriodTable[idx + note2]
 
         else: assert false
@@ -419,8 +425,10 @@ proc doSlideDown(ps: PlaybackState, ch: var Channel, speed: int) =
 
 
 proc tonePortamento(ps: PlaybackState, ch: var Channel) =
-  if ch.portaToNote != NOTE_NONE and ch.period > -1 and ch.currSample != nil:
-    let toPeriod = getPeriod(ps, ch.currSample, ch.portaToNote)
+  if ch.portaToNote != NOTE_NONE and ch.period > -1 and ch.sample != nil:
+    # TODO is this correct?
+    ch.finetune = ch.sample.finetune
+    let toPeriod = getPeriod(ps, ch.portaToNote, ch.finetune)
     if ch.period < toPeriod:
       ch.period = min(ch.period + ch.portaSpeed, toPeriod)
     elif ch.period > toPeriod:
@@ -428,8 +436,8 @@ proc tonePortamento(ps: PlaybackState, ch: var Channel) =
 
     var tempPeriod: Natural
     if ch.glissando:
-      tempPeriod = ch.period 
-      let idx = findClosestPeriodIndex(ch.currSample.finetune, ch.period)
+      tempPeriod = ch.period
+      let idx = findClosestPeriodIndex(ch.sample.finetune, ch.period)
       ch.period = amigaPeriodTable[idx]
 
     setSampleStep(ch, ps.config.sampleRate)
@@ -519,14 +527,14 @@ proc doTremolo(ps: PlaybackState, ch: Channel, speed, depth: int) =
 proc doSetSampleOffset(ps: PlaybackState, ch: var Channel, offset: int,
                        note: int) =
   if isFirstTick(ps):
-    if note != NOTE_NONE and ch.currSample != nil:
+    if note != NOTE_NONE and ch.sample != nil:
       if offset > 0:
         var offs = offset shl 8
-        if offs <= ch.currSample.length:
+        if offs <= ch.sample.length:
           ch.samplePos = offs.float32
         else:
-          if ch.currSample.isLooped():
-            ch.samplePos = ch.currSample.repeatOffset.float32
+          if ch.sample.isLooped():
+            ch.samplePos = ch.sample.repeatOffset.float32
           else:
             setVolume(ch, 0)
 
@@ -584,10 +592,10 @@ proc doGlissandoControl(ps: PlaybackState, ch: var Channel, state: int) =
 proc doSetVibratoWaveform(ps: PlaybackState, ch: var Channel, value: int) =
   ch.vibratoWaveform = WaveformType(value and 3)
 
-proc doSetFinetune(ps: PlaybackState, ch: Channel, value: int) =
+proc doSetFinetune(ps: PlaybackState, ch: var Channel, value: int) =
   if isFirstTick(ps):
-    if ch.currSample != nil:
-      ch.currSample.finetune = value
+    if ch.sample != nil:
+      ch.finetune = value
 
 proc doPatternLoop(ps: var PlaybackState, ch: var Channel, numRepeats: int) =
   if isFirstTick(ps):
@@ -607,7 +615,7 @@ proc doSetTremoloWaveform(ps: PlaybackState, ch: var Channel, value: int) =
     ch.tremoloWaveform = WaveformType(value)
 
 proc doRetrigNote(ps: PlaybackState, ch: var Channel, ticks: int) =
-  if (ch.currSample != nil and ticks > 0) and
+  if (ch.sample != nil and ticks > 0) and
      (isFirstTick(ps) or (ps.currTick > 0 and ps.currTick mod ticks == 0)):
     ch.samplePos = 0
 
@@ -630,9 +638,9 @@ proc doNoteCut(ps: PlaybackState, ch: var Channel, ticks: int) =
 proc doNoteDelay(ps: PlaybackState, ch: var Channel, ticks, note: int) =
   if not isFirstTick(ps):
     if note != NOTE_NONE and ps.ellapsedTicks == ticks and ch.delaySample != nil:
-      ch.currSample = ch.delaySample
+      ch.sample = ch.delaySample
       ch.delaySample = nil
-      ch.period = getPeriod(ps, ch.currSample, note)
+      ch.period = getPeriod(ps, note, ch.finetune)
       ch.samplePos = 0
       ch.swapSample = nil
       setSampleStep(ch, ps.config.sampleRate)
@@ -671,45 +679,73 @@ proc doTick(ps: var PlaybackState) =
 
     if isFirstTick(ps):
       if ch.delaySampleNextRowNote != NOTE_NONE:
-        ch.period = getPeriod(ps, ch.currSample, ch.delaySampleNextRowNote)
+        ch.period = getPeriod(ps, ch.delaySampleNextRowNote, ch.finetune)
         ch.delaySampleNextRowNote = NOTE_NONE
 
       if sampleNum > 0:
         var sample = ps.module.samples[sampleNum]
-        if sample.data == @[]:  # empty sample
+
+        # Samplenum provided but sample is empty
+        if sample.data == @[]:
           setVolume(ch, 0)
 
-        else: # valid sample
+        # Samplenum provided and sample is non-empty
+        else:
           setVolume(ch, sample.volume)
+
+          # No note provided, do sample-swapping
           if note == NOTE_NONE:
             ch.swapSample = sample
+
+          # Samplenum & note provided
           else:
+            # Special handling for note delay
             var extCmd = cell.effect and 0xff0
             if extCmd == 0xED0 and y > 0:
               if y < ps.ticksPerRow:
                 ch.delaySample = sample
               else:
                 ch.delaySampleNextRowNote = note
+
+            # Special handling for tone portamento
             elif cmd == 0x3 or cmd == 0x5:
               ch.swapSample = sample
+
+            # Normal note with samplenum provided
             else:
-              ch.currSample = sample
-              ch.period = getPeriod(ps, ch.currSample, note)
+              ch.sample = sample
+              ch.finetune = sample.finetune
+              ch.period = getPeriod(ps, note, ch.finetune)
+
+              # Interestingly, the period only needs to be clamped to the min
+              # limit to yield correct results on high notes (the higher the
+              # note, the lower the period value). Probably on the Amiga the
+              # period value is not clamped on new notes in the code, but the
+              # hardware effectively clamps it to the min period value for
+              # high notes anyway.
+              if ps.module.useAmigaLimits:
+                ch.period = max(ch.period, AMIGA_MIN_PERIOD)
+
               ch.samplePos = 0
               ch.swapSample = nil
 
-      else: # no sampleNum
+      # No samplenum provided
+      else:
         var extCmd = cell.effect and 0xff0
+
+        # Special handling for note delay
         if extCmd == 0xED0:
           if ch.swapSample != nil:
             ch.delaySample = ch.swapSample
             ch.swapSample = nil
           else:
-            ch.delaySample = ch.currSample
+            ch.delaySample = ch.sample
+
+        # Special handling for tone portamento
         elif note != NOTE_NONE and cmd != 0x3 and cmd != 0x5:
           swapSample(ch)
-          if ch.currSample != nil:
-            ch.period = getPeriod(ps, ch.currSample, note)
+          if ch.sample != nil:
+            ch.period = getPeriod(ps, note, ch.finetune)
             ch.samplePos = 0
         # TODO if there's a note, set curr sample to nil?
 
