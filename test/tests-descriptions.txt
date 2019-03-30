@@ -184,7 +184,7 @@ The tone portamento effect should be performed on every tick but the very
 first. It should have per-channel effect memory.
 
 
-## Test 1:         tone-portamento.mod
+## Test 1:         tone-portamento-1.mod
 
 #01: row 0       [OK]
 Do nothing if note and samplenum are empty, speed and depth are empty, and no
@@ -248,6 +248,35 @@ Portamento should work correctly if the pitch was changed by some other effect
 
 #17: rows 47-63  [OK]
 Each channel should have its own portamento effect memory.
+
+
+## Test 2:         tone-portamento-2.mod
+
+#01: rows 0-13   [OK]
+Tone portamento can "change direction midflight".
+Tone portamento should not change the channel volume if samplenum is empty.
+
+#02: rows 14-25  [OK]
+Tone portamento should remember that last target note if it hasn't been
+reached yet and the speed settings, and it should always start from the
+current period value of the channel
+
+#03: rows 26-36  [OK]
+When doing an upward tone portamento, if the target pitch hasn't been reached
+yet and channel pitch has been manipulated with other effects so it's above
+the portamento target pitch, any further portamento command will immediately
+set the channel pitch to the target pitch.
+
+#04: rows 37-47  [OK]
+When doing a downward tone portamento, if target pitch hasn't been reached yet
+and the channel pitch has been manipulated with other effects so it's below
+the portamento target pitch, any further portamento command will immediately
+set the channel pitch to the target pitch.
+
+#05: rows 48-56  [OK]
+If the channel pitch has been manipulated with other effects after the
+portamento target pitch has been reached, further portamento commands have no
+effect on the pitch.
 
 
 ------------------------------------------------------------------------------
@@ -542,7 +571,7 @@ with a smooth portamento, then a slight slide down, then another portamento
 with glissando control on.
 
 #06: rows 27-33  [OK]
-Downwards tone portamento with glissando control on.
+Downward tone portamento with glissando control on.
 
 #07: rows 34-62  [OK]
 E30 should turn glissando control off, any other value should turn it on.

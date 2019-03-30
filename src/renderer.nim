@@ -101,7 +101,8 @@ type
     finetune:        int
 
     # Per-channel effect memory
-    portaToNote:     int
+    portaTargetNote: int
+    portaDirection:  PortamentoDirection
     portaSpeed:      Natural
     glissando:       bool
     vibratoSpeed:    Natural
@@ -129,6 +130,9 @@ type
 
     # For emulating the ProTracker swap sample quirk
     swapSample:      Sample
+
+  PortamentoDirection = enum
+    pdUp, pdDown
 
   ChannelState* = enum
     csPlaying, csMuted, csDimmed
@@ -173,7 +177,8 @@ proc resetChannel(ch: var Channel) =
   ch.volume = 0
   ch.finetune = 0
 
-  ch.portaToNote = NOTE_NONE
+  ch.portaTargetNote = NOTE_NONE
+  ch.portaDirection = pdUp # doesn't matter, it will be overwritten anyway
   ch.portaSpeed = 0
   ch.glissando = false
   ch.vibratoSpeed = 0
@@ -425,35 +430,40 @@ proc doPitchSlideDown(ps: PlaybackState, ch: var Channel, speed: int) =
 
 
 proc tonePortamento(ps: PlaybackState, ch: var Channel) =
-  if ch.portaToNote != NOTE_NONE and ch.period > -1 and ch.sample != nil:
-    # TODO is this correct?
-    ch.finetune = ch.sample.finetune
-    let toPeriod = getPeriod(ps, ch.portaToNote, ch.finetune)
+  if ch.portaTargetNote != NOTE_NONE and ch.period >= 0 and ch.sample != nil:
+    let toPeriod = getPeriod(ps, ch.portaTargetNote, ch.finetune)
+    let dir = if ch.period < toPeriod: pdUp else: pdDown
+
     if ch.period < toPeriod:
-      ch.period = min(ch.period + ch.portaSpeed, toPeriod)
+      if dir == ch.portaDirection:
+        ch.period = min(ch.period + ch.portaSpeed, toPeriod)
+      else:
+        ch.period = toPeriod
     elif ch.period > toPeriod:
-      ch.period = max(ch.period - ch.portaSpeed, toPeriod)
+      if dir == ch.portaDirection:
+        ch.period = max(ch.period - ch.portaSpeed, toPeriod)
+      else:
+        ch.period = toPeriod
 
-    var tempPeriod: Natural
-    if ch.glissando:
-      tempPeriod = ch.period
-      let idx = findClosestPeriodIndex(ch.sample.finetune, ch.period)
-      ch.period = amigaPeriodTable[idx]
-
-    setSampleStep(ch, ps.config.sampleRate)
-
-    if ch.glissando:
-      ch.period = tempPeriod
+    if ch.glissando and ch.period != toPeriod:
+      let
+        idx = findClosestPeriodIndex(ch.sample.finetune, ch.period)
+        semitonePeriod = amigaPeriodTable[idx]
+      setSampleStep(ch, semitonePeriod, ps.config.sampleRate)
+    else:
+      setSampleStep(ch, ps.config.sampleRate)
 
     if ch.period == toPeriod:
-      ch.portaToNote = NOTE_NONE
+      ch.portaTargetNote = NOTE_NONE
 
 
 proc doTonePortamento(ps: PlaybackState, ch: var Channel,
                       speed: int, note: int) =
   if isFirstTick(ps):
     if note != NOTE_NONE:
-      ch.portaToNote = note
+      let targetPeriod = getPeriod(ps, note, ch.finetune)
+      ch.portaTargetNote = note
+      ch.portaDirection = if ch.period <= targetPeriod: pdUp else: pdDown
     if speed != 0:
       ch.portaSpeed = speed
   else:
@@ -510,7 +520,7 @@ proc doTonePortamentoAndVolumeSlide(ps: PlaybackState, ch: var Channel,
                                     upSpeed, downSpeed: int, note: int) =
   if isFirstTick(ps):
     if note != NOTE_NONE:
-      ch.portaToNote = note
+      ch.portaTargetNote = note
   else:
     tonePortamento(ps, ch)
     volumeSlide(ps, ch, upSpeed, downSpeed)
@@ -710,6 +720,7 @@ proc doTick(ps: var PlaybackState) =
             # Special handling for tone portamento
             elif cmd == 0x3 or cmd == 0x5:
               ch.swapSample = sample
+              ch.finetune = sample.finetune
 
             # Normal note with samplenum provided
             else:
