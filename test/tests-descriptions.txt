@@ -133,48 +133,47 @@ It should not have effect memory.
 
 ## Test 1:         slide-down.mod
 
-row 0       [OK]
+#01: row 0       [OK]
 Do nothing if note and samplenum are empty, speed is empty, and no note was
 previously played on the channel.
 
-row 1       [OK]
+#02: row 1       [OK]
 Do nothing if note and samplenum are empty, speed is provided, and no note
 was previously played on the channel.
 
-row 2       [OK]
+#03: row 2       [OK]
 Do nothing if note is empty, the samplenum of a non-empty sample is provided,
 and no note was previously played on the channel.
 
-row 3       [OK]
+#04: row 3       [OK]
 Do nothing if note is empty, the samplenum of an empty sample is provided,
 and no note was previously played on the channel.
 
-rows 4-5    [OK]
+#05: rows 4-5    [OK]
 Do nothing if note is provided, samplenum is empty, and no note was
 previously played on the channel.
 
-rows 6-13   [FAIL]
+#06: rows 6-13   [OK]
 Do sample swap, start playing from the loop start position and do the slide.
-*NOTE* This is probably due to a sample swapping bug.
 
-rows 14-27  [OK]
+#07: rows 14-27  [OK]
 Do the slide down and clamp period to Amiga limits. Note that the lower limit
 is C-1 with finetune 0. A C-1 note with finetune -7 is played next for
 reference.
 
-rows 28-34  [OK]
+#08: rows 28-34  [OK]
 Due to the clamp period limits, sliding down from a C-1 note with a negative
 finetune value (-7 in this case) will set the period to C-1 with finetune
 0 immediately, regardless of the slide down speed setting.
 
-rows 35-40  [OK]
+#09: rows 35-40  [OK]
 Slide down should have NO effect memory.
 
-rows 41-45  [OK]
+#10: rows 41-45  [OK]
 Slide up should be performed on every tick but the very first when there's
 a pattern delay (EEx) command on the same row.
 
-rows 46-50  [OK]
+#11: rows 46-50  [OK]
 Do nothing if no slide speed is provided.
 
 
@@ -187,67 +186,67 @@ first. It should have per-channel effect memory.
 
 ## Test 1:         tone-portamento.mod
 
-row 0       [OK]
+#01: row 0       [OK]
 Do nothing if note and samplenum are empty, speed and depth are empty, and no
 note was previously played on the channel.
 
-row 1       [OK]
+#02: row 1       [OK]
 Do nothing if note and samplenum are empty, speed is empty, and no note was
 previously played on the channel.
 
-row 2       [OK]
+#03: row 2       [OK]
 Do nothing if note is empty, the samplenum of a non-empty sample is provided,
 and no note was previously played on the channel.
 
-row 3       [OK]
+#04: row 3       [OK]
 Do nothing if note is empty, the samplenum of an empty sample is provided,
 and no note was previously played on the channel.
 
-rows 4-5    [OK]
+#05: rows 4-5    [OK]
 Do nothing if the samplenum is empty and no note was previously played on the
 channel.
 
-rows 6-12   [OK]
+#06: rows 6-12   [OK]
 Perform normal portamento.
 
-rows 13-15  [OK]
+#07: rows 13-15  [OK]
 Portamento should be performed on every tick but the very first when there's
 a pattern delay (EEx) command on the same row.
 
-rows 16-18  [OK]
+#08: rows 16-18  [OK]
 Portamento should have per-channel effect memory.
 
-rows 19-21  [OK]
+#09: rows 19-21  [OK]
 Portamento should work when the samplenum of the destination note is empty.
 
-rows 19-24  [OK]
+#10: rows 19-24  [OK]
 If the destination note is not specified, and the preceeding portamento
 command has reached the desination note on the channel (rows 19-21), no
 portamento should be performed.
 
-rows 25-31  [OK]
+#11: rows 25-31  [OK]
 If the destination note is not specified, and the preceeding portamento
 command has NOT reached the desination note on the channel (rows 25-28),
 portamento should be performed to the preceeding destination note from the
 current note (so the portamento "restarts").
 
-rows 32-34  [OK]
+#12: rows 32-34  [OK]
 Sample-swapping should work with portamento.
 
-rows 35-37  [OK]
+#13: rows 35-37  [OK]
 Portamento up should respect Amiga limits.
 
-rows 38-40  [OK]
+#14: rows 38-40  [OK]
 Portamento down should respect Amiga limits.
 
-rows 41-43  [OK]
+#15: rows 41-43  [OK]
 Portamento to the same not should have no effect.
 
-rows 44-46  [OK]
+#16: rows 44-46  [OK]
 Portamento should work correctly if the pitch was changed by some other effect
 (e.g. slide up).
 
-rows 47-63  [OK]
+#17: rows 47-63  [OK]
 Each channel should have its own portamento effect memory.
 
 
@@ -261,57 +260,57 @@ memory.
 
 ## Test 1:         vibrato-general.mod
 
-row 0       [OK]
+#01: row 0       [OK]
 Do nothing if note and samplenum are empty, speed and depth are empty, and no
 note was previously played on the channel.
 
-row 1       [OK]
+#02: row 1       [OK]
 Do nothing if note and samplenum are empty, speed is empty, and no note was
 previously played on the channel.
 
-row 2       [OK]
+#03: row 2       [OK]
 Do nothing if note is empty, the samplenum of a non-empty sample is provided,
 and no note was previously played on the channel.
 
-row 3       [OK]
+#04: row 3       [OK]
 Do nothing if note is empty, the samplenum of an empty sample is provided,
 and no note was previously played on the channel.
 
-rows 4-5    [OK]
+#05: rows 4-5    [OK]
 Do nothing if note is provided, samplenum is empty, and no note was
 previously played on the channel.
 
-rows 7-8    [OK]
+#06: rows 7-8    [OK]
 Default vibrato waveform should be sine, vibrato should have effect memory.
 
-rows 9-17   [OK]
+#07: rows 9-17   [OK]
 Each channel should have its own vibrato effect memory.
 
-rows 18-33  [OK]
+#08: rows 18-33  [OK]
 Vibrato should not be performed only on non-first ticks.
 
-rows 34-48  [OK]
+#09: rows 34-48  [OK]
 It should be possible to set only vibrato speed or depth; the other parameter
 value should be remembered.
 
-rows 51-63  [OK]
+#10: rows 51-63  [OK]
 Vibrato should be performed on every tick but the very first when there's
 a pattern delay (EEx) command on the same row.
 
 
 ## Test 2:         vibrato-retrigger.mod
 
-row 0-8     [OK]
+#01: row 0-8     [OK]
 Just the samplenum without a note should not retrigger the vibrato
 position
 
-row 0-23    [OK]
+#02: row 0-23    [OK]
 A new note should retrigger the vibrato position.
 
-rows 10-23  [OK]
+#03: rows 10-23  [OK]
 Changing the vibrato parameters should not change the vibrato position.
 
-rows 25-35  [OK]
+#04: rows 25-35  [OK]
 Other effects should not affect the vibrato position.
 
 
@@ -360,40 +359,40 @@ effect memory.
 
 ## Test 1:         volume-slide.mod
 
-row 0       [OK]
+#01: row 0       [OK]
 Do nothing if note and samplenum are empty, speed and depth are empty, and no
 note was previously played on the channel.
 
-row 1       [OK]
+#02: row 1       [OK]
 Do nothing if note and samplenum are empty, speed is empty, and no note was
 previously played on the channel.
 
-row 2       [OK]
+#03: row 2       [OK]
 Do nothing if note is empty, the samplenum of a non-empty sample is provided,
 and no note was previously played on the channel.
 
-row 3       [OK]
+#04: row 3       [OK]
 Do nothing if note is empty, the samplenum of an empty sample is provided,
 and no note was previously played on the channel.
 
-rows 4-9    [OK]
+#05: rows 4-9    [OK]
 Fade out test.
 
-rows 10-16  [OK]
+#06: rows 10-16  [OK]
 Fade in test.
 
-rows 17-19  [OK]
+#07: rows 17-19  [OK]
 Volume slide should be performed on every tick but the very first when there's
 a pattern delay (EEx) command on the same row.
 
-rows 20-24  [OK]
+#08: rows 20-24  [OK]
 Volume slide should not have effect memory.
 
-rows 25-32  [OK]
+#09: rows 25-32  [OK]
 Just the samplenum without a note should restore the start volume to the
 default volume of the sample and the volume slide should start from there.
 
-rows 33-44  [OK]
+#10: rows 33-44  [OK]
 The volume slide effect should manipulate the current volume of the channel.
 
 
@@ -409,44 +408,44 @@ Set volume (Cxy)
 ------------------------------------------------------------------------------
 ## Test 1:         set-volume.mod
 
-row 0       [OK]
+#01: row 0       [OK]
 Do nothing if note and samplenum are empty and no note was previously played
 on the channel.
 
-row 1       [OK]
+#02: row 1       [OK]
 Do nothing if note is empty, the samplenum of a non-empty sample is provided,
 and no note was previously played on the channel.
 
-row 2       [OK]
+#03: row 2       [OK]
 Do nothing if note is empty, the samplenum of an empty sample is provided,
 and no note was previously played on the channel.
 
-rows 4-11   [OK]
+#04: rows 4-11   [OK]
 Set volume should override the default sample volume.
 
-rows 12-16  [OK]
+#05: rows 12-16  [OK]
 Set volume should have no effect memory; new notes should always use the
 default sample volume if the samplenum of a non-empty sample is provided.
 
-rows 12-16  [OK]
+#06: rows 12-16  [OK]
 New notes should use the default sample volume if the samplenum of a
 non-empty sample is provided.
 
-rows 16-22  [OK]
+#07: rows 16-22  [OK]
 New notes should use the last set volume if no samplenum was is provided.
 
-rows 23-32  [OK]
+#08: rows 23-32  [OK]
 Set volume should not retrigger samples.
 
-rows 33-41  [OK]
+#09: rows 33-41  [OK]
 Samplenum without a note should set the default volume of the sample if the
 samplenum is of the currently playing sample. If the samplenum of an empty
 sample if provided, the volume should be set to zero.
 
-rows 42-46  [OK]
+#10: rows 42-46  [OK]
 Volume values above 40 should be clamped to 40.
 
-rows 48-51  [OK]
+#11: rows 48-51  [OK]
 Sample-swapping should set the default volume of the swapped sample.
 
 
@@ -471,24 +470,24 @@ Set tempo/speed (Fxy)
 
 ## Test 1:         set-speed.mod
 
-rows 0-3    [OK]
+#01: rows 0-3    [OK]
 Default speed should be 6 and default tempo should be 125.
 
-rows 4-29   [OK]
+#02: rows 4-29   [OK]
 Test set speed.
 
-rows 30-41  [OK]
+#03: rows 30-41  [OK]
 Test set tempo.
 
-rows 42-45  [OK]
+#04: rows 42-45  [OK]
 If there are multiple set speed commands on the same row, the rightmost one
 should take effect.
 
-rows 46-49  [OK]
+#05: rows 46-49  [OK]
 If there are multiple set tempo commands on the same row, the rightmost one
 should take precedence.
 
-rows 50     [OK]
+#06: rows 50     [OK]
 If there are multiple set tempo/speed commands on the same row, the stop
 playback (F00) command should take precedence (regardless the channel).
 
@@ -517,16 +516,16 @@ TODO per channel tests
 
 ## Test 1:         glissando.mod
 
-rows 0-2    [OK]
+#01: rows 0-2    [OK]
 Glissando control should be off by default.
 
-rows 3-5    [OK]
+#02: rows 3-5    [OK]
 E31 should turn glissando control on.
 
-rows 6-8    [OK]
+#03: rows 6-8    [OK]
 E30 should turn glissando control off.
 
-rows 9-16   [OK]
+#04: rows 9-16   [OK]
 When glissando control is on, the "rounding down" to the closest semitone
 below the actual pitch should only happen during the tone portamento effect
 (so the tone portamento effect always calculates the "unrounded" pitch first,
@@ -535,15 +534,15 @@ effects will use that, but the "rounded" pitch is sent to the output). If no
 tone portamento is being processed, the pitch should return to the original
 "unrounded" pitch (the current channel pitch).
 
-rows 17-26  [OK]
+#05: rows 17-26  [OK]
 A more complicated case of the previous example: a long pitch slide starts
 with a smooth portamento, then a slight slide down, then another portamento
 with glissando control on.
 
-rows 27-33  [OK]
+#06: rows 27-33  [OK]
 Downwards tone portamento with glissando control on.
 
-rows 34-62  [OK]
+#07: rows 34-62  [OK]
 E30 should turn glissando control off, any other value should turn it on.
 
 ------------------------------------------------------------------------------
@@ -560,55 +559,55 @@ The waveform should be set per-channel.
 
 ## Test 1:         set-vibrato-waveform.mod
 
-rows 0-3    [OK]
+#01: rows 0-3    [OK]
 Default vibrato waveform should be sine.
 
-rows 4-16   [OK]
+#02: rows 4-16   [OK]
 E40 should set vibrato waveform to sine.
 
-rows 16-24  [OK]
+#03: rows 16-24  [OK]
 E41 should set vibrato waveform to ramp.
 
-rows 25-35  [OK]
+#04: rows 25-35  [OK]
 E42 should set vibrato waveform to square.
 
-rows 36-37  [OK]
+#05: rows 36-37  [OK]
 E43 should set vibrato waveform to square.
 
-rows 38-39  [OK]
+#06: rows 38-39  [OK]
 E44 should set vibrato waveform to sine.
 
-rows 40-41  [OK]
+#07: rows 40-41  [OK]
 E45 should set vibrato waveform to ramp.
 
-rows 42-43  [OK]
+#08: rows 42-43  [OK]
 E46 should set vibrato waveform to square.
 
-rows 44-45  [OK]
+#09: rows 44-45  [OK]
 E47 should set vibrato waveform to square.
 
-rows 46-47  [OK]
+#10: rows 46-47  [OK]
 E48 should set vibrato waveform to sine.
 
-rows 48-49  [OK]
+#11: rows 48-49  [OK]
 E49 should set vibrato waveform to ramp.
 
-rows 50-51  [OK]
+#12: rows 50-51  [OK]
 E4A should set vibrato waveform to square.
 
-rows 52-53  [OK]
+#13: rows 52-53  [OK]
 E4B should set vibrato waveform to square.
 
-rows 54-55  [OK]
+#14: rows 54-55  [OK]
 E4C should set vibrato waveform to sine.
 
-rows 56-57  [OK]
+#15: rows 56-57  [OK]
 E4D should set vibrato waveform to ramp.
 
-rows 58-59  [OK]
+#16: rows 58-59  [OK]
 E4E should set vibrato waveform to square.
 
-rows 60-59  [OK]
+#17: rows 60-59  [OK]
 E4E should set vibrato waveform to square.
 
 
