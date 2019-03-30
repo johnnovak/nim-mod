@@ -646,9 +646,68 @@ TODO
 ------------------------------------------------------------------------------
 Retrig note (E9x)
 ------------------------------------------------------------------------------
-Test 1:         retrig-note.mod
+The sample should be retriggered at every xth tick in the simple case, but
+there are lots of weird quirks in more complicated cases (e.g. samplenum or
+note is missing, when used in conjunction with the pattern delay (EEx)
+command, etc.)
 
-TODO
+
+## Test 1:         retrig-note.mod
+
+#01: row 0       [OK]
+Do nothing if note and samplenum are empty, retrig speed is empty, and no
+note was previously played on the channel.
+
+#02: row 1       [OK]
+Do nothing if note and samplenum are empty, and no note was previously played
+on the channel.
+
+#03: row 2       [OK]
+Do nothing if note is empty, the samplenum of a non-empty sample is provided,
+and no note was previously played on the channel.
+
+#04: row 3       [OK]
+Do nothing if note is empty, the samplenum of an empty sample is provided,
+and no note was previously played on the channel.
+
+#05: rows 5-6    [OK]
+E90 should play the sample normally without retriggering.
+
+#06: rows 7-15   [OK]
+E9x should retrigger the sample at every x ticks.
+
+#07: rows 16-18  [OK]
+If the retrig speed is equal to the song speed (ticks per row), the sample
+should be played normally without retriggering.
+
+#08: rows 19-21  [OK]
+If the retrig speed is greater than the song speed (ticks per row), the sample
+should be played normally without retriggering.
+
+#09: rows 22-24  [OK]
+E91 should retrigger the sample at every tick.
+
+#10: rows 25-26  [OK]
+The sample should NOT be retriggered on (ellapsedTick MOD retrigSpeed == 0)
+ticks when there's a pattern delay (EEx) command on the same row (but the
+sample should be played on the very first tick, of course, which is the normal
+sample playback).
+
+#11: rows 25-29  [OK]
+If the note and samplenum are empty, a retrig effect is present in the row,
+and a sample has previously been played on the channel, the previously played
+sample should be played normally first using the current chnnel pitch and
+volume (note the C40 command on row 26 and the 108 command on row 27) and then
+perform the retrigger.
+
+#12: rows 30-31  [OK]
+E90 should do nothing if no note and samplenum are present.
+
+#13: rows 32-33  [OK]
+If the note is not present but the samplenum is, restore the channel volume to
+the default sample volume, play the note normally using the current channel
+pitch and then perform the retrigger.
+
 
 ------------------------------------------------------------------------------
 Fine volume slide up (EAx)

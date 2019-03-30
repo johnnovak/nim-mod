@@ -528,7 +528,7 @@ proc doSetSampleOffset(ps: PlaybackState, ch: var Channel, offset: int,
           if ch.currSample.isLooped():
             ch.samplePos = ch.currSample.repeatOffset.float32
           else:
-            ch.currSample = nil
+            setVolume(ch, 0)
 
 proc doVolumeSlide(ps: PlaybackState, ch: var Channel,
                    upSpeed, downSpeed: int) =
@@ -606,10 +606,10 @@ proc doSetTremoloWaveform(ps: PlaybackState, ch: var Channel, value: int) =
   if value <= WaveformType.high.ord:
     ch.tremoloWaveform = WaveformType(value)
 
-proc doRetrigNote(ps: PlaybackState, ch: var Channel, ticks, note: int) =
-  if not isFirstTick(ps):
-    if note != NOTE_NONE and ticks != 0 and ps.currTick mod ticks == 0:
-      ch.samplePos = 0
+proc doRetrigNote(ps: PlaybackState, ch: var Channel, ticks: int) =
+  if (ch.currSample != nil and ticks > 0) and
+     (isFirstTick(ps) or (ps.currTick > 0 and ps.currTick mod ticks == 0)):
+    ch.samplePos = 0
 
 proc doFineVolumeSlideUp(ps: PlaybackState, ch: var Channel, value: int) =
   if ps.currTick == 0:
@@ -745,7 +745,7 @@ proc doTick(ps: var PlaybackState) =
       of 0x6: doPatternLoop(ps, ch, y)
       of 0x7: doSetTremoloWaveform(ps, ch, y) # TODO implement
       of 0x8: discard  # TODO implement set panning (coarse)
-      of 0x9: doRetrigNote(ps, ch, y, note)
+      of 0x9: doRetrigNote(ps, ch, y)
       of 0xA: doFineVolumeSlideUp(ps, ch, y)
       of 0xB: doFineVolumeSlideDown(ps, ch, y)
       of 0xC: doNoteCut(ps, ch, y)
