@@ -128,6 +128,9 @@ type
     # Vibrato state
     vibratoPos:      Natural
 
+    # Tremolo state
+    tremoloPos:      Natural
+
     # For emulating the ProTracker swap sample quirk
     swapSample:      Sample
 
@@ -199,6 +202,7 @@ proc resetChannel(ch: var Channel) =
   ch.sampleStep = 0
 
   ch.vibratoPos = 0
+  ch.tremoloPos = 0
 
   ch.swapSample = nil
 
@@ -358,8 +362,8 @@ proc signedFinetune(finetune: int): int =
   result = finetune
   if result > 7: dec(result, 16)
 
-proc getPeriod(ps: PlaybackState, note: int, finetune: int): Natural =
-  if ps.module.useAmigaLimits:
+proc noteToPeriod(note, finetune: int, useAmigaLimits: bool): Natural =
+  if useAmigaLimits:
     result = amigaPeriodTable[finetunedNote(note, finetune)]
   else:
     # convert signed nibble to signed int
@@ -369,14 +373,10 @@ proc getPeriod(ps: PlaybackState, note: int, finetune: int): Natural =
 proc periodToFreq(period: int): float32 =
   result = AMIGA_PAL_CLOCK / period
 
-proc setSampleStep(ch: var Channel, period, sampleRate: int) =
+proc setOutputPeriod(ch: var Channel, period: Natural, sampleRate: int) =
   ch.sampleStep = periodToFreq(period) / sampleRate.float32
 
-proc setSampleStep(ch: var Channel, sampleRate: int) =
-  setSampleStep(ch, ch.period, sampleRate)
-
-proc setVolume(ch: var Channel, vol: int) =
-  ch.volume = vol
+proc setOutputVolume(ch: var Channel, vol: int) =
   ch.volumeScalar = vol / MAX_VOLUME
 
 proc isFirstTick(ps: PlaybackState): bool =
@@ -414,24 +414,26 @@ proc doArpeggio(ps: PlaybackState, ch: var Channel, note1, note2: int) =
             period = amigaPeriodTable[idx + note2]
 
         else: assert false
-        setSampleStep(ch, period, ps.config.sampleRate)
+        setOutputPeriod(ch, period, ps.config.sampleRate)
   else:
     discard
 
 proc doPitchSlideUp(ps: PlaybackState, ch: var Channel, speed: int) =
   if not isFirstTick(ps):
-    ch.period = max(ch.period - speed, AMIGA_MIN_PERIOD)
-    setSampleStep(ch, ps.config.sampleRate)
+    let period = max(ch.period - speed, AMIGA_MIN_PERIOD)
+    ch.period = period 
+    setOutputPeriod(ch, period, ps.config.sampleRate)
 
 proc doPitchSlideDown(ps: PlaybackState, ch: var Channel, speed: int) =
   if not isFirstTick(ps):
-    ch.period = min(ch.period + speed, AMIGA_MAX_PERIOD)
-    setSampleStep(ch, ps.config.sampleRate)
-
+    let period = min(ch.period + speed, AMIGA_MAX_PERIOD)
+    ch.period = period
+    setOutputPeriod(ch, period, ps.config.sampleRate)
 
 proc tonePortamento(ps: PlaybackState, ch: var Channel) =
   if ch.portaTargetNote != NOTE_NONE and ch.period >= 0 and ch.sample != nil:
-    let toPeriod = getPeriod(ps, ch.portaTargetNote, ch.finetune)
+    let toPeriod = noteToPeriod(ch.portaTargetNote, ch.finetune,
+                                ps.module.useAmigaLimits)
     let dir = if ch.period < toPeriod: pdUp else: pdDown
 
     if ch.period < toPeriod:
@@ -449,9 +451,9 @@ proc tonePortamento(ps: PlaybackState, ch: var Channel) =
       let
         idx = findClosestPeriodIndex(ch.sample.finetune, ch.period)
         semitonePeriod = amigaPeriodTable[idx]
-      setSampleStep(ch, semitonePeriod, ps.config.sampleRate)
+      setOutputPeriod(ch, semitonePeriod, ps.config.sampleRate)
     else:
-      setSampleStep(ch, ps.config.sampleRate)
+      setOutputPeriod(ch, ch.period, ps.config.sampleRate)
 
     if ch.period == toPeriod:
       ch.portaTargetNote = NOTE_NONE
@@ -461,7 +463,8 @@ proc doTonePortamento(ps: PlaybackState, ch: var Channel,
                       speed: int, note: int) =
   if isFirstTick(ps):
     if note != NOTE_NONE:
-      let targetPeriod = getPeriod(ps, note, ch.finetune)
+      let targetPeriod = noteToPeriod(note, ch.finetune,
+                                      ps.module.useAmigaLimits)
       ch.portaTargetNote = note
       ch.portaDirection = if ch.period <= targetPeriod: pdUp else: pdDown
     if speed != 0:
@@ -491,17 +494,16 @@ proc vibrato(ps: PlaybackState, ch: var Channel) =
   let periodOffs = vibratoValue * ch.vibratoDepth div 128
 
   if ch.vibratoPos < vibratoTable.len:
-    setSampleStep(ch, ch.period + periodOffs, ps.config.sampleRate)
+    setOutputPeriod(ch, ch.period + periodOffs, ps.config.sampleRate)
   else:
-    setSampleStep(ch, ch.period - periodOffs, ps.config.sampleRate)
+    setOutputPeriod(ch, ch.period - periodOffs, ps.config.sampleRate)
 
   inc(ch.vibratoPos, ch.vibratoSpeed)
   if ch.vibratoPos >= vibratoTable.len * 2:
     dec(ch.vibratoPos, vibratoTable.len * 2)
 
 
-proc doVibrato(ps: PlaybackState, ch: var Channel, speed,
-               depth: int, note: int) =
+proc doVibrato(ps: PlaybackState, ch: var Channel, speed, depth, note: int) =
   if isFirstTick(ps):
     if note != NOTE_NONE:
       ch.vibratoPos = 0
@@ -512,9 +514,15 @@ proc doVibrato(ps: PlaybackState, ch: var Channel, speed,
 
 proc volumeSlide(ps: PlaybackState, ch: var Channel, upSpeed, downSpeed: int) =
   if upSpeed > 0:
-    setVolume(ch, min(ch.volume + upSpeed, MAX_VOLUME))
+    let vol = min(ch.volume + upSpeed, MAX_VOLUME)
+    ch.volume = vol
+    setOutputVolume(ch, vol)
+
   elif downSpeed > 0:
-    setVolume(ch, max(ch.volume - downSpeed, 0))
+    let vol = max(ch.volume - downSpeed, 0)
+    ch.volume = vol
+    setOutputVolume(ch, vol)
+
 
 proc doTonePortamentoAndVolumeSlide(ps: PlaybackState, ch: var Channel,
                                     upSpeed, downSpeed: int, note: int) =
@@ -531,8 +539,48 @@ proc doVibratoAndVolumeSlide(ps: PlaybackState, ch: var Channel,
     vibrato(ps, ch)
     volumeSlide(ps, ch, upSpeed, downSpeed)
 
-proc doTremolo(ps: PlaybackState, ch: Channel, speed, depth: int) =
-  discard
+proc tremolo(ps: PlaybackState, ch: var Channel) =
+  var tremoloValue = 0
+  let tremoloPos = ch.tremoloPos mod vibratoTable.len
+
+  case ch.tremoloWaveform:
+  of wfSine:
+    tremoloValue = vibratoTable[tremoloPos]
+
+  of wfRampDown:
+    if ch.tremoloPos < vibratoTable.len:
+      tremoloValue = tremoloPos * 8
+    else:
+      tremoloValue = 255 - tremoloPos * 8
+
+  of wfSquare, wfRandom:
+    tremoloValue = 255
+
+  else: discard   # not supported in ProTracker classic
+
+  let volumeOffs = (tremoloValue * ch.tremoloDepth) div 64
+
+  if ch.tremoloPos < vibratoTable.len:
+    var vol = min(ch.volume + volumeOffs, MAX_VOLUME)
+    ch.volumeScalar = vol / MAX_VOLUME
+  else:
+    var vol = max(ch.volume - volumeOffs, 0)
+    ch.volumeScalar = vol / MAX_VOLUME
+
+  inc(ch.tremoloPos, ch.tremoloSpeed)
+  if ch.tremoloPos >= vibratoTable.len * 2:
+    dec(ch.tremoloPos, vibratoTable.len * 2)
+
+
+proc doTremolo(ps: PlaybackState, ch: var Channel, speed, depth, note: int) =
+  if isFirstTick(ps):
+    if note != NOTE_NONE:
+      ch.tremoloPos = 0
+    if speed > 0: ch.tremoloSpeed = speed
+    if depth > 0: ch.tremoloDepth = depth
+  else:
+    tremolo(ps, ch)
+
 
 proc doSetSampleOffset(ps: PlaybackState, ch: var Channel, offset: int,
                        note: int) =
@@ -546,7 +594,8 @@ proc doSetSampleOffset(ps: PlaybackState, ch: var Channel, offset: int,
           if ch.sample.isLooped():
             ch.samplePos = ch.sample.repeatOffset.float32
           else:
-            setVolume(ch, 0)
+            ch.volume = 0
+            setOutputVolume(ch, 0)
 
 proc doVolumeSlide(ps: PlaybackState, ch: var Channel,
                    upSpeed, downSpeed: int) =
@@ -562,7 +611,9 @@ proc doPositionJump(ps: var PlaybackState, songPos: int) =
 
 proc doSetVolume(ps: PlaybackState, ch: var Channel, volume: int) =
   if isFirstTick(ps):
-    setVolume(ch, min(volume, MAX_VOLUME))
+    let vol = min(volume, MAX_VOLUME)
+    ch.volume = vol
+    setOutputVolume(ch, vol)
 
 proc doPatternBreak(ps: var PlaybackState, row: int) =
   if isFirstTick(ps):
@@ -588,13 +639,15 @@ proc doSetFilter(ps: PlaybackState, state: int) =
 
 proc doFineSlideUp(ps: PlaybackState, ch: var Channel, value: int) =
   if ps.currTick == 0:
-    ch.period = max(ch.period - value, AMIGA_MIN_PERIOD)
-    setSampleStep(ch, ps.config.sampleRate)
+    let period = max(ch.period - value, AMIGA_MIN_PERIOD)
+    ch.period = period
+    setOutputPeriod(ch, period, ps.config.sampleRate)
 
 proc doFineSlideDown(ps: PlaybackState, ch: var Channel, value: int) =
   if ps.currTick == 0:
-    ch.period = min(ch.period + value, AMIGA_MAX_PERIOD)
-    setSampleStep(ch, ps.config.sampleRate)
+    let period = min(ch.period + value, AMIGA_MAX_PERIOD)
+    ch.period =  period
+    setOutputPeriod(ch, period, ps.config.sampleRate)
 
 proc doGlissandoControl(ps: PlaybackState, ch: var Channel, state: int) =
   ch.glissando = state != 0
@@ -631,29 +684,40 @@ proc doNoteRetrig(ps: PlaybackState, ch: var Channel, ticks: int) =
 
 proc doFineVolumeSlideUp(ps: PlaybackState, ch: var Channel, value: int) =
   if ps.currTick == 0:
-    setVolume(ch, min(ch.volume + value, MAX_VOLUME))
+    let vol = min(ch.volume + value, MAX_VOLUME)
+    ch.volume = vol
+    setOutputVolume(ch, vol)
 
 proc doFineVolumeSlideDown(ps: PlaybackState, ch: var Channel, value: int) =
   if ps.currTick == 0:
-    setVolume(ch, max(ch.volume - value, 0))
+    let vol = max(ch.volume - value, 0)
+    ch.volume = vol
+    setOutputVolume(ch, vol)
 
 proc doNoteCut(ps: PlaybackState, ch: var Channel, ticks: int) =
   if isFirstTick(ps):
     if ticks == 0:
-      setVolume(ch, 0)
+      ch.volume = 0
+      setOutputVolume(ch, 0)
   else:
     if ps.currTick == ticks:
-      setVolume(ch, 0)
+      ch.volume = 0
+      setOutputVolume(ch, 0)
 
 proc doNoteDelay(ps: PlaybackState, ch: var Channel, ticks, note: int) =
   if not isFirstTick(ps):
-    if note != NOTE_NONE and ps.ellapsedTicks == ticks and ch.delaySample != nil:
+    if note != NOTE_NONE and ps.ellapsedTicks == ticks and
+       ch.delaySample != nil:
+
       ch.sample = ch.delaySample
       ch.delaySample = nil
-      ch.period = getPeriod(ps, note, ch.finetune)
       ch.samplePos = 0
       ch.swapSample = nil
-      setSampleStep(ch, ps.config.sampleRate)
+
+      let period = noteToPeriod(note, ch.finetune, ps.module.useAmigaLimits)
+      ch.period = period
+      setOutputPeriod(ch, period, ps.config.sampleRate)
+
 
 proc doPatternDelay(ps: var PlaybackState, rows: int) =
   if isFirstTick(ps):
@@ -689,7 +753,8 @@ proc doTick(ps: var PlaybackState) =
 
     if isFirstTick(ps):
       if ch.delaySampleNextRowNote != NOTE_NONE:
-        ch.period = getPeriod(ps, ch.delaySampleNextRowNote, ch.finetune)
+        ch.period = noteToPeriod(ch.delaySampleNextRowNote, ch.finetune,
+                                 ps.module.useAmigaLimits)
         ch.delaySampleNextRowNote = NOTE_NONE
 
       if sampleNum > 0:
@@ -697,11 +762,14 @@ proc doTick(ps: var PlaybackState) =
 
         # Samplenum provided but sample is empty
         if sample.data == @[]:
-          setVolume(ch, 0)
+          ch.volume = 0
+          setOutputVolume(ch, 0)
 
         # Samplenum provided and sample is non-empty
         else:
-          setVolume(ch, sample.volume)
+          let vol = sample.volume
+          ch.volume = vol
+          setOutputVolume(ch, vol)
 
           # No note provided, do sample-swapping
           if note == NOTE_NONE:
@@ -726,7 +794,8 @@ proc doTick(ps: var PlaybackState) =
             else:
               ch.sample = sample
               ch.finetune = sample.finetune
-              ch.period = getPeriod(ps, note, ch.finetune)
+              ch.period = noteToPeriod(note, ch.finetune,
+                                       ps.module.useAmigaLimits)
 
               # Interestingly, the period only needs to be clamped to the min
               # limit to yield correct results on high notes (the higher the
@@ -756,12 +825,13 @@ proc doTick(ps: var PlaybackState) =
         elif note != NOTE_NONE and cmd != 0x3 and cmd != 0x5:
           swapSample(ch)
           if ch.sample != nil:
-            ch.period = getPeriod(ps, note, ch.finetune)
+            ch.period = noteToPeriod(note, ch.finetune,
+                                     ps.module.useAmigaLimits)
             ch.samplePos = 0
         # TODO if there's a note, set curr sample to nil?
 
     # TODO move into first tick processing
-    setSampleStep(ch, ps.config.sampleRate)
+    setOutputPeriod(ch, ch.period, ps.config.sampleRate)
 
     case cmd:
     of 0x0: doArpeggio(ps, ch, x, y)
@@ -771,7 +841,7 @@ proc doTick(ps: var PlaybackState) =
     of 0x4: doVibrato(ps, ch, x, y, note)
     of 0x5: doTonePortamentoAndVolumeSlide(ps, ch, x, y, note)
     of 0x6: doVibratoAndVolumeSlide(ps, ch, x, y)
-    of 0x7: doTremolo(ps, ch, x, y) # TODO implement
+    of 0x7: doTremolo(ps, ch, x, y, note) # TODO implement
     of 0x8: discard  # TODO implement set panning
     of 0x9: doSetSampleOffset(ps, ch, xy, note)
     of 0xA: doVolumeSlide(ps, ch, x, y)
