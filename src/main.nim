@@ -2,7 +2,8 @@ import logging, math, os, strformat, strutils
 
 import illwill
 
-import audio/fmoddriver as audio
+# import audio/fmoddriver as audio
+import audio/soundiodriver as audio
 import config
 import display
 import loader
