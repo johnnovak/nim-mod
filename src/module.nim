@@ -167,7 +167,6 @@ proc `$`*(p: Pattern): string =
 
 proc `$`*(s: Sample): string =
   # convert signed nibble to signed int
-  var finetune = s.finetune
   result = fmt"name: '{s.name}', " &
            fmt"length: {s.length}, " &
            fmt"finetune: {s.signedFinetune()}, " &

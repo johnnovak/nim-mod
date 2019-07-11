@@ -86,7 +86,6 @@ proc drawCell(tb: var TerminalBuffer, x, y: Natural, cell: Cell, muted: bool) =
 const
   SCREEN_X_PAD = 2
   SCREEN_Y_PAD = 1
-  PLAYBACK_STATE_HEIGHT = 5
   VIEW_Y = 6
   PATTERN_HEADER_HEIGHT = 3
   PATTERN_TRACK_WIDTH = 10
