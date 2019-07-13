@@ -5,8 +5,8 @@ guitars or marry 20 years younger platinum blondes when midlife crisis strikes.
 
 I write modplayers.
 
-<img src="img/nim-mod-1.png" align="left" width="48%" alt="nim-mod - pattern view" />
-<img src="img/nim-mod-2.png" width="48%" alt="nim-mod - samples view" />
+<img src="img/nim-mod-1.png" style="text-align: left; width: 48%; min-width: 500px" alt="nim-mod - pattern view" />
+<img src="img/nim-mod-2.png" style="width: 48%; min-width: 500px"alt="nim-mod - samples view" />
 
 
 ## Features
