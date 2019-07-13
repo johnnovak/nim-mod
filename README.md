@@ -1,4 +1,4 @@
-# nimmod
+# nim-mod
 
 Some people ride ridiculously expensive Harley-Davidsons, collect vintage
 guitars or marry 20 years younger platinum blondes when midlife crisis strikes.
