@@ -582,6 +582,12 @@ proc doTremolo(ps: PlaybackState, ch: var Channel, speed, depth, note: int) =
     tremolo(ps, ch)
 
 
+proc doSetPanning(ps: PlaybackState, ch: var Channel, position: int) =
+  discard
+  # TODO
+  # FinalPan=Pan+(EnvelopePan-32)*(128-Abs(Pan-128))/32;
+
+
 proc doSetSampleOffset(ps: PlaybackState, ch: var Channel, offset: int,
                        note: int) =
   if isFirstTick(ps):
@@ -841,8 +847,8 @@ proc doTick(ps: var PlaybackState) =
     of 0x4: doVibrato(ps, ch, x, y, note)
     of 0x5: doTonePortamentoAndVolumeSlide(ps, ch, x, y, note)
     of 0x6: doVibratoAndVolumeSlide(ps, ch, x, y)
-    of 0x7: doTremolo(ps, ch, x, y, note) # TODO implement
-    of 0x8: discard  # TODO implement set panning
+    of 0x7: doTremolo(ps, ch, x, y, note)
+    of 0x8: doSetPanning(ps, ch, xy)
     of 0x9: doSetSampleOffset(ps, ch, xy, note)
     of 0xA: doVolumeSlide(ps, ch, x, y)
     of 0xB: doPositionJump(ps, xy)
@@ -860,7 +866,7 @@ proc doTick(ps: var PlaybackState) =
       of 0x4: doSetVibratoWaveform(ps, ch, y)
       of 0x5: doSetFinetune(ps, ch, y)
       of 0x6: doPatternLoop(ps, ch, y)
-      of 0x7: doSetTremoloWaveform(ps, ch, y) # TODO implement
+      of 0x7: doSetTremoloWaveform(ps, ch, y)
       of 0x8: discard  # TODO implement set panning (coarse)
       of 0x9: doNoteRetrig(ps, ch, y)
       of 0xA: doFineVolumeSlideUp(ps, ch, y)
