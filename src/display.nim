@@ -385,7 +385,8 @@ proc drawSamplesView*(tb: var TerminalBuffer, ps: PlaybackState,
 
     if sample.volume != 0: tb.setColor(gCurrTheme.sample)
     else:                  tb.setColor(gCurrTheme.muted)
-    tb.write(VOLUME_X, y, fmt"{sample.volume:3x}")
+    # XXX the cast is a Nim 0.20.0 regression workaround
+    tb.write(VOLUME_X, y, fmt"{cast[int](sample.volume):3x}")
 
     if sample.repeatOffset > 0: tb.setColor(gCurrTheme.sample)
     else:                       tb.setColor(gCurrTheme.muted)
