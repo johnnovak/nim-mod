@@ -5,7 +5,9 @@ guitars or marry 20 years younger platinum blondes when midlife crisis strikes.
 
 I write modplayers.
 
-![nimmod running on Windows](nimmod-1.png)
+<img src="img/nim-mod-1.png" align="left" width="48%" alt="nim-mod - pattern view" />
+<img src="img/nim-mod-2.png" width="48%" alt="nim-mod - samples view" />
+
 
 ## Features
 
@@ -109,4 +111,14 @@ After this, you can run the render tests:
 cd test
 nim c -r rendertest
 ```
+
+## License
+
+Copyright © 2018-2019 John Novak <<john@johnnovak.net>>
+
+This work is free. You can redistribute it and/or modify it under the terms of
+the [Do What The Fuck You Want To Public License, Version 2](http://www.wtfpl.net/), as published
+by Sam Hocevar. See the [COPYING](./COPYING) file for more details.
+
+
 
