@@ -22,7 +22,7 @@ I write modplayers.
 * Song length calculation with loop detection
 * Adjustable stereo width
 * Vim-inspired keyboard shortcuts (**SUPR IMPRTANT!!!!!11**)
-* Uses FMOD for audio playback
+* Uses FMOD for audio playback (*just* for the audio---the playroutine is custom implemented)
 
 ## Usage
 
