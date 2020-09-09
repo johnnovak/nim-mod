@@ -1,6 +1,6 @@
 import logging, parseopt, parseutils, strformat, strutils
 
-const VERSION = "1.0.0"
+const Version = "1.0.0"
 
 type
   Config* = object
@@ -50,7 +50,7 @@ proc initConfigWithDefaults(): Config =
   result.suppressWarnings = false
 
 proc printVersion() =
-  echo "nim-mod version " & VERSION
+  echo "nim-mod Version " & Version
   echo "Copyright (c) 2016-2018 by John Novak"
 
 

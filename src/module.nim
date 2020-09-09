@@ -3,31 +3,31 @@ import strformat, strutils
 include periodtable
 
 const
-  SONG_TITLE_LEN*            = 20
-  SAMPLE_NAME_LEN*           = 22
-  MAX_SAMPLES*               = 31
-  NUM_SAMPLES_SOUNDTRACKER*  = 15
-  NUM_SONG_POSITIONS*        = 128
-  ROWS_PER_PATTERN*          = 64
-  MAX_PATTERNS*              = 128
+  SongTitleLen*           = 20
+  SampleNameLen*          = 22
+  MaxSamples*             = 31
+  NumSamplesSoundTracker* = 15
+  NumSongPositions*       = 128
+  RowsPerPattern*         = 64
+  MaxPatterns*            = 128
 
-  NUM_SEMITONES* = 12
+  NumSemitones*    = 12
 
-  MIN_SAMPLE_REPLEN*  = 2
+  MinSampleRepLen* = 2
 
-  AMIGA_NUM_OCTAVES*  = 3
-  AMIGA_NUM_NOTES*    = AMIGA_NUM_OCTAVES * NUM_SEMITONES
-  AMIGA_NOTE_MIN*     = 0
-  AMIGA_NOTE_MAX*     = AMIGA_NUM_NOTES - 1
+  AmigaNumOctaves* = 3
+  AmigaNumNotes*   = AmigaNumOctaves * NumSemitones
+  AmigaNoteMin*    = 0
+  AmigaNoteMax*    = AmigaNumNotes - 1
 
-  EXT_NUM_OCTAVES*    = 8
-  EXT_NUM_NOTES*      = EXT_NUM_OCTAVES * NUM_SEMITONES
-  EXT_NOTE_MIN*       = 0
-  EXT_NOTE_MAX*       = EXT_NUM_NOTES - 1
-  EXT_NOTE_MIN_AMIGA* = 3 * NUM_SEMITONES
-  EXT_NOTE_MAX_AMIGA* = EXT_NOTE_MIN_AMIGA + AMIGA_NUM_NOTES - 1
+  ExtNumOctaves*   = 8
+  ExtNumNotes*     = ExtNumOctaves * NumSemitones
+  ExtNoteMin*      = 0
+  ExtNoteMax*      = ExtNumNotes - 1
+  ExtNoteMinAmiga* = 3 * NumSemitones
+  ExtNoteMaxAmiga* = ExtNoteMinAmiga + AmigaNumNotes - 1
 
-  NOTE_NONE* = -1
+  NoteNone* = -1
 
 
 type
@@ -37,8 +37,8 @@ type
     songName*:       string
     songLength*:     Natural
     songRestartPos*: Natural
-    songPositions*:  array[NUM_SONG_POSITIONS, Natural]
-    samples*:        array[1..MAX_SAMPLES, Sample]
+    songPositions*:  array[NumSongPositions, Natural]
+    samples*:        array[1..MaxSamples, Sample]
     numSamples*:     Natural
     patterns*:       seq[Pattern]
     useAmigaLimits*: bool
@@ -65,7 +65,7 @@ type
     tracks*: seq[Track]
 
   Track* = object
-    rows*: array[ROWS_PER_PATTERN, Cell]
+    rows*: array[RowsPerPattern, Cell]
 
   Cell* = object
     note*:      int
@@ -89,10 +89,10 @@ proc nibbleToChar*(n: int): char =
 
 
 proc noteToStr*(note: int): string =
-  if note == NOTE_NONE:
+  if note == NoteNone:
    return "---"
 
-  case note mod NUM_SEMITONES:
+  case note mod NumSemitones:
   of  0: result = "C-"
   of  1: result = "C#"
   of  2: result = "D-"
@@ -106,7 +106,7 @@ proc noteToStr*(note: int): string =
   of 10: result = "A#"
   of 11: result = "B-"
   else: discard
-  result &= $(note div NUM_SEMITONES + 1)
+  result &= $(note div NumSemitones + 1)
 
 
 proc effectToStr*(effect: int): string =
@@ -132,14 +132,14 @@ proc toString*(mt: ModuleType): string =
 
 
 proc isLooped*(s: Sample): bool =
-  const REPEAT_LENGTH_MIN = 3
-  result = s.repeatLength >= REPEAT_LENGTH_MIN
+  const RepeatLengthMin = 3
+  result = s.repeatLength >= RepeatLengthMin
 
 proc noteWithinAmigaLimits*(note: int): bool =
-  if note == NOTE_NONE:
+  if note == NoteNone:
     result = true
   else:
-    result = note >= EXT_NOTE_MIN_AMIGA and note <= EXT_NOTE_MAX_AMIGA
+    result = note >= ExtNoteMinAmiga and note <= ExtNoteMaxAmiga
 
 proc signedFinetune*(s: Sample): int =
   result = s.finetune
@@ -157,7 +157,7 @@ proc `$`*(c: Cell): string =
 
 
 proc `$`*(p: Pattern): string =
-  for row in 0..<ROWS_PER_PATTERN:
+  for row in 0..<RowsPerPattern:
     result &= align($row, 2, '0') & " | "
 
     for track in p.tracks:

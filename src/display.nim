@@ -59,7 +59,7 @@ proc drawCell(tb: var TerminalBuffer, x, y: Natural, cell: Cell, muted: bool) =
     tb.setColor(gCurrTheme.muted)
 
   if not muted:
-    if cell.note == NOTE_NONE:
+    if cell.note == NoteNone:
       tb.setColor(gCurrTheme.noteNone)
     else:
       tb.setColor(gCurrTheme.note)
@@ -84,53 +84,53 @@ proc drawCell(tb: var TerminalBuffer, x, y: Natural, cell: Cell, muted: bool) =
 
 
 const
-  SCREEN_X_PAD = 2
-  SCREEN_Y_PAD = 1
-  VIEW_Y = 6
-  PATTERN_HEADER_HEIGHT = 3
-  PATTERN_TRACK_WIDTH = 10
+  ScreenXPad = 2
+  ScreenYPad = 1
+  ViewY = 6
+  PatternHeaderHeight = 3
+  PatternTrackWidth = 10
 
 proc drawPlaybackState*(tb: var TerminalBuffer, ps: PlaybackState) =
   const
-    X1 = SCREEN_X_PAD + 1
-    Y1 = SCREEN_Y_PAD + 0
-    COL1_X = X1
-    COL1_X_VAL = COL1_X + 10
-    COL2_X = X1 + 37
-    COL2_X_VAL = COL2_X + 12
-    COL3_X = X1 + 25
+    X1 = ScreenXPad + 1
+    Y1 = ScreenYPad + 0
+    Col1X = X1
+    Col1XVal = Col1X + 10
+    Col2X = X1 + 37
+    Col2XVal = Col2X + 12
+    Col3X = X1 + 25
 
   # Left column
   var y = Y1
 
   tb.setColor(gCurrTheme.text)
-  tb.write(COL1_X, y, fmt"Songname:")
+  tb.write(Col1X, y, fmt"Songname:")
   tb.setColor(gCurrTheme.textHi)
-  tb.write(COL1_X_VAL, y, ps.module.songName)
+  tb.write(Col1XVal, y, ps.module.songName)
   inc(y)
 
   tb.setColor(gCurrTheme.text)
-  tb.write(COL1_X, y, fmt"Type:")
+  tb.write(Col1X, y, fmt"Type:")
   tb.setColor(gCurrTheme.textHi)
-  tb.write(COL1_X_VAL, y, fmt"{ps.module.moduleType.toString} {ps.module.numChannels}chn")
+  tb.write(Col1XVal, y, fmt"{ps.module.moduleType.toString} {ps.module.numChannels}chn")
   if not ps.module.useAmigaLimits:
     tb.write(fmt" [ext]")
   inc(y)
 
   tb.setColor(gCurrTheme.text)
-  tb.write(COL1_X, y, fmt"Songpos:")
+  tb.write(Col1X, y, fmt"Songpos:")
   tb.setColor(gCurrTheme.textHi)
-  tb.write(COL1_X_VAL, y, fmt"{ps.currSongPos:03} / {ps.module.songLength-1:03}")
+  tb.write(Col1XVal, y, fmt"{ps.currSongPos:03} / {ps.module.songLength-1:03}")
   inc(y)
 
   tb.setColor(gCurrTheme.text)
-  tb.write(COL1_X, y, fmt"Pattern:")
+  tb.write(Col1X, y, fmt"Pattern:")
   tb.setColor(gCurrTheme.textHi)
-  tb.write(COL1_X_VAL, y, fmt"{ps.module.songPositions[ps.currSongPos]:03}")
+  tb.write(Col1XVal, y, fmt"{ps.module.songPositions[ps.currSongPos]:03}")
   inc(y)
 
   tb.setColor(gCurrTheme.text)
-  tb.write(COL1_X, y, fmt"Time:")
+  tb.write(Col1X, y, fmt"Time:")
   tb.setColor(gCurrTheme.textHi)
   let
     currSecsFract = (ps.playPositionFrame / ps.config.sampleRate).int
@@ -140,7 +140,7 @@ proc drawPlaybackState*(tb: var TerminalBuffer, ps: PlaybackState) =
     totalMins = totalSecsFract div 60
     totalSecs = totalSecsFract mod 60
 
-  tb.write(COL1_X_VAL, y, fmt"{currMins:02}:{currSecs:02} / " &
+  tb.write(Col1XVal, y, fmt"{currMins:02}:{currSecs:02} / " &
                           fmt"{totalMins:02}:{totalSecs:02}")
   inc(y)
 
@@ -148,39 +148,39 @@ proc drawPlaybackState*(tb: var TerminalBuffer, ps: PlaybackState) =
   y = Y1
 
   tb.setColor(gCurrTheme.text)
-  tb.write(COL2_X, y, fmt"Amp gain:")
+  tb.write(Col2X, y, fmt"Amp gain:")
   tb.setColor(gCurrTheme.textHi)
-  tb.write(COL2_X_VAL-1, y, fmt"{ps.config.ampGain:5.1f}dB")
+  tb.write(Col2XVal-1, y, fmt"{ps.config.ampGain:5.1f}dB")
   inc(y)
 
   tb.setColor(gCurrTheme.text)
-  tb.write(COL2_X, y, fmt"Resampler:")
+  tb.write(Col2X, y, fmt"Resampler:")
   tb.setColor(gCurrTheme.textHi)
 
   var resamp: string
   case ps.config.resampler
   of rsNearestNeighbour: resamp = "off"
   of rsLinear:           resamp = "linear"
-  tb.write(COL2_X_VAL, y, fmt"{resamp:>6}")
+  tb.write(Col2XVal, y, fmt"{resamp:>6}")
   inc(y)
 
   tb.setColor(gCurrTheme.text)
-  tb.write(COL2_X, y, fmt"Stereo width:")
+  tb.write(Col2X, y, fmt"Stereo width:")
   tb.setColor(gCurrTheme.textHi)
-  tb.write(COL2_X_VAL+1, y, fmt"{ps.config.stereoWidth:4}%")
+  tb.write(Col2XVal+1, y, fmt"{ps.config.stereoWidth:4}%")
   inc(y)
 
   # Tempo & speed
 
   tb.setColor(gCurrTheme.text)
-  tb.write(COL3_X, Y1+2, fmt"Tempo:")
+  tb.write(Col3X, Y1+2, fmt"Tempo:")
   tb.setColor(gCurrTheme.textHi)
-  tb.write(COL3_X+7, Y1+2, fmt"{ps.tempo:3}")
+  tb.write(Col3X+7, Y1+2, fmt"{ps.tempo:3}")
 
   tb.setColor(gCurrTheme.text)
-  tb.write(COL3_X, Y1+3, fmt"Speed:")
+  tb.write(Col3X, Y1+3, fmt"Speed:")
   tb.setColor(gCurrTheme.textHi)
-  tb.write(COL3_X+7, Y1+3, fmt"{ps.ticksPerRow:3}")
+  tb.write(Col3X+7, Y1+3, fmt"{ps.ticksPerRow:3}")
 
 
 proc drawTrack(tb: var TerminalBuffer, x, y: Natural, track: Track,
@@ -195,20 +195,20 @@ proc drawTrack(tb: var TerminalBuffer, x, y: Natural, track: Track,
 
 
 proc getPatternViewWidth(numTracks: Natural): Natural =
-  result = (PATTERN_TRACK_WIDTH + 3) * numTracks + 5
+  result = (PatternTrackWidth + 3) * numTracks + 5
 
 proc getPatternMaxVisibleTracks(screenWidth: Natural): Natural =
-  result = max(screenWidth - SCREEN_X_PAD-7, 0) div (PATTERN_TRACK_WIDTH + 3)
+  result = max(screenWidth - ScreenXPad-7, 0) div (PatternTrackWidth + 3)
 
 proc getPatternMaxVisibleRows(viewHeight: Natural): Natural =
-  result = max(viewHeight - PATTERN_HEADER_HEIGHT - 1, 0)
+  result = max(viewHeight - PatternHeaderHeight - 1, 0)
 
 
 proc drawPattern*(tb: var TerminalBuffer, patt: Pattern,
                   currRow: int, maxRows, startTrack, endTrack: Natural,
                   channels: seq[renderer.Channel]) =
 
-  assert currRow < ROWS_PER_PATTERN
+  assert currRow < RowsPerPattern
   assert startTrack <= patt.tracks.high
   assert endTrack <= patt.tracks.high
 
@@ -229,10 +229,10 @@ proc drawPattern*(tb: var TerminalBuffer, patt: Pattern,
     rowLo = 0
 
   let
-    x1 = SCREEN_X_PAD
-    y1 = VIEW_Y
-    y2 = y1 + maxRows + PATTERN_HEADER_HEIGHT
-    firstRowY = y1 + numEmptyRowsTop + PATTERN_HEADER_HEIGHT
+    x1 = ScreenXPad
+    y1 = ViewY
+    y2 = y1 + maxRows + PatternHeaderHeight
+    firstRowY = y1 + numEmptyRowsTop + PatternHeaderHeight
 
   var x = x1
 
@@ -265,7 +265,7 @@ proc drawPattern*(tb: var TerminalBuffer, patt: Pattern,
     tb.write(x, y1+1, fmt"Channel {i+1:2}")
     tb.drawTrack(x, y, patt.tracks[i], rowLo, rowHi, chanState)
 
-    inc(x, PATTERN_TRACK_WIDTH + 1)
+    inc(x, PatternTrackWidth + 1)
     bb.drawVertLine(x, y1, y2)
     inc(x, 2)
 
@@ -273,14 +273,14 @@ proc drawPattern*(tb: var TerminalBuffer, patt: Pattern,
 
   bb.drawHorizLine(x1, x2, y1)
   bb.drawHorizLine(x1, x2, y2)
-  bb.drawHorizLine(x1, x2, y1 + PATTERN_HEADER_HEIGHT-1)
+  bb.drawHorizLine(x1, x2, y1 + PatternHeaderHeight-1)
 
   tb.setColor(gCurrTheme.border)
   tb.write(bb)
 
   # Draw cursor line
-  let cursorY = y1 + PATTERN_HEADER_HEIGHT + cursorRow
-  for x in SCREEN_X_PAD+1..x2-1:
+  let cursorY = y1 + PatternHeaderHeight + cursorRow
+  for x in ScreenXPad+1..x2-1:
     var c = tb[x, cursorY]
     c.fg = gCurrTheme.cursor.fg
     c.bg = gCurrTheme.cursorBg
@@ -312,18 +312,18 @@ proc drawSamplesView*(tb: var TerminalBuffer, ps: PlaybackState,
   if viewHeight < 5: return
 
   const
-    x1 = SCREEN_X_PAD
-    y1 = VIEW_Y
+    x1 = ScreenXPad
+    y1 = ViewY
 
-    NUM_X      = x1+1
-    NAME_X     = NUM_X + 2 + 2
-    LENGTH_X   = NAME_X + SAMPLE_NAME_LEN-1 + 2
-    FINETUNE_X = LENGTH_X + 5 + 2
-    VOLUME_X   = FINETUNE_X + 2 + 2
-    REPEAT_X   = VOLUME_X + 2 + 2
-    REPLEN_X   = REPEAT_X + 5 + 2
+    NumX      = x1+1
+    NameX     = NumX + 2 + 2
+    LengthX   = NameX + SampleNameLen-1 + 2
+    FinetuneX = LengthX + 5 + 2
+    VolumeX   = FinetuneX + 2 + 2
+    RepeatX   = VolumeX + 2 + 2
+    RepLenX   = RepeatX + 5 + 2
 
-    x2 = REPLEN_X + 5 + 2 - 1
+    x2 = RepLenX + 5 + 2 - 1
 
   let
     y2 = y1 + viewHeight-1
@@ -340,21 +340,21 @@ proc drawSamplesView*(tb: var TerminalBuffer, ps: PlaybackState,
   var y = y1+1
   bb.drawHorizLine(x1, x2, y+1)
   tb.setColor(gCurrTheme.text)
-  tb.write(NUM_X, y, "  #")
-  tb.write(NAME_X, y, "Samplename")
-  tb.write(LENGTH_X, y, "Length")
-  tb.write(FINETUNE_X, y, "Tun")
-  tb.write(VOLUME_X, y, "Vol")
-  tb.write(REPEAT_X, y, "Repeat")
-  tb.write(REPLEN_X, y, "Replen")
+  tb.write(NumX, y, "  #")
+  tb.write(NameX, y, "Samplename")
+  tb.write(LengthX, y, "Length")
+  tb.write(FinetuneX, y, "Tun")
+  tb.write(VolumeX, y, "Vol")
+  tb.write(RepeatX, y, "Repeat")
+  tb.write(RepLenX, y, "Replen")
 
   # Draw column separators
-  bb.drawVertLine(NAME_X-1, y1, y2)
-  bb.drawVertLine(LENGTH_X-1, y1, y2)
-  bb.drawVertLine(FINETUNE_X-1, y1, y2)
-  bb.drawVertLine(VOLUME_X-1, y1, y2)
-  bb.drawVertLine(REPEAT_X-1, y1, y2)
-  bb.drawVertLine(REPLEN_X-1, y1, y2)
+  bb.drawVertLine(NameX-1, y1, y2)
+  bb.drawVertLine(LengthX-1, y1, y2)
+  bb.drawVertLine(FinetuneX-1, y1, y2)
+  bb.drawVertLine(VolumeX-1, y1, y2)
+  bb.drawVertLine(RepeatX-1, y1, y2)
+  bb.drawVertLine(RepLenX-1, y1, y2)
 
   tb.setColor(gCurrTheme.border)
   tb.write(bb)
@@ -376,28 +376,28 @@ proc drawSamplesView*(tb: var TerminalBuffer, ps: PlaybackState,
     if sample.length > 0: tb.setColor(gCurrTheme.sample)
     else:                 tb.setColor(gCurrTheme.muted)
 
-    tb.write(NUM_X, y, fmt"{sampNo:3}")
-    tb.write(LENGTH_X, y, fmt"{sample.length:6}")
+    tb.write(NumX, y, fmt"{sampNo:3}")
+    tb.write(LengthX, y, fmt"{sample.length:6}")
 
     if sample.signedFinetune() != 0: tb.setColor(gCurrTheme.sample)
     else:                            tb.setColor(gCurrTheme.muted)
-    tb.write(FINETUNE_X, y, fmt"{sample.signedFinetune():3}")
+    tb.write(FinetuneX, y, fmt"{sample.signedFinetune():3}")
 
     if sample.volume != 0: tb.setColor(gCurrTheme.sample)
     else:                  tb.setColor(gCurrTheme.muted)
     # XXX the cast is a Nim 0.20.0 regression workaround
-    tb.write(VOLUME_X, y, fmt"{cast[int](sample.volume):3x}")
+    tb.write(VolumeX, y, fmt"{cast[int](sample.volume):3x}")
 
     if sample.repeatOffset > 0: tb.setColor(gCurrTheme.sample)
     else:                       tb.setColor(gCurrTheme.muted)
-    tb.write(REPEAT_X, y, fmt"{sample.repeatOffset:6}")
+    tb.write(RepeatX, y, fmt"{sample.repeatOffset:6}")
 
     if sample.repeatLength > 2: tb.setColor(gCurrTheme.sample)
     else:                       tb.setColor(gCurrTheme.muted)
-    tb.write(REPLEN_X, y, fmt"{sample.repeatLength:6}")
+    tb.write(RepLenX, y, fmt"{sample.repeatLength:6}")
 
     tb.setColor(gCurrTheme.textHi)
-    tb.write(NAME_X, y, sample.name)
+    tb.write(NameX, y, sample.name)
 
     inc(y)
 
@@ -473,8 +473,8 @@ proc drawHelpView*(tb: var TerminalBuffer, viewHeight: Natural) =
 
   const
     WIDTH = 56
-    x1 = SCREEN_X_PAD
-    y1 = VIEW_Y
+    x1 = ScreenXPad
+    y1 = ViewY
     x2 = x1 + WIDTH
 
   let
@@ -558,7 +558,7 @@ proc drawPatternView(tb: var TerminalBuffer, ps: PlaybackState,
 proc drawStatusLine(tb: var TerminalBuffer) =
   if tb.height >= 9:
     tb.setColor(gCurrTheme.text)
-    tb.write(SCREEN_X_PAD+1, tb.height - SCREEN_Y_PAD-1, "Press ")
+    tb.write(ScreenXPad+1, tb.height - ScreenYPad-1, "Press ")
     tb.setColor(gCurrTheme.textHi)
     tb.write("?")
     tb.setColor(gCurrTheme.text)
@@ -586,23 +586,23 @@ proc drawPauseOverlay(tb: var TerminalBuffer, ps: PlaybackState,
   let
     maxRows = getPatternMaxVisibleRows(viewHeight)
 
-  var y = VIEW_Y + PATTERN_HEADER_HEIGHT + (maxRows-1) div 2 - 1
+  var y = ViewY + PatternHeaderHeight + (maxRows-1) div 2 - 1
   var txt = "P A U S E D"
   tb.setColor(gCurrTheme.text)
-  tb.write(SCREEN_X_PAD, y, "─".repeat(viewWidth))
-  tb.write(SCREEN_X_PAD, y+1, " ".repeat(viewWidth))
+  tb.write(ScreenXPad, y, "─".repeat(viewWidth))
+  tb.write(ScreenXPad, y+1, " ".repeat(viewWidth))
 
-  var x = SCREEN_X_PAD + max(viewWidth - txt.len, 0) div 2
+  var x = ScreenXPad + max(viewWidth - txt.len, 0) div 2
   tb.write(x, y+1,
                        "P A U S E D")
-  tb.write(SCREEN_X_PAD, y+2, "─".repeat(viewWidth))
+  tb.write(ScreenXPad, y+2, "─".repeat(viewWidth))
 
 
 proc drawScreen(tb: var TerminalBuffer, ps: PlaybackState) =
   drawPlaybackState(tb, ps)
   drawStatusLine(tb)
 
-  let viewHeight = max(tb.height - VIEW_Y - 3, 0)
+  let viewHeight = max(tb.height - ViewY - 3, 0)
 
   case gCurrView
   of vtPattern: drawPatternView(tb, ps, viewHeight)

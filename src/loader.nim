@@ -3,10 +3,10 @@ import algorithm, endians, logging, strformat, strutils
 import module
 
 const
-  TAG_LEN        = 4
-  TAG_OFFSET     = 1080   # this is the correct offset for all MOD types
-                          # EXCEPT for old 15-sample SoundTracker modules
-  BYTES_PER_CELL = 4
+  TagLen    = 4
+  TagOffset = 1080  # this is the correct offset for all MOD types
+                    # EXCEPT for old 15-sample SoundTracker modules
+  BytesPerCell = 4
 
 type ModuleReadError* = object of Exception
 
@@ -84,12 +84,12 @@ proc nonPrintableCharsToSpace(s: var string) =
 proc readSampleInfo(buf: var seq[uint8], pos: var Natural): Sample =
   var samp = new Sample
 
-  var name = cast[cstring](alloc0(SAMPLE_NAME_LEN + 1))
-  copyMem(name, buf[pos].addr, SAMPLE_NAME_LEN)
+  var name = cast[cstring](alloc0(SampleNameLen + 1))
+  copyMem(name, buf[pos].addr, SampleNameLen)
   samp.name = $name
   nonPrintableCharsToSpace(samp.name)
 
-  inc(pos, SAMPLE_NAME_LEN)
+  inc(pos, SampleNameLen)
 
   bigEndian16(samp.length.addr, buf[pos].addr)
   samp.length *= 2    # convert length in words to length in bytes
@@ -116,12 +116,12 @@ proc periodToExtNote(period: Natural): int =
   # Find closest note in the period table as in some modules the periods can
   # be a little off.
   if period == 0:
-    return NOTE_NONE
+    return NoteNone
 
   if period >= extPeriodTable[0]:
-    return EXT_NOTE_MIN
+    return ExtNoteMin
 
-  for i in 1..EXT_NUM_NOTES-1:
+  for i in 1..ExtNumNotes-1:
     if extPeriodTable[i] <= period:
       let d1 = period - extPeriodTable[i]
       let d2 = extPeriodTable[i-1] - period
@@ -132,7 +132,7 @@ proc periodToExtNote(period: Natural): int =
       else:
         return i-1
 
-  return EXT_NOTE_MAX
+  return ExtNoteMax
 
 
 proc read(f: File, dest: pointer, len: Natural) =
@@ -149,7 +149,7 @@ proc readPattern(buf: openarray[uint8], numChannels: Natural): Pattern =
     patt.tracks.add(Track())
 
   var pos = 0
-  for rowNum in 0..<ROWS_PER_PATTERN:
+  for rowNum in 0..<RowsPerPattern:
     for track in 0..<numChannels:
       var cell: Cell
       cell.note = periodToExtNote(((buf[pos+0] and 0x0f).int shl 8) or
@@ -163,13 +163,13 @@ proc readPattern(buf: openarray[uint8], numChannels: Natural): Pattern =
 
       patt.tracks[track].rows[rowNum] = cell
 
-      inc(pos, BYTES_PER_CELL)
+      inc(pos, BytesPerCell)
 
   result = patt
 
 
 proc readPattern(f: File, numChannels: Natural): Pattern =
-  let bytesInPattern = BYTES_PER_CELL * ROWS_PER_PATTERN * numChannels
+  let bytesInPattern = BytesPerCell * RowsPerPattern * numChannels
   var buf: seq[uint8]
   newSeq(buf, bytesInPattern)
   read(f, buf[0].addr, bytesInPattern)
@@ -195,11 +195,11 @@ proc allNotesWithinAmigaLimits(module: Module): bool =
 proc convertToAmigaNotes(module: Module) =
   for patt in 0..module.patterns.high:
     for track in 0..<module.numChannels:
-      for row in 0..<ROWS_PER_PATTERN:
+      for row in 0..<RowsPerPattern:
         var note = module.patterns[patt].tracks[track].rows[row].note
-        if note != NOTE_NONE:
-          note -= EXT_NOTE_MIN_AMIGA
-          assert note >= AMIGA_NOTE_MIN and note <= AMIGA_NOTE_MAX
+        if note != NoteNone:
+          note -= ExtNoteMinAmiga
+          assert note >= AmigaNoteMin and note <= AmigaNoteMax
           module.patterns[patt].tracks[track].rows[row].note = note
 
 
@@ -215,7 +215,7 @@ proc readPatternData(f: File, buf: var seq[uint8], pos: Natural,
   if module.moduleType == mtSoundTracker:
     # Read first pattern
     debug(fmt"  Reading pattern 1")
-    let bytesInPattern = BYTES_PER_CELL * ROWS_PER_PATTERN *
+    let bytesInPattern = BytesPerCell * RowsPerPattern *
                          module.numChannels
     var pattBuf: seq[uint8]
     newSeq(pattBuf, bytesInPattern)
@@ -273,8 +273,8 @@ proc readSampleData(f: File, module: var Module) =
 
       # Convert sample data to float
       var floatData: seq[float32]
-      const SAMPLE_PADDING = 1   # padding for easier interpolation
-      newSeq(floatData, byteData.len + SAMPLE_PADDING)
+      const SamplePadding = 1   # padding for easier interpolation
+      newSeq(floatData, byteData.len + SamplePadding)
 
       # Normalise sample data to (-1.0, 1.0) range
       for i in 0..byteData.high:
@@ -294,9 +294,9 @@ proc validateSampleInfo(sample: Sample, sampleNum: Natural): seq[string] =
       fmt"Repeat offset {sample.repeatOffset} greater than " &
       fmt"sample length {sample.length} for sample {sampleNum}")
 
-  if sample.length == 0 and sample.repeatLength != MIN_SAMPLE_REPLEN:
+  if sample.length == 0 and sample.repeatLength != MinSampleRepLen:
     warn(fmt"Repeat length of empty sample {sampleNum} is " &
-         fmt"{sample.repeatLength} instead of {MIN_SAMPLE_REPLEN}")
+         fmt"{sample.repeatLength} instead of {MinSampleRepLen}")
 
   if sample.length > 0:
     var repeatEnd = sample.repeatOffset + sample.repeatLength
@@ -313,22 +313,22 @@ proc validateModule(module: Module): seq[string] =
   for i in 1..module.numSamples:
     result.add(validateSampleInfo(module.samples[i], i))
 
-  if not (module.songLength >= 1 and module.songLength <= NUM_SONG_POSITIONS):
+  if not (module.songLength >= 1 and module.songLength <= NumSongPositions):
     result.add(
       fmt"Invalid song length {module.songLength}, " &
-      fmt"must be between 1 and {NUM_SONG_POSITIONS}")
+      fmt"must be between 1 and {NumSongPositions}")
 
   if not (module.songRestartPos >= 0 and
-          module.songRestartPos <= NUM_SONG_POSITIONS):
+          module.songRestartPos <= NumSongPositions):
     result.add(
       fmt"Invalid song restart position {module.songRestartPos}, " &
-      fmt"must be between 0 and {NUM_SONG_POSITIONS}")
+      fmt"must be between 0 and {NumSongPositions}")
 
   for songPos, patternNum in module.songPositions.pairs:
-    if patternNum > MAX_PATTERNS:
+    if patternNum > MaxPatterns:
       result.add(
         fmt"Invalid pattern number {patternNum} at song position {songPos}, " &
-        fmt"must be between 0 and {MAX_PATTERNS}")
+        fmt"must be between 0 and {MaxPatterns}")
 
 
 proc readModule*(f: File): Module =
@@ -336,14 +336,14 @@ proc readModule*(f: File): Module =
 
   # We want to check the tag first, but instead of seeking we read ahead so we
   # can read from streams as well.
-  var buf = newSeq[uint8](TAG_OFFSET + TAG_LEN)
+  var buf = newSeq[uint8](TagOffset + TagLen)
   var pos: Natural = 0
 
   read(f, buf[0].addr, buf.len)
 
   # Try to determine module type from the tag
-  var tagBuf: array[TAG_LEN + 1, uint8]
-  copyMem(tagBuf.addr, buf[TAG_OFFSET].addr, TAG_LEN)
+  var tagBuf: array[TagLen + 1, uint8]
+  copyMem(tagBuf.addr, buf[TagOffset].addr, TagLen)
   let tagString = $cast[cstring](tagBuf[0].addr)
   debug(fmt"Module tag: {tagString}")
 
@@ -353,18 +353,18 @@ proc readModule*(f: File): Module =
        fmt"{module.numChannels} channels")
 
   # Read song name
-  var songName = cast[cstring](alloc0(SONG_TITLE_LEN + 1))
-  copyMem(songName, buf[pos].addr, SONG_TITLE_LEN)
+  var songName = cast[cstring](alloc0(SongTitleLen + 1))
+  copyMem(songName, buf[pos].addr, SongTitleLen)
   module.songName = $songName
   nonPrintableCharsToSpace(module.songName)
   info(fmt"Songname: {songname}")
-  inc(pos, SONG_TITLE_LEN)
+  inc(pos, SongTitleLen)
 
   # Read sample info
   let numSamples = if module.moduleType == mtSoundTracker:
-    NUM_SAMPLES_SOUNDTRACKER
+    NumSamplesSoundTracker
   else:
-    MAX_SAMPLES
+    MaxSamples
 
   module.numSamples = numSamples
   info(fmt"Number of samples: {numSamples}")
@@ -386,7 +386,7 @@ proc readModule*(f: File): Module =
   inc(pos)
 
   # Read song positions
-  for i in 0..<NUM_SONG_POSITIONS:
+  for i in 0..<NumSongPositions:
     var patternNum = buf[pos].Natural
     module.songPositions[i] = patternNum
     inc(pos)

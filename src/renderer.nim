@@ -8,17 +8,17 @@ import module
 # http://16-bits.org/pt_src/replayer/PT1.1b_replay_cia.s
 
 const
-  DEFAULT_TEMPO         = 125
-  DEFAULT_TICKS_PER_ROW = 6
+  DefaultTempo       = 125
+  DefaultTicksPerRow = 6
 
-  AMIGA_PAL_CLOCK       = 3546895
-  AMIGA_MIN_PERIOD      = amigaPeriodTable[AMIGA_NOTE_MAX]
-  AMIGA_MAX_PERIOD      = amigaPeriodTable[AMIGA_NOTE_MIN]
-  AMIGA_FINETUNE_PAD    = 37
+  AmigaPalClock      = 3546895
+  AmigaMinPeriod     = amigaPeriodTable[AmigaNoteMax]
+  AmigaMaxPeriod     = amigaPeriodTable[AmigaNoteMin]
+  AmigaFineTunePad   = 37
 
-  MAX_VOLUME            = 0x40
-  NUM_CHANNELS          = 2
-  NO_VALUE              = -1
+  MaxVolume          = 0x40
+  NumChannels        = 2
+  NoValue            = -1
 
 const vibratoTable = [
     0,  24,  49,  74,  97, 120, 141, 161,
@@ -85,7 +85,7 @@ type
 
     # Built in the precalc phase; it's used during playback to obviate the
     # need for tempo/speed/playtime chasing
-    songPosCache:        array[NUM_SONG_POSITIONS, SongPosInfo]
+    songPosCache:        array[NumSongPositions, SongPosInfo]
 
     # Used by the audio renderer
     tickFramesRemaining: Natural
@@ -180,7 +180,7 @@ proc resetChannel(ch: var Channel) =
   ch.volume = 0
   ch.finetune = 0
 
-  ch.portaTargetNote = NOTE_NONE
+  ch.portaTargetNote = NoteNone
   ch.portaDirection = pdUp # doesn't matter, it will be overwritten anyway
   ch.portaSpeed = 0
   ch.glissando = false
@@ -192,9 +192,9 @@ proc resetChannel(ch: var Channel) =
   ch.tremoloWaveform = wfSine
   ch.offset = 0
   ch.delaySample = nil
-  ch.delaySampleNextRowNote = NOTE_NONE
+  ch.delaySampleNextRowNote = NoteNone
   ch.loopStartRow = 0
-  ch.loopRow = NO_VALUE
+  ch.loopRow = NoValue
   ch.loopCount = 0
 
   ch.samplePos = 0
@@ -211,10 +211,10 @@ proc initChannel(): Channel =
   result.resetChannel()
 
 proc resetPlaybackState(ps: var PlaybackState) =
-  ps.nextSongPos = NO_VALUE
+  ps.nextSongPos = NoValue
 
-  ps.tempo = DEFAULT_TEMPO
-  ps.ticksPerRow = DEFAULT_TICKS_PER_ROW
+  ps.tempo = DefaultTempo
+  ps.ticksPerRow = DefaultTicksPerRow
   ps.currSongPos = 0
 
   ps.mode = rmPlayback
@@ -225,9 +225,9 @@ proc resetPlaybackState(ps: var PlaybackState) =
   ps.currTick = 0
 
   ps.ellapsedTicks = 0
-  ps.jumpSongPos = NO_VALUE
-  ps.jumpRow = NO_VALUE
-  ps.patternDelayCount = NO_VALUE
+  ps.jumpSongPos = NoValue
+  ps.jumpRow = NoValue
+  ps.patternDelayCount = NoValue
 
   ps.playPositionFrame = 0
   ps.hasSongEnded = false
@@ -259,8 +259,8 @@ proc initPlaybackState*(config: Config, module: Module): PlaybackState =
 
   ps.songPosCache[0].visited = true
   ps.songPosCache[0].frame = 0
-  ps.songPosCache[0].tempo = DEFAULT_TEMPO
-  ps.songPosCache[0].ticksPerRow = DEFAULT_TICKS_PER_ROW
+  ps.songPosCache[0].tempo = DefaultTempo
+  ps.songPosCache[0].ticksPerRow = DefaultTicksPerRow
   ps.songPosCache[0].startRow = 0
 
   ps.resetPlaybackState()
@@ -349,14 +349,14 @@ proc render(ch: var Channel, ps: PlaybackState,
       panLeft = linearPanLeft(ch.pan * width)
       panRight = linearPanRight(ch.pan * width)
 
-    var pos = (frameOffset + i) * NUM_CHANNELS
+    var pos = (frameOffset + i) * NumChannels
 
     mixBuffer[pos  ] += s * panLeft
     mixBuffer[pos+1] += s * panRight
 
 
 proc finetunedNote(note: int, finetune: int): int =
-  result = finetune * AMIGA_FINETUNE_PAD + note
+  result = finetune * AmigaFineTunePad + note
 
 proc signedFinetune(finetune: int): int =
   result = finetune
@@ -371,13 +371,13 @@ proc noteToPeriod(note, finetune: int, useAmigaLimits: bool): Natural =
                    pow(2, -signedFinetune(finetune)/(12*8))).Natural
 
 proc periodToFreq(period: int): float32 =
-  result = AMIGA_PAL_CLOCK / period
+  result = AmigaPalClock / period
 
 proc setOutputPeriod(ch: var Channel, period: Natural, sampleRate: int) =
   ch.sampleStep = periodToFreq(period) / sampleRate.float32
 
 proc setOutputVolume(ch: var Channel, vol: int) =
-  ch.volumeScalar = vol / MAX_VOLUME
+  ch.volumeScalar = vol / MaxVolume
 
 proc isFirstTick(ps: PlaybackState): bool =
   result = ps.ellapsedTicks == 0
@@ -387,8 +387,8 @@ proc isFirstTick(ps: PlaybackState): bool =
 
 proc findClosestPeriodIndex(finetune, period: int): int =
   result = 0
-  let offs = finetune * AMIGA_FINETUNE_PAD
-  for idx in (offs + AMIGA_NOTE_MIN)..(offs + AMIGA_NOTE_MAX):
+  let offs = finetune * AmigaFineTunePad
+  for idx in (offs + AmigaNoteMin)..(offs + AmigaNoteMax):
     if period >= amigaPeriodTable[idx]:
       result = idx
       break
@@ -420,18 +420,18 @@ proc doArpeggio(ps: PlaybackState, ch: var Channel, note1, note2: int) =
 
 proc doPitchSlideUp(ps: PlaybackState, ch: var Channel, speed: int) =
   if not isFirstTick(ps):
-    let period = max(ch.period - speed, AMIGA_MIN_PERIOD)
+    let period = max(ch.period - speed, AmigaMinPeriod)
     ch.period = period 
     setOutputPeriod(ch, period, ps.config.sampleRate)
 
 proc doPitchSlideDown(ps: PlaybackState, ch: var Channel, speed: int) =
   if not isFirstTick(ps):
-    let period = min(ch.period + speed, AMIGA_MAX_PERIOD)
+    let period = min(ch.period + speed, AmigaMaxPeriod)
     ch.period = period
     setOutputPeriod(ch, period, ps.config.sampleRate)
 
 proc tonePortamento(ps: PlaybackState, ch: var Channel) =
-  if ch.portaTargetNote != NOTE_NONE and ch.period >= 0 and ch.sample != nil:
+  if ch.portaTargetNote != NoteNone and ch.period >= 0 and ch.sample != nil:
     let toPeriod = noteToPeriod(ch.portaTargetNote, ch.finetune,
                                 ps.module.useAmigaLimits)
     let dir = if ch.period < toPeriod: pdUp else: pdDown
@@ -456,13 +456,13 @@ proc tonePortamento(ps: PlaybackState, ch: var Channel) =
       setOutputPeriod(ch, ch.period, ps.config.sampleRate)
 
     if ch.period == toPeriod:
-      ch.portaTargetNote = NOTE_NONE
+      ch.portaTargetNote = NoteNone
 
 
 proc doTonePortamento(ps: PlaybackState, ch: var Channel,
                       speed: int, note: int) =
   if isFirstTick(ps):
-    if note != NOTE_NONE:
+    if note != NoteNone:
       let targetPeriod = noteToPeriod(note, ch.finetune,
                                       ps.module.useAmigaLimits)
       ch.portaTargetNote = note
@@ -505,7 +505,7 @@ proc vibrato(ps: PlaybackState, ch: var Channel) =
 
 proc doVibrato(ps: PlaybackState, ch: var Channel, speed, depth, note: int) =
   if isFirstTick(ps):
-    if note != NOTE_NONE:
+    if note != NoteNone:
       ch.vibratoPos = 0
     if speed > 0: ch.vibratoSpeed = speed
     if depth > 0: ch.vibratoDepth = depth
@@ -514,7 +514,7 @@ proc doVibrato(ps: PlaybackState, ch: var Channel, speed, depth, note: int) =
 
 proc volumeSlide(ps: PlaybackState, ch: var Channel, upSpeed, downSpeed: int) =
   if upSpeed > 0:
-    let vol = min(ch.volume + upSpeed, MAX_VOLUME)
+    let vol = min(ch.volume + upSpeed, MaxVolume)
     ch.volume = vol
     setOutputVolume(ch, vol)
 
@@ -527,7 +527,7 @@ proc volumeSlide(ps: PlaybackState, ch: var Channel, upSpeed, downSpeed: int) =
 proc doTonePortamentoAndVolumeSlide(ps: PlaybackState, ch: var Channel,
                                     upSpeed, downSpeed: int, note: int) =
   if isFirstTick(ps):
-    if note != NOTE_NONE:
+    if note != NoteNone:
       ch.portaTargetNote = note
   else:
     tonePortamento(ps, ch)
@@ -561,11 +561,11 @@ proc tremolo(ps: PlaybackState, ch: var Channel) =
   let volumeOffs = (tremoloValue * ch.tremoloDepth) div 64
 
   if ch.tremoloPos < vibratoTable.len:
-    var vol = min(ch.volume + volumeOffs, MAX_VOLUME)
-    ch.volumeScalar = vol / MAX_VOLUME
+    var vol = min(ch.volume + volumeOffs, MaxVolume)
+    ch.volumeScalar = vol / MaxVolume
   else:
     var vol = max(ch.volume - volumeOffs, 0)
-    ch.volumeScalar = vol / MAX_VOLUME
+    ch.volumeScalar = vol / MaxVolume
 
   inc(ch.tremoloPos, ch.tremoloSpeed)
   if ch.tremoloPos >= vibratoTable.len * 2:
@@ -574,7 +574,7 @@ proc tremolo(ps: PlaybackState, ch: var Channel) =
 
 proc doTremolo(ps: PlaybackState, ch: var Channel, speed, depth, note: int) =
   if isFirstTick(ps):
-    if note != NOTE_NONE:
+    if note != NoteNone:
       ch.tremoloPos = 0
     if speed > 0: ch.tremoloSpeed = speed
     if depth > 0: ch.tremoloDepth = depth
@@ -591,7 +591,7 @@ proc doSetPanning(ps: PlaybackState, ch: var Channel, position: int) =
 proc doSetSampleOffset(ps: PlaybackState, ch: var Channel, offset: int,
                        note: int) =
   if isFirstTick(ps):
-    if note != NOTE_NONE and ch.sample != nil:
+    if note != NoteNone and ch.sample != nil:
       if offset > 0:
         var offs = offset shl 8
         if offs <= ch.sample.length:
@@ -617,23 +617,23 @@ proc doPositionJump(ps: var PlaybackState, songPos: int) =
 
 proc doSetVolume(ps: PlaybackState, ch: var Channel, volume: int) =
   if isFirstTick(ps):
-    let vol = min(volume, MAX_VOLUME)
+    let vol = min(volume, MaxVolume)
     ch.volume = vol
     setOutputVolume(ch, vol)
 
 proc doPatternBreak(ps: var PlaybackState, row: int) =
   if isFirstTick(ps):
-    ps.jumpRow = min(row, ROWS_PER_PATTERN-1)
-    if ps.jumpSongPos == NO_VALUE:
+    ps.jumpRow = min(row, RowsPerPattern-1)
+    if ps.jumpSongPos == NoValue:
       ps.jumpSongPos = ps.currSongPos + 1
       if ps.jumpSongPos >= ps.module.songLength:
         ps.jumpSongPos = 0
 
     # If there is a pattern break (Dxx) and pattern delay (EEx) on the sam
     # row, the target row is not played but the next row.
-    if ps.patternDelayCount != NO_VALUE:
+    if ps.patternDelayCount != NoValue:
       inc(ps.jumpRow)
-      if ps.jumpRow >= ROWS_PER_PATTERN:
+      if ps.jumpRow >= RowsPerPattern:
         ps.jumpRow = 0
         inc(ps.jumpSongPos)
         if ps.jumpSongPos >= ps.module.songLength:
@@ -645,13 +645,13 @@ proc doSetFilter(ps: PlaybackState, state: int) =
 
 proc doFineSlideUp(ps: PlaybackState, ch: var Channel, value: int) =
   if ps.currTick == 0:
-    let period = max(ch.period - value, AMIGA_MIN_PERIOD)
+    let period = max(ch.period - value, AmigaMinPeriod)
     ch.period = period
     setOutputPeriod(ch, period, ps.config.sampleRate)
 
 proc doFineSlideDown(ps: PlaybackState, ch: var Channel, value: int) =
   if ps.currTick == 0:
-    let period = min(ch.period + value, AMIGA_MAX_PERIOD)
+    let period = min(ch.period + value, AmigaMaxPeriod)
     ch.period =  period
     setOutputPeriod(ch, period, ps.config.sampleRate)
 
@@ -690,7 +690,7 @@ proc doNoteRetrig(ps: PlaybackState, ch: var Channel, ticks: int) =
 
 proc doFineVolumeSlideUp(ps: PlaybackState, ch: var Channel, value: int) =
   if ps.currTick == 0:
-    let vol = min(ch.volume + value, MAX_VOLUME)
+    let vol = min(ch.volume + value, MaxVolume)
     ch.volume = vol
     setOutputVolume(ch, vol)
 
@@ -712,7 +712,7 @@ proc doNoteCut(ps: PlaybackState, ch: var Channel, ticks: int) =
 
 proc doNoteDelay(ps: PlaybackState, ch: var Channel, ticks, note: int) =
   if not isFirstTick(ps):
-    if note != NOTE_NONE and ps.ellapsedTicks == ticks and
+    if note != NoteNone and ps.ellapsedTicks == ticks and
        ch.delaySample != nil:
 
       ch.sample = ch.delaySample
@@ -727,7 +727,7 @@ proc doNoteDelay(ps: PlaybackState, ch: var Channel, ticks, note: int) =
 
 proc doPatternDelay(ps: var PlaybackState, rows: int) =
   if isFirstTick(ps):
-    if ps.patternDelayCount == NO_VALUE:
+    if ps.patternDelayCount == NoValue:
       ps.patternDelayCount = rows
 
 proc doInvertLoop(ps: PlaybackState, ch: Channel, speed: int) =
@@ -758,10 +758,10 @@ proc doTick(ps: var PlaybackState) =
       xy   =  cell.effect and 0x0ff
 
     if isFirstTick(ps):
-      if ch.delaySampleNextRowNote != NOTE_NONE:
+      if ch.delaySampleNextRowNote != NoteNone:
         ch.period = noteToPeriod(ch.delaySampleNextRowNote, ch.finetune,
                                  ps.module.useAmigaLimits)
-        ch.delaySampleNextRowNote = NOTE_NONE
+        ch.delaySampleNextRowNote = NoteNone
 
       if sampleNum > 0:
         var sample = ps.module.samples[sampleNum]
@@ -778,7 +778,7 @@ proc doTick(ps: var PlaybackState) =
           setOutputVolume(ch, vol)
 
           # No note provided, do sample-swapping
-          if note == NOTE_NONE:
+          if note == NoteNone:
             ch.swapSample = sample
 
           # Samplenum & note provided
@@ -810,7 +810,7 @@ proc doTick(ps: var PlaybackState) =
               # hardware effectively clamps it to the min period value for
               # high notes anyway.
               if ps.module.useAmigaLimits:
-                ch.period = max(ch.period, AMIGA_MIN_PERIOD)
+                ch.period = max(ch.period, AmigaMinPeriod)
 
               ch.samplePos = 0
               ch.swapSample = nil
@@ -828,7 +828,7 @@ proc doTick(ps: var PlaybackState) =
             ch.delaySample = ch.sample
 
         # Special handling for tone portamento
-        elif note != NOTE_NONE and cmd != 0x3 and cmd != 0x5:
+        elif note != NoteNone and cmd != 0x3 and cmd != 0x5:
           swapSample(ch)
           if ch.sample != nil:
             ch.period = noteToPeriod(note, ch.finetune,
@@ -885,7 +885,7 @@ proc doTick(ps: var PlaybackState) =
 
 proc setNextSongPos(ps: var PlaybackState) =
   if ps.nextSongPos == ps.currSongPos:
-    ps.nextSongPos = NO_VALUE
+    ps.nextSongPos = NoValue
   else:
     var nextSongPos = ps.nextSongPos
     ps.resetPlaybackState()
@@ -916,14 +916,14 @@ proc advancePlayPosition(ps: var PlaybackState) =
     else:  # no pattern delay
       ps.currTick = 0
       ps.ellapsedTicks = 0
-      ps.patternDelayCount = NO_VALUE
+      ps.patternDelayCount = NoValue
 
-      if ps.jumpRow != NO_VALUE:  # handle position jump and/or pattern break
+      if ps.jumpRow != NoValue:  # handle position jump and/or pattern break
         let prevSongPos = ps.currSongPos
         ps.currSongPos = ps.jumpSongPos
         ps.currRow = ps.jumpRow
-        ps.jumpSongPos = NO_VALUE
-        ps.jumpRow = NO_VALUE
+        ps.jumpSongPos = NoValue
+        ps.jumpRow = NoValue
 
         if ps.mode == rmPrecalc:
           checkHasSongEnded(ps, ps.currSongPos, ps.currRow, srPositionJump)
@@ -935,9 +935,9 @@ proc advancePlayPosition(ps: var PlaybackState) =
         # handle loop pattern
         var loopFound = false
         for i in 0..ps.channels.high:
-          if ps.channels[i].loopRow != NO_VALUE:
+          if ps.channels[i].loopRow != NoValue:
             ps.currRow = ps.channels[i].loopRow
-            ps.channels[i].loopRow = NO_VALUE
+            ps.channels[i].loopRow = NoValue
             loopFound = true
             break
 
@@ -945,7 +945,7 @@ proc advancePlayPosition(ps: var PlaybackState) =
           var restartType: SongRestartType
 
           inc(ps.currRow, 1)
-          if ps.currRow > ROWS_PER_PATTERN-1:
+          if ps.currRow > RowsPerPattern-1:
             inc(ps.currSongPos, 1)
             if ps.currSongPos >= ps.module.songLength:
               ps.currSongPos = ps.module.songRestartPos
@@ -980,14 +980,14 @@ proc framesPerTick(ps: PlaybackState): Natural =
 
 proc handleChangeSongPosRequested(ps: var PlaybackState) =
   # The user has changed the play position, let's do something about it :)
-  if ps.nextSongPos != NO_VALUE:
+  if ps.nextSongPos != NoValue:
     setNextSongPos(ps)
 
 
 proc renderInternal(ps: var PlaybackState, mixBuffer: var openArray[float32],
                     numFrames: int) =
   # Clear mixbuffer
-  let numSamples = numFrames * NUM_CHANNELS
+  let numSamples = numFrames * NumChannels
   for i in 0..<numSamples:
     mixBuffer[i] = 0
 
@@ -1022,68 +1022,68 @@ proc renderInternal(ps: var PlaybackState, mixBuffer: var openArray[float32],
 
 
 var gMixBuffer: array[1024, float32]
-let gNumFramesMixBuffer = gMixBuffer.len div (sizeof(float32) * NUM_CHANNELS)
+let gNumFramesMixBuffer = gMixBuffer.len div (sizeof(float32) * NumChannels)
 
 proc render16Bit(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
-  const BYTES_PER_SAMPLE = 2
-  assert bufLen mod BYTES_PER_SAMPLE == 0
+  const BytesPerSample = 2
+  assert bufLen mod BytesPerSample == 0
 
-  const MAX_AMPLITUDE = (2^15-1).float32
+  const MaxAmplitude = (2^15-1).float32
   var
-    framesLeft = bufLen div (BYTES_PER_SAMPLE * NUM_CHANNELS)
+    framesLeft = bufLen div (BytesPerSample * NumChannels)
     sampleBuf = cast[ptr UncheckedArray[int16]](buf)
     sampleBufOffs = 0
 
   while framesLeft > 0:
     let
       numFrames = min(gNumFramesMixBuffer, framesLeft)
-      numSamples = numFrames * NUM_CHANNELS
+      numSamples = numFrames * NumChannels
 
     renderInternal(ps, gMixBuffer, numFrames)
 
     for i in 0..<numSamples:
       var s = gMixBuffer[i].clamp(-1.0, 1.0)
-      sampleBuf[sampleBufOffs + i] = (s * MAX_AMPLITUDE).int16
+      sampleBuf[sampleBufOffs + i] = (s * MaxAmplitude).int16
 
     dec(framesLeft, numFrames)
     inc(sampleBufOffs, numSamples)
 
 
 proc render24Bit(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
-  const BYTES_PER_SAMPLE = 3
-  assert bufLen mod BYTES_PER_SAMPLE == 0
+  const BytesPerSample = 3
+  assert bufLen mod BytesPerSample == 0
 
-  const MAX_AMPLITUDE = (2^23-1).float32
+  const MaxAmplitude = (2^23-1).float32
   var
-    framesLeft = bufLen div (BYTES_PER_SAMPLE * NUM_CHANNELS)
+    framesLeft = bufLen div (BytesPerSample * NumChannels)
     dataBuf = cast[ptr UncheckedArray[uint8]](buf)
     dataBufOffs = 0
 
   while framesLeft > 0:
     let
       numFrames = min(gNumFramesMixBuffer, framesLeft)
-      numSamples = numFrames * NUM_CHANNELS
+      numSamples = numFrames * NumChannels
 
     renderInternal(ps, gMixBuffer, numFrames)
 
     for i in 0..<numSamples:
       var
         s = gMixBuffer[i].clamp(-1.0, 1.0)
-        s24 = (s * MAX_AMPLITUDE).int32
+        s24 = (s * MaxAmplitude).int32
 
       dataBuf[dataBufOffs + i*3  ] = ( s24         and 0xff).uint8
       dataBuf[dataBufOffs + i*3+1] = ((s24 shr  8) and 0xff).uint8
       dataBuf[dataBufOffs + i*3+2] = ((s24 shr 16) and 0xff).uint8
 
     dec(framesLeft, numFrames)
-    inc(dataBufOffs, numSamples * BYTES_PER_SAMPLE)
+    inc(dataBufOffs, numSamples * BytesPerSample)
 
 
 proc render32BitFloat(ps: var PlaybackState, buf: pointer, bufLen: Natural) =
-  const BYTES_PER_SAMPLE = 4
-  assert bufLen mod BYTES_PER_SAMPLE == 0
+  const BytesPerSample = 4
+  assert bufLen mod BytesPerSample == 0
 
-  var numFrames = bufLen div (BYTES_PER_SAMPLE * NUM_CHANNELS)
+  var numFrames = bufLen div (BytesPerSample * NumChannels)
   # ugly but works...
   renderInternal(ps, cast[ptr array[1000000, float32]](buf)[], numFrames)
 
@@ -1115,7 +1115,7 @@ proc precalcSongPosCacheAndSongLength*(ps: var PlaybackState):
     if not ps.songPosCache[i].visited:
       ps.songPosCache[i].visited = true
       ps.songPosCache[i].frame = 0
-      ps.songPosCache[i].tempo = DEFAULT_TEMPO
-      ps.songPosCache[i].ticksPerRow = DEFAULT_TICKS_PER_ROW
+      ps.songPosCache[i].tempo = DefaultTempo
+      ps.songPosCache[i].ticksPerRow = DefaultTicksPerRow
       ps.songPosCache[i].startRow = 0
 

@@ -62,7 +62,6 @@ proc startPlayer(config: Config, module: Module) =
 
   if config.displayUI:
     illwillInit(fullscreen = true)
-    hideCursor()
     setTheme(config.theme)
   else:
     illwillInit(fullscreen = false)
@@ -180,6 +179,7 @@ proc startPlayer(config: Config, module: Module) =
     else: discard
 
     if config.displayUI:
+      hideCursor()
       updateScreen(ps)
 
     sleep(config.refreshRateMs)
@@ -187,37 +187,49 @@ proc startPlayer(config: Config, module: Module) =
 
 proc writeWaveFile(config: Config, module: Module) =
   const
-    BUFLEN_SAMPLES = 4096
-    NUM_CHANNELS = 2
+    BufLenSamples = 4096
+    NumChannels = 2
 
+  # TODO
+#[
   var ps = initPlaybackState(config, module)
   var (framesToWrite, _, _) = precalcSongPosCacheAndSongLength(ps)
   debug(fmt"framesToWrite: {framesToWrite}")
 
   var
     sampleFormat: SampleFormat
+    bitDepth: int
     buf: seq[uint8]
     bytesToWrite: Natural
 
+  
   case config.bitDepth
   of bd16Bit:
-    sampleFormat = sf16BitInteger
-    newSeq(buf, BUFLEN_SAMPLES * 2)
-    bytesToWrite = framesToWrite * NUM_CHANNELS * 2
+    sampleFormat = sfPCM
+    bitDepth = 
+    newSeq(buf, BufLenSamples * 2)
+    bytesToWrite = framesToWrite * NumChannels * 2
   of bd24Bit:
-    sampleFormat = sf24BitInteger
-    newSeq(buf, BUFLEN_SAMPLES * 3)
-    bytesToWrite = framesToWrite * NUM_CHANNELS * 3
+    sampleFormat = sfPCM
+    newSeq(buf, BufLenSamples * 3)
+    bytesToWrite = framesToWrite * NumChannels * 3
   of bd32BitFloat:
-    sampleFormat = sf32BitFloat
-    newSeq(buf, BUFLEN_SAMPLES * 4)
-    bytesToWrite = framesToWrite * NUM_CHANNELS * 4
+    sampleFormat = sfFloat
+    newSeq(buf, BufLenSamples * 4)
+    bytesToWrite = framesToWrite * NumChannels * 4
 
-  var ww = writeWaveFile(
-    config.outFilename, sampleFormat, config.sampleRate, NUM_CHANNELS)
+  # TODO
+  var rw = createRiffFile(config.outFilename, FourCC_WAVE)
 
-  ww.writeFormatChunk()
-  ww.startDataChunk()
+  let wf = WaveFormat(
+    sampleFormat:  sfPCM,
+    bitsPerSample: bitsPerSample,
+    sampleRate:    config.sampleRate,
+    numChannels:   NumChannels
+  )
+
+  rw.writeFormatChunk(wf)
+  rw.beginChunk(FourCC_WAVE_data)
 
   debug(fmt"bytesToWrite: {bytesToWrite}")
 
@@ -234,6 +246,7 @@ proc writeWaveFile(config: Config, module: Module) =
 
   ww.endChunk()
   ww.endFile()
+  ]#
 
 
 proc main() =
